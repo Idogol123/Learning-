@@ -1,0 +1,15 @@
+# Real holdings — NEVER commit. Holds your actual positions.
+holdings.csv
+
+# Price cache
+.price_cache.json
+.price_cache.json.tmp
+
+# Streamlit secrets — passwords / API keys / holdings. NEVER commit.
+.streamlit/secrets.toml
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
