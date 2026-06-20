@@ -1,0 +1,4 @@
+ticker,quantity,asset_class,cost_basis,account,note
+VOO,10,equity,420.50,IBKR,S&P 500 ETF (USD)
+ESLT.TA,5,equity,,Bank Hapoalim,Elbit Systems (TASE/ILS)
+TLV,100,bond,,Bank Hapoalim,Israeli gov bond placeholder
