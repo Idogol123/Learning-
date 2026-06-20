@@ -23,7 +23,9 @@ import streamlit as st
 
 from pricing import get_price, get_fx_rate, to_ils, clear_cache
 
-HOLDINGS_CSV = os.path.join(os.path.dirname(os.path.abspath(__file__)), "holdings.csv")
+_HERE = os.path.dirname(os.path.abspath(__file__))
+HOLDINGS_CSV = os.path.join(_HERE, "holdings.csv")              # gitignored; local persistence
+HOLDINGS_EXAMPLE = os.path.join(_HERE, "holdings.example.csv")  # committed template
 HOLDINGS_COLUMNS = ["ticker", "quantity", "asset_class", "cost_basis", "account", "note"]
 
 # Placeholder assumption anchors — NOT advice. You change these on the Projection
@@ -42,24 +44,54 @@ st.set_page_config(page_title="Portfolio Tracker", page_icon="📊", layout="wid
 
 
 # --------------------------------------------------------------------------- #
-# Holdings persistence
+# Optional password gate (defense-in-depth)
 # --------------------------------------------------------------------------- #
 
-def load_holdings() -> pd.DataFrame:
-    if os.path.exists(HOLDINGS_CSV):
-        try:
-            df = pd.read_csv(HOLDINGS_CSV, dtype={"ticker": str})
-        except Exception as exc:
-            st.error(f"Could not read holdings.csv: {exc}")
-            df = pd.DataFrame(columns=HOLDINGS_COLUMNS)
-    else:
-        df = pd.DataFrame(columns=HOLDINGS_COLUMNS)
+def require_password() -> None:
+    """
+    If `app_password` is set in st.secrets, gate the whole app behind it. With no
+    secret configured (e.g. local dev) the app is open. This is a light gate, not
+    real auth — the real protection is keeping the repo private and not committing
+    holdings. Pair it with Streamlit Cloud's own viewer allowlist for a private app.
+    """
+    try:
+        configured = st.secrets.get("app_password")
+    except Exception:
+        configured = None
+    if not configured:
+        return
+    if st.session_state.get("_auth_ok"):
+        return
 
-    # Ensure all expected columns exist.
+    st.title("🔒 Portfolio Tracker")
+    pw = st.text_input("Password", type="password")
+    if st.button("Enter"):
+        if pw == configured:
+            st.session_state["_auth_ok"] = True
+            st.rerun()
+        else:
+            st.error("Wrong password.")
+    st.stop()
+
+
+# --------------------------------------------------------------------------- #
+# Holdings persistence
+#
+# Priority order on load:
+#   1. st.secrets["holdings"]  -> survives Streamlit Cloud's ephemeral filesystem
+#   2. holdings.csv (local, gitignored) -> local dev / persisted local edits
+#   3. holdings.example.csv (committed template) -> first run with nothing set up
+#
+# Saving writes the local CSV (great locally). On Cloud the filesystem is
+# ephemeral, so the Edit tab also offers a "copy as secrets TOML" export to paste
+# into the app's Secrets manager for durable persistence.
+# --------------------------------------------------------------------------- #
+
+def _normalize_holdings(df: pd.DataFrame) -> pd.DataFrame:
     for col in HOLDINGS_COLUMNS:
         if col not in df.columns:
             df[col] = pd.NA
-    df = df[HOLDINGS_COLUMNS]
+    df = df[HOLDINGS_COLUMNS].copy()
     df["ticker"] = df["ticker"].astype(str).str.strip().str.upper()
     df["quantity"] = pd.to_numeric(df["quantity"], errors="coerce")
     df["cost_basis"] = pd.to_numeric(df["cost_basis"], errors="coerce")
@@ -67,12 +99,63 @@ def load_holdings() -> pd.DataFrame:
     return df.reset_index(drop=True)
 
 
+def _holdings_from_secrets() -> pd.DataFrame | None:
+    try:
+        if "holdings" not in st.secrets:
+            return None
+        rows = [dict(r) for r in st.secrets["holdings"]]
+    except Exception:
+        return None
+    if not rows:
+        return None
+    return _normalize_holdings(pd.DataFrame(rows))
+
+
+def load_holdings() -> pd.DataFrame:
+    secret_df = _holdings_from_secrets()
+    if secret_df is not None:
+        return secret_df
+
+    path = HOLDINGS_CSV if os.path.exists(HOLDINGS_CSV) else (
+        HOLDINGS_EXAMPLE if os.path.exists(HOLDINGS_EXAMPLE) else None)
+    if path is None:
+        return pd.DataFrame(columns=HOLDINGS_COLUMNS)
+    try:
+        df = pd.read_csv(path, dtype={"ticker": str})
+    except Exception as exc:
+        st.error(f"Could not read {os.path.basename(path)}: {exc}")
+        df = pd.DataFrame(columns=HOLDINGS_COLUMNS)
+    return _normalize_holdings(df)
+
+
+def holdings_are_from_secrets() -> bool:
+    return _holdings_from_secrets() is not None
+
+
 def save_holdings(df: pd.DataFrame) -> None:
-    out = df.copy()
-    out["ticker"] = out["ticker"].astype(str).str.strip().str.upper()
-    out = out[out["ticker"].notna() & (out["ticker"] != "") & (out["ticker"] != "NAN")]
-    out = out[HOLDINGS_COLUMNS]
-    out.to_csv(HOLDINGS_CSV, index=False)
+    """Persist to the local CSV. Note: ephemeral on Streamlit Cloud (use TOML export)."""
+    _normalize_holdings(df).to_csv(HOLDINGS_CSV, index=False)
+
+
+def holdings_to_toml(df: pd.DataFrame) -> str:
+    """Render holdings as a secrets.toml block to paste into Streamlit Cloud → Secrets."""
+    out = _normalize_holdings(df)
+    lines = []
+    for _, r in out.iterrows():
+        lines.append("[[holdings]]")
+        lines.append(f'ticker = "{r["ticker"]}"')
+        if pd.notna(r["quantity"]):
+            lines.append(f"quantity = {r['quantity']}")
+        ac = r["asset_class"]
+        lines.append(f'asset_class = "{ac if pd.notna(ac) else "other"}"')
+        if pd.notna(r["cost_basis"]):
+            lines.append(f"cost_basis = {r['cost_basis']}")
+        for col in ("account", "note"):
+            val = r[col]
+            if pd.notna(val) and str(val) != "":
+                lines.append(f'{col} = "{str(val).replace(chr(34), "")}"')
+        lines.append("")
+    return "\n".join(lines).strip()
 
 
 # --------------------------------------------------------------------------- #
@@ -159,8 +242,10 @@ def fmt_money(x, suffix="") -> str:
 
 
 # --------------------------------------------------------------------------- #
-# Sidebar
+# Gate, then sidebar
 # --------------------------------------------------------------------------- #
+
+require_password()
 
 st.sidebar.title("📊 Portfolio Tracker")
 st.sidebar.caption("Single-user, local. Values in ILS unless noted.")
@@ -467,8 +552,14 @@ with tab_contrib:
 # ------------------------- Edit holdings ----------------------------------- #
 with tab_edit:
     st.header("Edit holdings")
-    st.caption("Edits read/write **holdings.csv**. Add rows, change quantities, set cost_basis "
-               "(optional). Unknown tickers are flagged on the Overview tab.")
+    if holdings_are_from_secrets():
+        st.info("Holdings are currently loaded from **st.secrets** (the durable store on "
+                "Streamlit Cloud). Editing here will **not** persist on Cloud — make changes, "
+                "then use **Copy as secrets TOML** below and paste it into your app's "
+                "Settings → Secrets.")
+    else:
+        st.caption("Edits read/write the local **holdings.csv** (gitignored). Add rows, change "
+                   "quantities, set cost_basis (optional). Unknown tickers are flagged on Overview.")
 
     edited = st.data_editor(
         load_holdings(),
@@ -489,7 +580,7 @@ with tab_edit:
     )
 
     col1, col2 = st.columns([1, 4])
-    if col1.button("💾 Save & validate"):
+    if col1.button("💾 Save to holdings.csv & validate"):
         save_holdings(edited)
         st.cache_data.clear()
         # Validate tickers live.
@@ -503,5 +594,10 @@ with tab_edit:
         else:
             st.success("Saved. All tickers returned a price.")
         st.rerun()
-    col2.caption("Tip: hit Save, then check the Overview tab. Bad symbols never crash the app — "
-                 "they're listed under 'need attention'.")
+    col2.caption("Local save only — holdings.csv is gitignored and ephemeral on Streamlit Cloud. "
+                 "For Cloud, use the TOML export below.")
+
+    with st.expander("📋 Copy as secrets TOML (for Streamlit Cloud persistence)"):
+        st.caption("Paste this into your app on Streamlit Cloud → **Settings → Secrets**. "
+                   "It survives restarts and is never committed to the repo.")
+        st.code(holdings_to_toml(edited) or "# (no valid holdings yet)", language="toml")
