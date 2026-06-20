@@ -21,6 +21,21 @@ def portfolio_value(months, annual_rate):
     return balance
 
 
+def months_to_target(target, annual_rate=0.05):
+    """מדפיס באיזה חודש שווי התיק חוצה את סכום היעד בהינתן תשואה שנתית."""
+    monthly_rate = annual_rate / 12
+    balance = INITIAL
+    month = 0
+    while balance < target:
+        balance = balance * (1 + monthly_rate) + MONTHLY
+        month += 1
+    print(
+        f'בתשואה שנתית {annual_rate * 100:.0f}% חוצים את היעד של '
+        f'{target:,.0f} ש"ח בחודש {month} (יתרה: {balance:,.2f} ש"ח)'
+    )
+    return month
+
+
 def main():
     print(f'סכום התחלתי: {INITIAL:,.0f} ש"ח')
     print(f'הפקדה חודשית: {MONTHLY:,.0f} ש"ח')
@@ -32,6 +47,8 @@ def main():
             value = portfolio_value(months, rate)
             print(f'  אחרי {months} חודשים: {value:,.2f} ש"ח')
         print()
+
+    months_to_target(100_000, 0.05)
 
 
 if __name__ == "__main__":
