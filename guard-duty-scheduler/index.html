@@ -1,0 +1,724 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#4b5320">
+<title>שיבוץ שמירות</title>
+<style>
+  :root{
+    --bg:#f4f5f0; --card:#ffffff; --ink:#20241a; --muted:#6b7160;
+    --accent:#4b5320; --accent-2:#5f6b28; --line:#dcded2;
+    --night:#e6e9f5; --hard:#f6e0dd; --danger:#b3261e; --ok:#2e6b2e;
+    --chip:#eef0e6; --shadow:0 1px 3px rgba(0,0,0,.08),0 6px 18px rgba(0,0,0,.06);
+    --r:14px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#15170f; --card:#1e2018; --ink:#eef0e4; --muted:#a6ac98;
+      --accent:#8a9a3a; --accent-2:#a3b34a; --line:#33362a;
+      --night:#232841; --hard:#3a2a28; --chip:#2a2d22; --shadow:none;
+    }
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Hebrew",Arial,sans-serif;
+    background:var(--bg); color:var(--ink); direction:rtl;
+    line-height:1.5; -webkit-text-size-adjust:100%;
+    padding:0 12px calc(90px + env(safe-area-inset-bottom)); max-width:820px; margin:0 auto;
+  }
+  header{
+    position:sticky; top:0; z-index:20; margin:0 -12px 12px; padding:14px 16px calc(12px);
+    background:var(--accent); color:#fff;
+    box-shadow:0 2px 10px rgba(0,0,0,.15); padding-top:calc(14px + env(safe-area-inset-top));
+  }
+  header h1{margin:0; font-size:20px; display:flex; align-items:center; gap:8px}
+  header p{margin:4px 0 0; font-size:12.5px; opacity:.9}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:var(--r); padding:14px; margin:12px 0; box-shadow:var(--shadow)}
+  .card h2{margin:0 0 10px; font-size:16px; display:flex; align-items:center; gap:8px}
+  .card h2 .n{background:var(--accent); color:#fff; width:24px; height:24px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:13px; flex:0 0 auto}
+  label{display:block; font-size:13px; color:var(--muted); margin:10px 0 4px; font-weight:600}
+  input,select,textarea,button{font:inherit; color:inherit}
+  input[type=number],input[type=text],input[type=time],input[type=datetime-local],textarea,select{
+    width:100%; padding:12px; border:1.5px solid var(--line); border-radius:10px; background:var(--bg); color:var(--ink);
+  }
+  textarea{min-height:90px; resize:vertical}
+  .row{display:flex; gap:10px; flex-wrap:wrap}
+  .row>*{flex:1; min-width:130px}
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:7px; cursor:pointer;
+    border:none; border-radius:11px; padding:13px 16px; font-weight:700; font-size:15px;
+    background:var(--accent); color:#fff; min-height:48px; touch-action:manipulation;
+  }
+  .btn:active{transform:translateY(1px)}
+  .btn.sec{background:var(--chip); color:var(--ink); border:1.5px solid var(--line)}
+  .btn.ghost{background:transparent; color:var(--accent); border:1.5px solid var(--accent)}
+  .btn.sm{padding:8px 12px; font-size:13px; min-height:auto; border-radius:9px}
+  .btn.danger{background:var(--danger)}
+  .btn-wrap{display:flex; gap:10px; flex-wrap:wrap}
+  .btn-wrap .btn{flex:1; min-width:130px}
+  .hint{font-size:12px; color:var(--muted); margin:6px 0 0}
+  details{margin-top:10px; border-top:1px dashed var(--line); padding-top:8px}
+  details summary{cursor:pointer; font-size:13px; font-weight:600; color:var(--accent)}
+  .seg{display:flex; background:var(--chip); border-radius:11px; padding:3px; gap:3px; margin-top:4px}
+  .seg button{flex:1; border:none; background:transparent; padding:10px; border-radius:9px; font-weight:600; font-size:13px; color:var(--muted); cursor:pointer}
+  .seg button.on{background:var(--card); color:var(--ink); box-shadow:var(--shadow)}
+  .guard-row{display:flex; gap:8px; align-items:center; margin:8px 0}
+  .guard-row .idx{flex:0 0 auto; width:26px; text-align:center; color:var(--muted); font-size:13px; font-weight:700}
+  .guard-row input[type=text]{flex:1}
+  .guard-row .ua{flex:0 0 auto}
+  .icon-btn{flex:0 0 auto; width:40px; height:40px; border-radius:10px; border:1.5px solid var(--line); background:var(--bg); color:var(--muted); font-size:18px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center}
+  .icon-btn.act{border-color:var(--accent); color:var(--accent)}
+  .ua-fields{display:flex; gap:6px; margin:2px 0 10px 34px; }
+  .ua-fields input{padding:8px; font-size:13px}
+  .msg{padding:10px 12px; border-radius:10px; font-size:13.5px; margin:10px 0; display:none}
+  .msg.show{display:block}
+  .msg.err{background:var(--hard); color:var(--danger); border:1px solid var(--danger)}
+  .msg.info{background:var(--chip); color:var(--ink); border:1px solid var(--line)}
+  .msg.ok{background:#e3f0e3; color:var(--ok); border:1px solid var(--ok)}
+  @media (prefers-color-scheme: dark){ .msg.ok{background:#1e2a1e} }
+  .table-wrap{overflow-x:auto; -webkit-overflow-scrolling:touch; border:1px solid var(--line); border-radius:12px; margin-top:6px}
+  table{border-collapse:collapse; width:100%; min-width:max-content; font-size:14px}
+  th,td{border:1px solid var(--line); padding:9px 10px; text-align:center; white-space:nowrap}
+  thead th{background:var(--accent); color:#fff; position:sticky; top:0}
+  tbody td:first-child, tbody th:first-child{position:sticky; right:0; background:var(--card); font-weight:700; z-index:1}
+  tr.night td{background:var(--night)}
+  tr.night td:first-child{background:var(--night)}
+  td.cell{cursor:pointer; user-select:none}
+  td.cell:hover{outline:2px solid var(--accent-2); outline-offset:-2px}
+  td.cell.sel{background:var(--accent)!important; color:#fff; font-weight:700}
+  td.badge-hard{position:relative}
+  td.badge-hard::after{content:"★"; color:var(--danger); font-size:10px; position:absolute; top:2px; inset-inline-start:4px}
+  .day-sep td{background:var(--accent-2); color:#fff; font-weight:700; text-align:center}
+  .report td:first-child{position:static; background:var(--card)}
+  .legend{font-size:12px; color:var(--muted); margin-top:8px; display:flex; gap:14px; flex-wrap:wrap}
+  .legend i{display:inline-block; width:12px; height:12px; border-radius:3px; vertical-align:-1px; margin-inline-end:4px}
+  .saved-item{display:flex; gap:8px; align-items:center; justify-content:space-between; padding:9px 0; border-bottom:1px solid var(--line)}
+  .saved-item .nm{font-weight:600}
+  .saved-item .meta{font-size:12px; color:var(--muted)}
+  .hide{display:none!important}
+  .stat-strip{display:flex; gap:8px; flex-wrap:wrap; margin-top:8px}
+  .stat{background:var(--chip); border-radius:10px; padding:8px 12px; font-size:13px; flex:1; min-width:110px; text-align:center}
+  .stat b{display:block; font-size:18px; color:var(--accent)}
+  #ocrProgress{height:6px; background:var(--chip); border-radius:6px; overflow:hidden; margin-top:8px; display:none}
+  #ocrProgress > i{display:block; height:100%; width:0; background:var(--accent); transition:width .2s}
+  footer{text-align:center; font-size:11.5px; color:var(--muted); margin:20px 0}
+  @media print{
+    header,.card.no-print,.btn-wrap,footer,.legend,details{display:none!important}
+    body{padding:0; max-width:none}
+    .card{box-shadow:none; border:none; margin:0}
+    .table-wrap{overflow:visible; border:none}
+    th,td{border:1px solid #999}
+    thead th{background:#ddd!important; color:#000!important}
+    tr.night td{background:#eee!important}
+  }
+</style>
+
+<header>
+  <h1>🛡️ שיבוץ שמירות</h1>
+  <p>כלי אופליין פרטי · שעות שוות · מנוחה · חלוקת לילות הוגנת</p>
+</header>
+
+<div id="msg" class="msg"></div>
+
+<!-- 1. עמדות וזמן -->
+<section class="card no-print">
+  <h2><span class="n">1</span> עמדות וזמן</h2>
+  <label for="positions">מספר עמדות שמירה (מאוישות במקביל)</label>
+  <input id="positions" type="number" min="1" inputmode="numeric" value="1">
+
+  <label>חלון השמירה</label>
+  <div class="row">
+    <div><span class="hint">מתחילת</span><input id="start" type="datetime-local"></div>
+    <div><span class="hint">עד</span><input id="end" type="datetime-local"></div>
+  </div>
+  <div class="btn-wrap" style="margin-top:8px">
+    <button class="btn sec sm" type="button" data-preset="night">🌙 לילה בודד (19:00–07:00)</button>
+    <button class="btn sec sm" type="button" data-preset="12from">12 שעות מעכשיו</button>
+    <button class="btn sec sm" type="button" data-preset="24from">24 שעות מעכשיו</button>
+  </div>
+  <div id="windowInfo" class="hint"></div>
+
+  <details>
+    <summary>הגדרות לילה ומשמרת קשה</summary>
+    <div class="row" style="margin-top:8px">
+      <div><span class="hint">לילה מ־</span><input id="nightStart" type="time" value="22:00"></div>
+      <div><span class="hint">עד</span><input id="nightEnd" type="time" value="06:00"></div>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <div><span class="hint">משמרת קשה (★) מ־</span><input id="hardStart" type="time" value="02:00"></div>
+      <div><span class="hint">עד</span><input id="hardEnd" type="time" value="05:00"></div>
+    </div>
+    <p class="hint">משמרת נחשבת "לילה"/"קשה" אם אמצע המשמרת נופל בטווח. משמש לאיזון ולדוח ההוגנות.</p>
+  </details>
+</section>
+
+<!-- 2. שומרים -->
+<section class="card no-print">
+  <h2><span class="n">2</span> שומרים</h2>
+  <div class="seg" id="guardMode">
+    <button type="button" data-mode="manual" class="on">הזנה ידנית</button>
+    <button type="button" data-mode="paste">הדבקת רשימה</button>
+    <button type="button" data-mode="file">קובץ / תמונה</button>
+  </div>
+
+  <div data-panel="manual">
+    <label for="guardCount">מספר שומרים</label>
+    <input id="guardCount" type="number" min="0" inputmode="numeric" value="0">
+  </div>
+
+  <div data-panel="paste" class="hide">
+    <label for="pasteBox">הדביקו שם בכל שורה</label>
+    <textarea id="pasteBox" placeholder="דני כהן&#10;יוסי לוי&#10;מיכל בר"></textarea>
+    <button class="btn sec sm" type="button" id="applyPaste" style="margin-top:8px">➕ הוסף לרשימה</button>
+  </div>
+
+  <div data-panel="file" class="hide">
+    <label>קובץ שמות (.txt / .csv) — שם בכל שורה / עמודה ראשונה</label>
+    <input id="fileInput" type="file" accept=".txt,.csv,text/plain,text/csv">
+    <label style="margin-top:12px">תמונה של רשימת שמות (OCR — דורש אינטרנט בפעם זו)</label>
+    <input id="imageInput" type="file" accept="image/*" capture="environment">
+    <div id="ocrProgress"><i></i></div>
+    <p class="hint">מזהה טקסט מהתמונה, השמות ייכנסו ל"הדבקת רשימה" לאישור ועריכה לפני הוספה.</p>
+  </div>
+
+  <div id="guardList" style="margin-top:12px"></div>
+  <p class="hint" id="guardCountInfo"></p>
+</section>
+
+<!-- פעולות -->
+<div class="btn-wrap no-print">
+  <button class="btn" id="generate">📋 הפק שיבוץ</button>
+  <button class="btn ghost" id="reshuffle">🔀 ערבב מחדש</button>
+  <button class="btn sec" id="clearAll">🗑️ נקה הכל</button>
+</div>
+
+<!-- פלט -->
+<section class="card" id="output" style="display:none">
+  <h2 id="outTitle">📅 טבלת השיבוץ</h2>
+  <p class="hint no-print" id="swapHint">להחלפת שני שומרים: הקישו על תא אחד ואז על השני. סך השעות של כל אחד נשמר.</p>
+  <div class="table-wrap" id="scheduleWrap"></div>
+  <div class="legend no-print">
+    <span><i style="background:var(--night)"></i>משמרת לילה</span>
+    <span><span style="color:var(--danger)">★</span> משמרת קשה</span>
+  </div>
+
+  <h2 style="margin-top:20px">⚖️ דוח הוגנות</h2>
+  <div class="table-wrap" id="reportWrap"></div>
+  <div class="stat-strip" id="statStrip"></div>
+
+  <div class="btn-wrap no-print" style="margin-top:14px">
+    <button class="btn" id="shareWa">💬 העתק / שתף לוואטסאפ</button>
+    <button class="btn sec" id="saveImg">🖼️ שמור כתמונה</button>
+    <button class="btn sec" id="printBtn">🖨️ הדפסה / PDF</button>
+    <button class="btn sec" id="csvBtn">📄 CSV</button>
+  </div>
+</section>
+
+<!-- רשימות שמורות -->
+<section class="card no-print">
+  <h2><span class="n">★</span> רשימות שמורות</h2>
+  <p class="hint">שמרו את העמדות + השומרים לשימוש חוזר מחר בלחיצה.</p>
+  <div class="row">
+    <input id="saveName" type="text" placeholder="שם הרשימה (למשל: מחלקה א׳)">
+    <button class="btn sec" type="button" id="saveList" style="flex:0 0 auto; min-width:120px">💾 שמור</button>
+  </div>
+  <div id="savedLists" style="margin-top:8px"></div>
+</section>
+
+<footer>עובד לגמרי בדפדפן · ללא שרת · הנתונים נשמרים במכשיר בלבד</footer>
+
+<script>
+"use strict";
+(function(){
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const LS_STATE = "gds_state_v1";
+const LS_LISTS = "gds_lists_v1";
+const pad = n => String(n).padStart(2,"0");
+
+/* ---------- State ---------- */
+let state = {
+  positions:1, start:"", end:"",
+  nightStart:"22:00", nightEnd:"06:00", hardStart:"02:00", hardEnd:"05:00",
+  guardMode:"manual",
+  guards:[],            // {name, ua:false, uaStart:"", uaEnd:""}
+  seed: Math.floor(Math.random()*1e9)
+};
+let schedule = null;    // {slots, P, R}
+let selCell = null;     // for manual swap
+
+function saveState(){
+  try{ localStorage.setItem(LS_STATE, JSON.stringify({state, schedule})); }catch(e){}
+}
+function loadState(){
+  try{
+    const raw = localStorage.getItem(LS_STATE);
+    if(!raw) return;
+    const o = JSON.parse(raw);
+    if(o.state) Object.assign(state, o.state);
+    if(o.schedule) schedule = o.schedule;
+  }catch(e){}
+}
+
+/* ---------- Utilities ---------- */
+function gcd(a,b){ a=Math.abs(a); b=Math.abs(b); while(b){ [a,b]=[b,a%b]; } return a||1; }
+function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+function timeToMin(s){ if(!s) return null; const [h,m]=s.split(":").map(Number); return h*60+m; }
+function clockMin(d){ return d.getHours()*60+d.getMinutes(); }
+function inWindow(cm, a, b){ if(a===null||b===null) return false; if(a===b) return false; return a<b ? (cm>=a && cm<b) : (cm>=a || cm<b); }
+function fmtTime(d){ return pad(d.getHours())+":"+pad(d.getMinutes()); }
+const DAYS=["ראשון","שני","שלישי","רביעי","חמישי","שישי","שבת"];
+function fmtDay(d){ return DAYS[d.getDay()]+" "+pad(d.getDate())+"/"+pad(d.getMonth()+1); }
+
+function parseNames(text){
+  return text.split(/\r?\n/).map(l=>l.replace(/[,;].*$/,"").trim()).filter(Boolean);
+}
+function parseCsv(text){
+  const lines = text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+  if(!lines.length) return [];
+  let rows = lines.map(l=>{ const c=l.split(","); return (c[0]||"").replace(/^["']|["']$/g,"").trim(); }).filter(Boolean);
+  if(rows.length && /^(שם|name|שמות|guard)/i.test(rows[0]) ) rows = rows.slice(1);
+  return rows;
+}
+function showMsg(text, type){
+  const m=$("#msg"); m.textContent=text; m.className="msg show "+(type||"info");
+  if(type==="ok"||type==="info") setTimeout(()=>{ m.classList.remove("show"); }, 4000);
+}
+
+/* ---------- Guards UI ---------- */
+function renderGuards(){
+  const list=$("#guardList"); list.innerHTML="";
+  state.guards.forEach((g,i)=>{
+    const row=document.createElement("div"); row.className="guard-row";
+    row.innerHTML =
+      '<span class="idx">'+(i+1)+'</span>'+
+      '<input type="text" placeholder="שם השומר" value="">'+
+      '<button class="icon-btn ua'+(g.ua?" act":"")+'" title="לא זמין" type="button">🚫</button>'+
+      '<button class="icon-btn" title="מחק" type="button">✕</button>';
+    const nameInp=row.querySelector('input[type=text]');
+    nameInp.value=g.name||"";
+    nameInp.addEventListener("input",()=>{ g.name=nameInp.value; saveState(); updateCountInfo(); });
+    const [uaBtn, delBtn]=row.querySelectorAll(".icon-btn");
+    uaBtn.addEventListener("click",()=>{ g.ua=!g.ua; renderGuards(); saveState(); });
+    delBtn.addEventListener("click",()=>{ state.guards.splice(i,1); syncCount(); renderGuards(); saveState(); });
+    list.appendChild(row);
+    if(g.ua){
+      const uf=document.createElement("div"); uf.className="ua-fields";
+      uf.innerHTML='<span class="hint" style="align-self:center">לא זמין בטווח (רשות):</span>'+
+        '<input type="time" value="'+(g.uaStart||"")+'"><span class="hint" style="align-self:center">עד</span><input type="time" value="'+(g.uaEnd||"")+'">';
+      const [s,e]=uf.querySelectorAll("input");
+      s.addEventListener("input",()=>{ g.uaStart=s.value; saveState(); });
+      e.addEventListener("input",()=>{ g.uaEnd=e.value; saveState(); });
+      list.appendChild(uf);
+    }
+  });
+  $("#guardCount").value=state.guards.length;
+  updateCountInfo();
+}
+function syncCount(){ $("#guardCount").value=state.guards.length; }
+function setGuardCount(n){
+  n=Math.max(0,Math.floor(n||0));
+  while(state.guards.length<n) state.guards.push({name:"",ua:false,uaStart:"",uaEnd:""});
+  if(state.guards.length>n) state.guards.length=n;
+  renderGuards(); saveState();
+}
+function addNames(names){
+  names.forEach(nm=> state.guards.push({name:nm,ua:false,uaStart:"",uaEnd:""}));
+  renderGuards(); saveState();
+}
+function updateCountInfo(){
+  const named=state.guards.filter(g=>g.name.trim()).length;
+  const avail=state.guards.filter(g=>g.name.trim() && !g.ua).length;
+  $("#guardCountInfo").textContent = state.guards.length+" שומרים · "+named+" עם שם · "+avail+" זמינים";
+}
+
+/* ---------- Scheduling ---------- */
+function getWindow(){
+  if(!state.start||!state.end) return null;
+  const s=new Date(state.start), e=new Date(state.end);
+  if(isNaN(s)||isNaN(e)||e<=s) return null;
+  return {s,e,mins:Math.round((e-s)/60000)};
+}
+function guardAvailableAt(g, slotStart, slotEnd){
+  if(g.ua && !g.uaStart && !g.uaEnd) return false;         // unavailable whole session
+  if(g.ua && g.uaStart && g.uaEnd){
+    const a=timeToMin(g.uaStart), b=timeToMin(g.uaEnd);
+    const mid=new Date((slotStart.getTime()+slotEnd.getTime())/2);
+    if(inWindow(clockMin(mid),a,b)) return false;          // unavailable during this slot
+  }
+  return true;
+}
+function generate(reshuffle){
+  selCell=null;
+  const win=getWindow();
+  const P=Math.max(1,Math.floor(state.positions||1));
+  if(!win){ showMsg("הגדירו חלון זמן תקין (התחלה לפני סיום).","err"); return; }
+  const guards=state.guards.filter(g=>g.name.trim());
+  if(guards.length===0){ showMsg("הוסיפו לפחות שומר אחד עם שם.","err"); return; }
+  const availAll=guards.filter(g=>!(g.ua && !g.uaStart && !g.uaEnd));
+  const G=availAll.length;
+  if(G<P){ showMsg("צריך לפחות "+P+" שומרים זמינים ל-"+P+" עמדות במקביל (יש "+G+").","err"); return; }
+
+  if(reshuffle) state.seed=Math.floor(Math.random()*1e9);
+  const rng=mulberry32(state.seed);
+
+  // rounds: smallest R so R*P divisible by G  → each available guard gets exactly R*P/G slots
+  const R = G / gcd(P,G);
+  const nightA=timeToMin(state.nightStart), nightB=timeToMin(state.nightEnd);
+  const hardA=timeToMin(state.hardStart), hardB=timeToMin(state.hardEnd);
+
+  // build slots with exact cumulative boundaries (equal length, no drift)
+  const slots=[];
+  for(let r=0;r<R;r++){
+    const st=new Date(win.s.getTime()+Math.round(r*win.mins/R)*60000);
+    const en=new Date(win.s.getTime()+Math.round((r+1)*win.mins/R)*60000);
+    const mid=new Date((st.getTime()+en.getTime())/2);
+    slots.push({start:st.toISOString(), end:en.toISOString(),
+      mins:Math.round((en-st)/60000),
+      isNight:inWindow(clockMin(mid),nightA,nightB),
+      isHard:inWindow(clockMin(mid),hardA,hardB),
+      assign:new Array(P).fill(-1)});
+  }
+
+  // guard bookkeeping keyed by index into `guards` (so unavailable-with-window still counted)
+  const info=guards.map((g,i)=>({i,count:0,nights:0,hard:0,lastRound:-2,posLast:{},jit:rng()}));
+  const idxOf=new Map(guards.map((g,i)=>[g,i]));
+
+  for(let r=0;r<R;r++){
+    const slot=slots[r], st=new Date(slot.start), en=new Date(slot.end);
+    const usedThisRound=new Set();
+    for(let p=0;p<P;p++){
+      let cands=guards.map((g,gi)=>({g,gi})).filter(({g,gi})=>
+        !usedThisRound.has(gi) && guardAvailableAt(g,st,en));
+      if(!cands.length){ slot.assign[p]=-1; continue; }   // genuine conflict → leave empty
+      cands.sort((A,B)=>{
+        const a=info[A.gi], b=info[B.gi];
+        if(a.count!==b.count) return a.count-b.count;                       // equal hours (hard)
+        if(slot.isNight && a.nights!==b.nights) return a.nights-b.nights;   // balance nights
+        const ar=a.lastRound===r-1?1:0, br=b.lastRound===r-1?1:0;
+        if(ar!==br) return ar-br;                                          // rest between shifts
+        const ap=a.posLast[p]??-9, bp=b.posLast[p]??-9;
+        if(ap!==bp) return ap-bp;                                          // rotate positions
+        return a.jit-b.jit;                                                // stable-ish shuffle
+      });
+      const pick=cands[0].gi;
+      slot.assign[p]=pick;
+      usedThisRound.add(pick);
+      const inf=info[pick];
+      inf.count++; if(slot.isNight) inf.nights++; if(slot.isHard) inf.hard++;
+      inf.lastRound=r; inf.posLast[p]=r;
+    }
+  }
+
+  schedule={slots, P, R, guardNames:guards.map(g=>g.name.trim())};
+  saveState();
+  renderOutput();
+  const spread = maxHoursSpread();
+  showMsg(reshuffle?"עורבב מחדש ✓":"השיבוץ הופק ✓"+(spread>1?" (שים לב: אי-זמינות יצרה פער קטן בשעות)":""),"ok");
+  $("#output").scrollIntoView({behavior:"smooth",block:"start"});
+}
+
+function guardMinutes(){
+  const P=schedule.P, mins={};
+  schedule.guardNames.forEach((n,i)=>mins[i]={min:0,nights:0,hard:0,shifts:0});
+  schedule.slots.forEach(sl=>{
+    for(let p=0;p<P;p++){ const gi=sl.assign[p]; if(gi<0) continue;
+      mins[gi].min+=sl.mins; mins[gi].shifts++;
+      if(sl.isNight) mins[gi].nights++; if(sl.isHard) mins[gi].hard++;
+    }
+  });
+  return mins;
+}
+function maxHoursSpread(){
+  const m=guardMinutes(); const vals=Object.values(m).map(x=>x.min);
+  return (Math.max(...vals)-Math.min(...vals))/60;
+}
+
+/* ---------- Output rendering ---------- */
+function renderOutput(){
+  if(!schedule){ $("#output").style.display="none"; return; }
+  $("#output").style.display="block";
+  const P=schedule.P;
+  // schedule table
+  let html='<table><thead><tr><th>משמרת</th>';
+  for(let p=0;p<P;p++) html+='<th>עמדה '+(p+1)+'</th>';
+  html+='</tr></thead><tbody>';
+  let lastDay=null;
+  schedule.slots.forEach((sl,ri)=>{
+    const st=new Date(sl.start), en=new Date(sl.end);
+    const dayKey=st.toDateString();
+    if(dayKey!==lastDay){ html+='<tr class="day-sep"><td colspan="'+(P+1)+'">'+fmtDay(st)+'</td></tr>'; lastDay=dayKey; }
+    html+='<tr class="'+(sl.isNight?"night":"")+'">';
+    html+='<th>'+fmtTime(st)+'–'+fmtTime(en)+(sl.isHard?' ★':'')+'</th>';
+    for(let p=0;p<P;p++){
+      const gi=sl.assign[p];
+      const nm=gi>=0?escapeHtml(schedule.guardNames[gi]):"—";
+      html+='<td class="cell'+(sl.isHard?' badge-hard':'')+'" data-r="'+ri+'" data-p="'+p+'">'+nm+'</td>';
+    }
+    html+='</tr>';
+  });
+  html+='</tbody></table>';
+  $("#scheduleWrap").innerHTML=html;
+  $$("#scheduleWrap td.cell").forEach(td=>td.addEventListener("click",()=>onCellClick(td)));
+
+  // report
+  const m=guardMinutes();
+  const order=schedule.guardNames.map((n,i)=>i).sort((a,b)=>m[b].min-m[a].min);
+  let rep='<table class="report"><thead><tr><th>שומר</th><th>סה״כ</th><th>משמרות</th><th>לילות</th><th>קשות ★</th></tr></thead><tbody>';
+  order.forEach(i=>{
+    rep+='<tr><td style="text-align:right;font-weight:600">'+escapeHtml(schedule.guardNames[i])+'</td>'+
+      '<td>'+fmtDur(m[i].min)+'</td><td>'+m[i].shifts+'</td><td>'+m[i].nights+'</td><td>'+m[i].hard+'</td></tr>';
+  });
+  rep+='</tbody></table>';
+  $("#reportWrap").innerHTML=rep;
+
+  const spreadH=maxHoursSpread();
+  $("#statStrip").innerHTML=
+    '<div class="stat"><b>'+schedule.guardNames.length+'</b>שומרים</div>'+
+    '<div class="stat"><b>'+schedule.R+'</b>משמרות</div>'+
+    '<div class="stat"><b>'+fmtDur(schedule.slots[0].mins)+'</b>אורך משמרת</div>'+
+    '<div class="stat"><b>'+(spreadH<=0.017?"שוויוני":("±"+fmtDur(Math.round(spreadH*60))))+'</b>פער שעות</div>';
+}
+function fmtDur(min){ min=Math.round(min); const h=Math.floor(min/60), m=min%60; return m?(h?h+":"+pad(m):m+" ד׳"):(h+"ש׳"); }
+function escapeHtml(s){ return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+function onCellClick(td){
+  if(!selCell){ selCell=td; td.classList.add("sel"); return; }
+  if(selCell===td){ td.classList.remove("sel"); selCell=null; return; }
+  const r1=+selCell.dataset.r, p1=+selCell.dataset.p, r2=+td.dataset.r, p2=+td.dataset.p;
+  const s1=schedule.slots[r1], s2=schedule.slots[r2];
+  [s1.assign[p1], s2.assign[p2]]=[s2.assign[p2], s1.assign[p1]];
+  selCell.classList.remove("sel"); selCell=null;
+  saveState(); renderOutput();
+}
+
+/* ---------- Sharing ---------- */
+function buildText(){
+  const P=schedule.P; let lines=["🛡️ שיבוץ שמירות",""];
+  let lastDay=null;
+  schedule.slots.forEach(sl=>{
+    const st=new Date(sl.start), en=new Date(sl.end);
+    if(st.toDateString()!==lastDay){ lines.push("— "+fmtDay(st)+" —"); lastDay=st.toDateString(); }
+    let cells=[];
+    for(let p=0;p<P;p++){ const gi=sl.assign[p]; cells.push((P>1?("עמדה "+(p+1)+": "):"")+(gi>=0?schedule.guardNames[gi]:"—")); }
+    lines.push(fmtTime(st)+"–"+fmtTime(en)+(sl.isNight?" 🌙":"")+" | "+cells.join(" | "));
+  });
+  lines.push("");
+  const m=guardMinutes();
+  lines.push("סיכום שעות:");
+  schedule.guardNames.forEach((n,i)=> lines.push("• "+n+": "+fmtDur(m[i].min)+" ("+m[i].nights+" לילות)"));
+  return lines.join("\n");
+}
+async function shareWa(){
+  const text=buildText();
+  if(navigator.share){ try{ await navigator.share({text}); return; }catch(e){ if(e.name==="AbortError") return; } }
+  try{ await navigator.clipboard.writeText(text); showMsg("הועתק ללוח — הדביקו בוואטסאפ ✓","ok"); }
+  catch(e){ window.prompt("העתיקו את הטקסט:", text); }
+}
+function drawImage(){
+  const P=schedule.P, scale=2;
+  const cols=["משמרת"]; for(let p=0;p<P;p++) cols.push("עמדה "+(p+1));
+  const rows=[];
+  let lastDay=null;
+  schedule.slots.forEach(sl=>{
+    const st=new Date(sl.start), en=new Date(sl.end);
+    if(st.toDateString()!==lastDay){ rows.push({day:fmtDay(st)}); lastDay=st.toDateString(); }
+    const cells=[fmtTime(st)+"–"+fmtTime(en)+(sl.isHard?" ★":"")];
+    for(let p=0;p<P;p++){ const gi=sl.assign[p]; cells.push(gi>=0?schedule.guardNames[gi]:"—"); }
+    rows.push({cells, night:sl.isNight});
+  });
+  const cv=document.createElement("canvas"), ctx=cv.getContext("2d");
+  ctx.font=(14*scale)+"px system-ui,Arial";
+  const colW=cols.map((c,ci)=>{ let w=ctx.measureText(c).width;
+    rows.forEach(r=>{ if(r.cells) w=Math.max(w, ctx.measureText(r.cells[ci]).width); });
+    return Math.ceil(w)+22*scale; });
+  const totalW=colW.reduce((a,b)=>a+b,0);
+  const rh=34*scale, headH=44*scale, titleH=40*scale;
+  cv.width=totalW; cv.height=titleH+headH+rows.length*rh+10*scale;
+  // bg
+  ctx.fillStyle="#fff"; ctx.fillRect(0,0,cv.width,cv.height);
+  ctx.direction="rtl"; ctx.textAlign="center"; ctx.textBaseline="middle";
+  // title
+  ctx.fillStyle="#4b5320"; ctx.fillRect(0,0,cv.width,titleH);
+  ctx.fillStyle="#fff"; ctx.font="bold "+(18*scale)+"px system-ui,Arial";
+  ctx.fillText("🛡️ שיבוץ שמירות", cv.width/2, titleH/2);
+  // header
+  let y=titleH;
+  ctx.fillStyle="#5f6b28"; ctx.fillRect(0,y,cv.width,headH);
+  ctx.fillStyle="#fff"; ctx.font="bold "+(14*scale)+"px system-ui,Arial";
+  let x=cv.width;
+  cols.forEach((c,ci)=>{ x-=colW[ci]; ctx.fillText(c, x+colW[ci]/2, y+headH/2); });
+  y+=headH;
+  // rows
+  ctx.font=(14*scale)+"px system-ui,Arial";
+  rows.forEach(r=>{
+    if(r.day){ ctx.fillStyle="#5f6b28"; ctx.fillRect(0,y,cv.width,rh);
+      ctx.fillStyle="#fff"; ctx.fillText(r.day, cv.width/2, y+rh/2); y+=rh; return; }
+    ctx.fillStyle=r.night?"#e6e9f5":"#ffffff"; ctx.fillRect(0,y,cv.width,rh);
+    ctx.fillStyle="#20241a"; let cx=cv.width;
+    r.cells.forEach((c,ci)=>{ cx-=colW[ci]; ctx.fillText(c, cx+colW[ci]/2, y+rh/2); });
+    y+=rh;
+  });
+  // grid
+  ctx.strokeStyle="#cfd2c4"; ctx.lineWidth=1;
+  let gy=titleH; ctx.beginPath();
+  for(let i=0;i<=rows.length+1;i++){ ctx.moveTo(0,gy); ctx.lineTo(cv.width,gy); gy+= i===0?headH:rh; }
+  let gx=0; for(let ci=0;ci<=cols.length;ci++){ ctx.moveTo(gx,titleH); ctx.lineTo(gx,cv.height-10*scale); gx+=colW[ci]||0; }
+  ctx.stroke();
+  return cv;
+}
+async function saveImage(){
+  try{
+    const cv=drawImage();
+    cv.toBlob(async blob=>{
+      const file=new File([blob],"shibuts-shmirot.png",{type:"image/png"});
+      if(navigator.canShare && navigator.canShare({files:[file]})){
+        try{ await navigator.share({files:[file]}); return; }catch(e){ if(e.name==="AbortError") return; }
+      }
+      const url=URL.createObjectURL(blob), a=document.createElement("a");
+      a.href=url; a.download="shibuts-shmirot.png"; a.click();
+      setTimeout(()=>URL.revokeObjectURL(url),1000);
+      showMsg("התמונה נשמרה ✓","ok");
+    },"image/png");
+  }catch(e){ showMsg("שמירת התמונה נכשלה: "+e.message,"err"); }
+}
+function exportCsv(){
+  const P=schedule.P; let rows=[["משמרת"].concat(Array.from({length:P},(_,p)=>"עמדה "+(p+1)))];
+  schedule.slots.forEach(sl=>{ const st=new Date(sl.start),en=new Date(sl.end);
+    const line=[fmtTime(st)+"-"+fmtTime(en)];
+    for(let p=0;p<P;p++){ const gi=sl.assign[p]; line.push(gi>=0?schedule.guardNames[gi]:"—"); }
+    rows.push(line);
+  });
+  const csv="﻿"+rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(",")).join("\r\n");
+  const blob=new Blob([csv],{type:"text/csv"}), url=URL.createObjectURL(blob), a=document.createElement("a");
+  a.href=url; a.download="shibuts-shmirot.csv"; a.click(); setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+
+/* ---------- Saved lists ---------- */
+function getLists(){ try{ return JSON.parse(localStorage.getItem(LS_LISTS)||"[]"); }catch(e){ return []; } }
+function setLists(l){ try{ localStorage.setItem(LS_LISTS, JSON.stringify(l)); }catch(e){} }
+function renderSaved(){
+  const wrap=$("#savedLists"); const lists=getLists();
+  if(!lists.length){ wrap.innerHTML='<p class="hint">אין רשימות שמורות עדיין.</p>'; return; }
+  wrap.innerHTML="";
+  lists.forEach((L,i)=>{
+    const div=document.createElement("div"); div.className="saved-item";
+    div.innerHTML='<div><div class="nm">'+escapeHtml(L.name)+'</div><div class="meta">'+L.guards.length+' שומרים · '+L.positions+' עמדות</div></div>'+
+      '<div style="display:flex;gap:6px"><button class="btn sec sm" type="button">טען</button><button class="btn sec sm" type="button">✕</button></div>';
+    const [load,del]=div.querySelectorAll("button");
+    load.addEventListener("click",()=>{
+      state.positions=L.positions; $("#positions").value=L.positions;
+      state.guards=L.guards.map(g=>({name:g,ua:false,uaStart:"",uaEnd:""}));
+      renderGuards(); saveState(); showMsg('נטענה הרשימה "'+L.name+'" ✓',"ok");
+      window.scrollTo({top:0,behavior:"smooth"});
+    });
+    del.addEventListener("click",()=>{ const l=getLists(); l.splice(i,1); setLists(l); renderSaved(); });
+    wrap.appendChild(div);
+  });
+}
+
+/* ---------- OCR ---------- */
+function loadScript(src){ return new Promise((res,rej)=>{ const s=document.createElement("script"); s.src=src; s.onload=res; s.onerror=()=>rej(new Error("load")); document.head.appendChild(s); }); }
+async function runOcr(file){
+  const prog=$("#ocrProgress"), bar=prog.firstElementChild;
+  prog.style.display="block"; bar.style.width="5%";
+  showMsg("טוען מנוע זיהוי טקסט (דורש אינטרנט)…","info");
+  try{
+    if(typeof Tesseract==="undefined")
+      await loadScript("https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js");
+    const {data}=await Tesseract.recognize(file,"heb+eng",{logger:m=>{ if(m.status==="recognizing text") bar.style.width=(10+m.progress*88)+"%"; }});
+    bar.style.width="100%";
+    const names=data.text.split(/\r?\n/).map(s=>s.trim()).filter(s=>s.length>=2);
+    // move to paste box for review
+    setMode("paste");
+    $("#pasteBox").value=names.join("\n");
+    showMsg("זוהו "+names.length+' שורות — בדקו/ערכו ואז "הוסף לרשימה" ✓',"ok");
+  }catch(e){
+    showMsg("זיהוי מהתמונה נכשל (כנראה אין אינטרנט). הזינו את השמות ידנית או הדביקו רשימה.","err");
+  }finally{ setTimeout(()=>{ prog.style.display="none"; bar.style.width="0"; },800); }
+}
+
+/* ---------- Mode switch ---------- */
+function setMode(mode){
+  state.guardMode=mode;
+  $$("#guardMode button").forEach(b=>b.classList.toggle("on",b.dataset.mode===mode));
+  $$("[data-panel]").forEach(p=>p.classList.toggle("hide",p.dataset.panel!==mode));
+  saveState();
+}
+
+/* ---------- Window presets & info ---------- */
+function toLocalInput(d){ return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())+"T"+pad(d.getHours())+":"+pad(d.getMinutes()); }
+function applyPreset(kind){
+  const now=new Date(); let s,e;
+  if(kind==="night"){ s=new Date(now); s.setHours(19,0,0,0); e=new Date(s); e.setDate(e.getDate()+1); e.setHours(7,0,0,0); }
+  else if(kind==="12from"){ s=new Date(now); s.setSeconds(0,0); e=new Date(s.getTime()+12*3600000); }
+  else { s=new Date(now); s.setSeconds(0,0); e=new Date(s.getTime()+24*3600000); }
+  state.start=toLocalInput(s); state.end=toLocalInput(e);
+  $("#start").value=state.start; $("#end").value=state.end; updateWindowInfo(); saveState();
+}
+function updateWindowInfo(){
+  const w=getWindow();
+  $("#windowInfo").textContent = w ? ("משך: "+fmtDur(w.mins)+" ("+(w.mins/60).toFixed(w.mins%60?1:0)+" שעות)") : "";
+}
+
+/* ---------- Wire up ---------- */
+function init(){
+  loadState();
+  // inputs
+  $("#positions").value=state.positions;
+  $("#start").value=state.start; $("#end").value=state.end;
+  ["nightStart","nightEnd","hardStart","hardEnd"].forEach(k=>{ if(state[k]) $("#"+k).value=state[k]; });
+  setMode(state.guardMode||"manual");
+  renderGuards(); renderSaved(); updateWindowInfo();
+  if(schedule) renderOutput();
+
+  $("#positions").addEventListener("input",e=>{ state.positions=Math.max(1,+e.target.value||1); saveState(); });
+  $("#start").addEventListener("input",e=>{ state.start=e.target.value; updateWindowInfo(); saveState(); });
+  $("#end").addEventListener("input",e=>{ state.end=e.target.value; updateWindowInfo(); saveState(); });
+  ["nightStart","nightEnd","hardStart","hardEnd"].forEach(k=>{
+    $("#"+k).addEventListener("input",e=>{ state[k]=e.target.value; saveState(); });
+  });
+  $$("[data-preset]").forEach(b=>b.addEventListener("click",()=>applyPreset(b.dataset.preset)));
+  $$("#guardMode button").forEach(b=>b.addEventListener("click",()=>setMode(b.dataset.mode)));
+
+  $("#guardCount").addEventListener("input",e=>setGuardCount(+e.target.value));
+  $("#applyPaste").addEventListener("click",()=>{
+    const names=parseNames($("#pasteBox").value); if(!names.length){ showMsg("לא נמצאו שמות בטקסט.","err"); return; }
+    addNames(names); $("#pasteBox").value=""; showMsg("נוספו "+names.length+" שומרים ✓","ok"); setMode("manual");
+  });
+  $("#fileInput").addEventListener("change",e=>{
+    const f=e.target.files[0]; if(!f) return; const rd=new FileReader();
+    rd.onload=()=>{ const names=/\.csv$/i.test(f.name)?parseCsv(rd.result):parseNames(rd.result);
+      if(!names.length){ showMsg("לא נמצאו שמות בקובץ.","err"); return; }
+      addNames(names); showMsg("נטענו "+names.length+" שומרים מהקובץ ✓","ok"); setMode("manual"); };
+    rd.readAsText(f,"utf-8"); e.target.value="";
+  });
+  $("#imageInput").addEventListener("change",e=>{ const f=e.target.files[0]; if(f) runOcr(f); e.target.value=""; });
+
+  $("#generate").addEventListener("click",()=>generate(false));
+  $("#reshuffle").addEventListener("click",()=>{ if(!schedule){ generate(false); } else generate(true); });
+  $("#clearAll").addEventListener("click",()=>{
+    if(!confirm("לנקות את כל הנתונים (שומרים, זמנים, שיבוץ)? הרשימות השמורות יישארו.")) return;
+    state={positions:1,start:"",end:"",nightStart:"22:00",nightEnd:"06:00",hardStart:"02:00",hardEnd:"05:00",guardMode:"manual",guards:[],seed:Math.floor(Math.random()*1e9)};
+    schedule=null; saveState();
+    $("#positions").value=1; $("#start").value=""; $("#end").value="";
+    ["nightStart","nightEnd","hardStart","hardEnd"].forEach(k=>$("#"+k).value=state[k]);
+    renderGuards(); updateWindowInfo(); $("#output").style.display="none"; setMode("manual");
+    showMsg("נוקה ✓","ok");
+  });
+
+  $("#shareWa").addEventListener("click",shareWa);
+  $("#saveImg").addEventListener("click",saveImage);
+  $("#printBtn").addEventListener("click",()=>window.print());
+  $("#csvBtn").addEventListener("click",exportCsv);
+
+  $("#saveList").addEventListener("click",()=>{
+    const name=$("#saveName").value.trim(); const guards=state.guards.map(g=>g.name.trim()).filter(Boolean);
+    if(!name){ showMsg("תנו שם לרשימה.","err"); return; }
+    if(!guards.length){ showMsg("אין שומרים לשמור.","err"); return; }
+    const l=getLists(); l.push({name,positions:state.positions,guards}); setLists(l);
+    $("#saveName").value=""; renderSaved(); showMsg('נשמרה הרשימה "'+name+'" ✓',"ok");
+  });
+}
+document.addEventListener("DOMContentLoaded",init);
+})();
+</script>
