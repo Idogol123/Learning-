@@ -352,37 +352,81 @@ return i=this.parent.children.indexOf(this),removed=this.parent.children.splice(
       });
     }
 
-    // PDF → line segments, marking larger-font lines as headings.
-    async function extractPdfSegments(file) {
+    function extractTimes(text) {
+      const t = text.match(/\d{1,2}:\d{2}/g);
+      if (!t) return '';
+      return t.length >= 2 ? t[0] + '–' + t[1] : t[0];
+    }
+
+    // PDF → rich lines. Rebuilds the layout from glyph coordinates so each
+    // match carries its section context (day / task / position) and time.
+    // Headers come in three levels by font height; a "position" label is a
+    // lone short line sitting in the right-hand column.
+    async function extractPdfLines(file) {
       if (!window.pdfjsLib) throw new Error('רכיב קריאת PDF לא נטען');
       const buf = await readAsArrayBuffer(file);
       const pdf = await window.pdfjsLib.getDocument({ data: buf }).promise;
-      const raw = [];
+
+      const rows = [];
       for (let p = 1; p <= pdf.numPages; p++) {
         const page = await pdf.getPage(p);
-        const content = await page.getTextContent();
-        // Reconstruct lines by y-coordinate; track the tallest glyph per line.
-        const rows = new Map();
-        for (const item of content.items) {
-          const y = Math.round(item.transform[5]);
-          if (!rows.has(y)) rows.set(y, { parts: [], size: 0 });
-          const row = rows.get(y);
-          row.parts.push(item.str);
-          row.size = Math.max(row.size, item.height || 0);
-        }
-        const ys = [...rows.keys()].sort((a, b) => b - a);
-        for (const y of ys) {
-          const row = rows.get(y);
-          raw.push({ text: row.parts.join(' ').trim(), size: row.size });
+        const items = (await page.getTextContent()).items
+          .filter((it) => it.str && it.str.trim())
+          .map((it) => ({ x: it.transform[4], y: it.transform[5], h: it.height || 0, s: it.str }));
+        items.sort((a, b) => b.y - a.y || a.x - b.x);
+        // Cluster glyphs into visual rows (tolerate ~3px so a name and its
+        // time on the same baseline stay together).
+        let cur = null;
+        for (const it of items) {
+          if (cur && Math.abs(cur.y - it.y) <= 3) { cur.frags.push(it); }
+          else { cur = { y: it.y, frags: [it] }; rows.push(cur); }
         }
       }
-      // Body font size = median of non-empty lines; headings are notably larger.
-      const sizes = raw.filter((r) => r.text).map((r) => r.size).sort((a, b) => a - b);
+
+      const built = rows.map((row) => {
+        const frags = row.frags.slice().sort((a, b) => b.x - a.x); // RTL: right first
+        return {
+          text: frags.map((f) => f.s).join(' ').replace(/\s+/g, ' ').trim(),
+          maxH: frags.reduce((m, f) => Math.max(m, f.h), 0),
+          nfrag: frags.length,
+          minX: Math.min.apply(null, frags.map((f) => f.x))
+        };
+      }).filter((r) => r.text);
+
+      const sizes = built.map((r) => r.maxH).sort((a, b) => a - b);
       const body = sizes.length ? sizes[Math.floor(sizes.length / 2)] : 0;
-      return raw.map((r) => ({
-        text: r.text,
-        isHeading: body > 0 && r.size >= body * 1.2 && r.text.length <= 60
-      }));
+
+      const lines = [];
+      let day = null, task = null, subStack = [], contentSince = false, n = 0;
+      for (const r of built) {
+        const times = /\d{1,2}:\d{2}/.test(r.text);
+        if (body > 0 && r.maxH >= Math.max(body * 1.25, 9)) {           // day
+          day = r.text; task = null; subStack = []; contentSince = false; continue;
+        }
+        if (body > 0 && r.maxH >= body * 1.08) {                        // task / group
+          task = r.text; subStack = []; contentSince = false; continue;
+        }
+        // position: a lone short label parked in the right column
+        if (r.nfrag === 1 && !times && r.text.length <= 30 && r.minX >= 470 && /[א-ת]/.test(r.text)) {
+          if (contentSince) subStack = [r.text];
+          else { subStack.push(r.text); if (subStack.length > 2) subStack.shift(); }
+          contentSince = false;
+          continue;
+        }
+        // content row
+        contentSince = true;
+        n++;
+        const section = subStack.join(' · ');
+        const category = section || task || day || 'ללא כותרת';
+        const ctx = [];
+        if (day && day !== category) ctx.push(day);
+        if (task && task !== category && task !== section) ctx.push(task);
+        const time = extractTimes(r.text);
+        if (time) ctx.push(time);
+        ctx.push('שורה ' + n);
+        lines.push({ text: r.text, category: category, context: ctx.join(' · ') });
+      }
+      return lines;
     }
 
     // Word → line segments using the document's real heading styles (h1–h6).
@@ -420,10 +464,15 @@ return i=this.parent.children.indexOf(this),removed=this.parent.children.splice(
     // Walk segments in order, attaching the current section heading to each line.
     function assignHeadings(segments) {
       let current = null;
-      return segments.map((s) => {
+      const out = [];
+      let n = 0;
+      for (const s of segments) {
         if (s.isHeading) current = s.text.replace(/^#{1,6}\s+/, '').replace(/[:：]$/, '').trim();
-        return { text: s.text, heading: current };
-      });
+        if (!s.text.trim()) { n++; continue; }
+        n++;
+        out.push({ text: s.text, category: current || 'ללא כותרת', context: 'שורה ' + n });
+      }
+      return out;
     }
 
     // Turn a SheetJS worksheet into { headers, rows } honoring the header toggle.
@@ -463,7 +512,7 @@ return i=this.parent.children.indexOf(this),removed=this.parent.children.splice(
       const ext = getExt(file.name);
       if (ext === 'xlsx') return { kind: 'table', tables: await tablesFromXlsx(file) };
       if (ext === 'csv')  return { kind: 'table', tables: await tablesFromCsv(file) };
-      if (ext === 'pdf')  return { kind: 'text', lines: assignHeadings(await extractPdfSegments(file)) };
+      if (ext === 'pdf')  return { kind: 'text', lines: await extractPdfLines(file) };
       if (ext === 'docx') return { kind: 'text', lines: assignHeadings(await extractDocxSegments(file)) };
       // txt / log / json / md / unknown → plain text
       return { kind: 'text', lines: assignHeadings(plainTextSegments(await readAsText(file))) };
@@ -534,14 +583,9 @@ return i=this.parent.children.indexOf(this),removed=this.parent.children.splice(
           }
         }
       } else {
-        for (let i = 0; i < model.lines.length; i++) {
-          const ln = model.lines[i];
+        for (const ln of model.lines) {
           if (ln.text && contains(ln.text, term, caseSensitive)) {
-            out.push({
-              category: ln.heading || 'ללא כותרת',
-              value: ln.text,
-              context: 'שורה ' + (i + 1)
-            });
+            out.push({ category: ln.category, value: ln.text, context: ln.context });
             if (out.length >= limit) return out;
           }
         }
