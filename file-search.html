@@ -150,6 +150,38 @@
     .txt { flex: 1 1 auto; white-space: pre-wrap; word-break: break-word; unicode-bidi: plaintext; }
     mark { background: var(--mark-bg); color: var(--mark-text); border-radius: 3px; padding: 0 2px; }
 
+    .match-card {
+      padding: 9px 0;
+      border-bottom: 1px solid rgba(51,65,85,0.5);
+    }
+    .match-card:last-child { border-bottom: none; }
+    .cat-chip {
+      display: inline-block;
+      background: rgba(56,189,248,0.15);
+      color: var(--accent);
+      border: 1px solid rgba(56,189,248,0.35);
+      border-radius: 999px;
+      padding: 1px 10px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      margin-bottom: 5px;
+      max-width: 100%;
+      word-break: break-word;
+      unicode-bidi: plaintext;
+    }
+    .match-val {
+      font-size: 0.95rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+      unicode-bidi: plaintext;
+    }
+    .match-ctx {
+      color: var(--muted);
+      font-size: 0.78rem;
+      margin-top: 3px;
+      unicode-bidi: plaintext;
+    }
+
     .no-match { color: var(--muted); font-size: 0.88rem; }
     .more-note { color: var(--muted); font-size: 0.8rem; margin-top: 6px; }
     footer { text-align: center; color: var(--muted); font-size: 0.75rem; margin-top: 8px; line-height: 1.6; }
@@ -177,6 +209,10 @@
       <div class="options">
         <input type="checkbox" id="caseSensitive">
         <label for="caseSensitive" style="margin:0;font-weight:400;">התאמת אותיות גדולות/קטנות (Case sensitive)</label>
+      </div>
+      <div class="options">
+        <input type="checkbox" id="hasHeader" checked>
+        <label for="hasHeader" style="margin:0;font-weight:400;">לטבלה (Excel/CSV) יש שורת כותרות בראש</label>
       </div>
     </div>
 
@@ -265,6 +301,7 @@ return i=this.parent.children.indexOf(this),removed=this.parent.children.splice(
     const fileNameEl = document.getElementById('fileName');
     const queryEl = document.getElementById('query');
     const caseEl = document.getElementById('caseSensitive');
+    const headerEl = document.getElementById('hasHeader');
     const searchBtn = document.getElementById('searchBtn');
     const statusEl = document.getElementById('status');
     const resultsEl = document.getElementById('results');
@@ -315,62 +352,121 @@ return i=this.parent.children.indexOf(this),removed=this.parent.children.splice(
       });
     }
 
-    async function extractPdf(file) {
+    // PDF → line segments, marking larger-font lines as headings.
+    async function extractPdfSegments(file) {
       if (!window.pdfjsLib) throw new Error('רכיב קריאת PDF לא נטען');
       const buf = await readAsArrayBuffer(file);
       const pdf = await window.pdfjsLib.getDocument({ data: buf }).promise;
-      const pages = [];
+      const raw = [];
       for (let p = 1; p <= pdf.numPages; p++) {
         const page = await pdf.getPage(p);
         const content = await page.getTextContent();
-        // Reconstruct lines using the y-coordinate of each text item.
+        // Reconstruct lines by y-coordinate; track the tallest glyph per line.
         const rows = new Map();
         for (const item of content.items) {
           const y = Math.round(item.transform[5]);
-          if (!rows.has(y)) rows.set(y, []);
-          rows.get(y).push(item.str);
+          if (!rows.has(y)) rows.set(y, { parts: [], size: 0 });
+          const row = rows.get(y);
+          row.parts.push(item.str);
+          row.size = Math.max(row.size, item.height || 0);
         }
         const ys = [...rows.keys()].sort((a, b) => b - a);
-        for (const y of ys) pages.push(rows.get(y).join(' '));
+        for (const y of ys) {
+          const row = rows.get(y);
+          raw.push({ text: row.parts.join(' ').trim(), size: row.size });
+        }
       }
-      return pages.join('\n');
+      // Body font size = median of non-empty lines; headings are notably larger.
+      const sizes = raw.filter((r) => r.text).map((r) => r.size).sort((a, b) => a - b);
+      const body = sizes.length ? sizes[Math.floor(sizes.length / 2)] : 0;
+      return raw.map((r) => ({
+        text: r.text,
+        isHeading: body > 0 && r.size >= body * 1.2 && r.text.length <= 60
+      }));
     }
 
-    async function extractDocx(file) {
+    // Word → line segments using the document's real heading styles (h1–h6).
+    async function extractDocxSegments(file) {
       if (!window.mammoth) throw new Error('רכיב קריאת Word לא נטען');
       const buf = await readAsArrayBuffer(file);
-      const res = await window.mammoth.extractRawText({ arrayBuffer: buf });
-      return res.value || '';
+      const res = await window.mammoth.convertToHtml({ arrayBuffer: buf });
+      const dom = new DOMParser().parseFromString(res.value || '', 'text/html');
+      const segs = [];
+      dom.body.querySelectorAll('h1,h2,h3,h4,h5,h6,p,li,td,th').forEach((el) => {
+        const text = (el.textContent || '').replace(/\s+/g, ' ').trim();
+        if (text) segs.push({ text, isHeading: /^H[1-6]$/.test(el.tagName) });
+      });
+      return segs;
     }
 
-    async function extractXlsx(file) {
+    // A conservative heading test for plain text (no styling available):
+    // Markdown headings, ALL-CAPS titles, or short pure-label lines ending ":".
+    function looksLikeHeading(line) {
+      const t = line.trim();
+      if (!t || t.length > 50) return false;
+      if (/^#{1,6}\s+/.test(t)) return true;
+      if (/^[^a-z]*$/.test(t) && /[A-Z֐-׿]/.test(t) && !/\d{2,}/.test(t)) return true; // ALL-CAPS / Hebrew title
+      if (/^[\wא-ת \-]{1,30}[:：]$/.test(t)) return true;         // short label ending with a colon
+      return false;
+    }
+
+    function plainTextSegments(raw) {
+      return String(raw).split(/\r\n|\r|\n/).map((text) => ({
+        text: text,
+        isHeading: looksLikeHeading(text)
+      }));
+    }
+
+    // Walk segments in order, attaching the current section heading to each line.
+    function assignHeadings(segments) {
+      let current = null;
+      return segments.map((s) => {
+        if (s.isHeading) current = s.text.replace(/^#{1,6}\s+/, '').replace(/[:：]$/, '').trim();
+        return { text: s.text, heading: current };
+      });
+    }
+
+    // Turn a SheetJS worksheet into { headers, rows } honoring the header toggle.
+    function sheetToTable(sheet, name) {
+      const grid = window.XLSX.utils.sheet_to_json(sheet, { header: 1, blankrows: false, raw: false });
+      const cells = grid.map((row) => (row || []).map((c) => (c == null ? '' : String(c))));
+      let headers, rows;
+      if (headerEl.checked && cells.length > 0) {
+        headers = cells[0];
+        rows = cells.slice(1);
+      } else {
+        const width = cells.reduce((w, r) => Math.max(w, r.length), 0);
+        headers = Array.from({ length: width }, (_, i) => 'עמודה ' + (i + 1));
+        rows = cells;
+      }
+      return { name, headers, rows };
+    }
+
+    async function tablesFromXlsx(file) {
       if (!window.XLSX) throw new Error('רכיב קריאת Excel לא נטען');
       const buf = await readAsArrayBuffer(file);
       const wb = window.XLSX.read(buf, { type: 'array' });
-      const parts = [];
-      wb.SheetNames.forEach((name) => {
-        const sheet = wb.Sheets[name];
-        const rows = window.XLSX.utils.sheet_to_json(sheet, { header: 1, blankrows: false });
-        parts.push('# ' + name);
-        rows.forEach((row) => {
-          parts.push(row.map((c) => (c == null ? '' : String(c))).join('\t'));
-        });
-      });
-      return parts.join('\n');
+      return wb.SheetNames.map((name) => sheetToTable(wb.Sheets[name], name));
     }
 
-    async function extractText(file) {
+    async function tablesFromCsv(file) {
+      if (!window.XLSX) throw new Error('רכיב קריאת CSV לא נטען');
+      const text = await readAsText(file);
+      // Reuse SheetJS to parse CSV so quoted fields / embedded commas are handled.
+      const wb = window.XLSX.read(text, { type: 'string' });
+      const name = wb.SheetNames[0];
+      return [sheetToTable(wb.Sheets[name], name)];
+    }
+
+    // Parse a file into a structured model: a table (columns) or a document (lines).
+    async function parseFile(file) {
       const ext = getExt(file.name);
-      switch (ext) {
-        case 'pdf':  return extractPdf(file);
-        case 'docx': return extractDocx(file);
-        case 'xlsx': return extractXlsx(file);
-        case 'txt': case 'csv': case 'log': case 'json': case 'md':
-          return readAsText(file);
-        default:
-          // Best effort: try to read unknown types as text.
-          return readAsText(file);
-      }
+      if (ext === 'xlsx') return { kind: 'table', tables: await tablesFromXlsx(file) };
+      if (ext === 'csv')  return { kind: 'table', tables: await tablesFromCsv(file) };
+      if (ext === 'pdf')  return { kind: 'text', lines: assignHeadings(await extractPdfSegments(file)) };
+      if (ext === 'docx') return { kind: 'text', lines: assignHeadings(await extractDocxSegments(file)) };
+      // txt / log / json / md / unknown → plain text
+      return { kind: 'text', lines: assignHeadings(plainTextSegments(await readAsText(file))) };
     }
 
     // ---- Search + rendering ----
@@ -406,25 +502,59 @@ return i=this.parent.children.indexOf(this),removed=this.parent.children.splice(
       return out;
     }
 
-    function search(lines, term, caseSensitive) {
-      const needle = caseSensitive ? term : term.toLowerCase();
-      const matches = [];
-      for (let i = 0; i < lines.length; i++) {
-        const hay = caseSensitive ? lines[i] : lines[i].toLowerCase();
-        if (hay.includes(needle)) {
-          matches.push({ n: i + 1, text: lines[i] });
-          if (matches.length >= MAX_MATCHES_PER_TERM + 1) break;
-        }
-      }
-      return matches;
+    function contains(hay, term, caseSensitive) {
+      return (caseSensitive ? hay : hay.toLowerCase())
+        .includes(caseSensitive ? term : term.toLowerCase());
     }
 
-    function renderResults(terms, lines, caseSensitive) {
+    // Collect matches from the parsed model as uniform cards:
+    // { category, value, context }.
+    function collectMatches(model, term, caseSensitive) {
+      const out = [];
+      const limit = MAX_MATCHES_PER_TERM + 1;
+      if (model.kind === 'table') {
+        const multiSheet = model.tables.length > 1;
+        for (const table of model.tables) {
+          for (let r = 0; r < table.rows.length; r++) {
+            const row = table.rows[r];
+            const rowLabel = row[0] != null ? String(row[0]) : '';
+            for (let c = 0; c < row.length; c++) {
+              const cell = row[c];
+              if (cell && contains(cell, term, caseSensitive)) {
+                let ctx = (multiSheet ? 'גיליון ' + table.name + ' · ' : '') + 'שורה ' + (r + 1);
+                if (rowLabel && c !== 0) ctx += ' · ' + rowLabel;
+                out.push({
+                  category: table.headers[c] || ('עמודה ' + (c + 1)),
+                  value: cell,
+                  context: ctx
+                });
+                if (out.length >= limit) return out;
+              }
+            }
+          }
+        }
+      } else {
+        for (let i = 0; i < model.lines.length; i++) {
+          const ln = model.lines[i];
+          if (ln.text && contains(ln.text, term, caseSensitive)) {
+            out.push({
+              category: ln.heading || 'ללא כותרת',
+              value: ln.text,
+              context: 'שורה ' + (i + 1)
+            });
+            if (out.length >= limit) return out;
+          }
+        }
+      }
+      return out;
+    }
+
+    function renderResults(terms, model, caseSensitive) {
       resultsEl.innerHTML = '';
       let totalFound = 0;
 
       terms.forEach((term) => {
-        const matches = search(lines, term, caseSensitive);
+        const matches = collectMatches(model, term, caseSensitive);
         const capped = matches.length > MAX_MATCHES_PER_TERM;
         const shown = capped ? matches.slice(0, MAX_MATCHES_PER_TERM) : matches;
         totalFound += matches.length;
@@ -435,8 +565,8 @@ return i=this.parent.children.indexOf(this),removed=this.parent.children.splice(
         const head = document.createElement('div');
         head.className = 'term-head';
         const countLabel = capped
-          ? ('מוצגות ' + MAX_MATCHES_PER_TERM + '+ שורות')
-          : (matches.length + ' שורות');
+          ? ('מוצגות ' + MAX_MATCHES_PER_TERM + '+ תוצאות')
+          : (matches.length + ' תוצאות');
         head.innerHTML = '<span class="term">' + escapeHtml(term) + '</span>' +
                          '<span class="count">' + countLabel + '</span>';
         group.appendChild(head);
@@ -448,17 +578,25 @@ return i=this.parent.children.indexOf(this),removed=this.parent.children.splice(
           group.appendChild(nm);
         } else {
           shown.forEach((mt) => {
-            const row = document.createElement('div');
-            row.className = 'line';
-            const ln = document.createElement('span');
-            ln.className = 'ln';
-            ln.textContent = mt.n;
-            const txt = document.createElement('span');
-            txt.className = 'txt';
-            txt.innerHTML = highlightLine(mt.text, term, caseSensitive);
-            row.appendChild(ln);
-            row.appendChild(txt);
-            group.appendChild(row);
+            const card = document.createElement('div');
+            card.className = 'match-card';
+
+            const chip = document.createElement('span');
+            chip.className = 'cat-chip';
+            chip.textContent = mt.category;
+
+            const val = document.createElement('div');
+            val.className = 'match-val';
+            val.innerHTML = highlightLine(mt.value, term, caseSensitive);
+
+            const ctx = document.createElement('div');
+            ctx.className = 'match-ctx';
+            ctx.textContent = mt.context;
+
+            card.appendChild(chip);
+            card.appendChild(val);
+            card.appendChild(ctx);
+            group.appendChild(card);
           });
           if (capped) {
             const note = document.createElement('div');
@@ -483,14 +621,13 @@ return i=this.parent.children.indexOf(this),removed=this.parent.children.splice(
       resultsEl.innerHTML = '';
 
       try {
-        const raw = await extractText(currentFile);
-        const lines = String(raw).split(/\r\n|\r|\n/);
+        const model = await parseFile(currentFile);
         setStatus('מחפש…', 'info');
-        const total = renderResults(terms, lines, caseEl.checked);
+        const total = renderResults(terms, model, caseEl.checked);
         if (total === 0) {
           setStatus('החיפוש הסתיים — לא נמצאו תוצאות.', 'info');
         } else {
-          setStatus('נמצאו ' + total + ' שורות תואמות סה״כ.', 'ok');
+          setStatus('נמצאו ' + total + ' תוצאות סה״כ.', 'ok');
         }
       } catch (err) {
         console.error(err);
