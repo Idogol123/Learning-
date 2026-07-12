@@ -39,8 +39,13 @@
     position:sticky; top:0; z-index:20; margin:0 -12px 12px; padding:12px 16px;
     background:var(--accent); color:#fff; box-shadow:0 2px 10px rgba(0,0,0,.15);
     padding-top:calc(12px + env(safe-area-inset-top));
+    display:flex; align-items:center; gap:10px;
   }
   header h1{margin:0; font-size:19px; display:flex; align-items:center; gap:8px}
+  header .home-link{ margin-inline-start:auto; display:inline-flex; align-items:center; gap:5px;
+    color:#fff; text-decoration:none; font-size:13px; font-weight:600; white-space:nowrap;
+    background:rgba(255,255,255,.16); padding:7px 11px; border-radius:10px; }
+  header .home-link:active{ background:rgba(255,255,255,.28); }
   .card{background:var(--card); border:1px solid var(--line); border-radius:var(--r); padding:14px; margin:12px 0; box-shadow:var(--shadow)}
   .card h2{margin:0 0 4px; font-size:16px; display:flex; align-items:center; gap:8px}
   input,select,button{font:inherit; color:inherit}
@@ -141,6 +146,7 @@
 
 <header>
   <h1>🛡️ שיבוץ שמירות</h1>
+  <a class="home-link" href="../" aria-label="חזרה לכל הכלים">🏠 כל הכלים</a>
 </header>
 
 <div id="installBar" class="card no-print" style="display:none; background:var(--chip)">
