@@ -260,7 +260,7 @@
     </div>
 
     <div class="card">
-      <label for="query">2. מה לחפש? <span class="hint">כמה מונחים? הפרד בפסיק — לדוגמה: שם, 100, מילה</span></label>
+      <label for="query">2. מה לחפש? <span class="hint">התוצאות מתעדכנות תוך כדי הקלדה · כמה מונחים? הפרד בפסיק</span></label>
       <input type="text" id="query" placeholder="הקלד מונח לחיפוש…" autocomplete="off">
       <div class="chips" id="historyRow" hidden></div>
       <div class="options">
@@ -272,8 +272,6 @@
         <label for="hasHeader" style="margin:0;font-weight:400;">לטבלה (Excel/CSV) יש שורת כותרות בראש</label>
       </div>
     </div>
-
-    <button class="search-btn" id="searchBtn">חפש</button>
 
     <div id="status"></div>
     <button class="copy-btn" id="copyBtn" hidden>📋 העתק תוצאות</button>
@@ -360,7 +358,6 @@ return i=this.parent.children.indexOf(this),removed=this.parent.children.splice(
     const queryEl = document.getElementById('query');
     const caseEl = document.getElementById('caseSensitive');
     const headerEl = document.getElementById('hasHeader');
-    const searchBtn = document.getElementById('searchBtn');
     const statusEl = document.getElementById('status');
     const resultsEl = document.getElementById('results');
     const copyBtn = document.getElementById('copyBtn');
@@ -395,8 +392,7 @@ return i=this.parent.children.indexOf(this),removed=this.parent.children.splice(
       if (f && queryEl.value.trim()) runSearch();
     });
 
-    searchBtn.addEventListener('click', () => runSearch());
-    queryEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') { clearTimeout(searchTimer); runSearch(); } });
+    queryEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') { clearTimeout(searchTimer); queryEl.blur(); runSearch(); } });
     // Live search: re-run (debounced) as the user types, reusing the cached model.
     queryEl.addEventListener('input', () => {
       clearTimeout(searchTimer);
@@ -500,12 +496,18 @@ return i=this.parent.children.indexOf(this),removed=this.parent.children.splice(
     function pushHistory(q) {
       q = q.trim();
       if (!q) return;
-      let h = getHistory().filter((x) => x !== q);
+      // Drop an exact duplicate and any shorter entry that is just a prefix of q
+      // (so live-typing fragments like "עי"/"עיד" don't pile up).
+      let h = getHistory().filter((x) => x !== q && !(q.startsWith(x) && x.length < q.length));
       h.unshift(q);
       h = h.slice(0, 8);
       try { localStorage.setItem(HIST_KEY, JSON.stringify(h)); } catch (e) { /* ignore */ }
       renderHistory();
     }
+    // Commit to history only after typing settles, so live search doesn't
+    // record every intermediate keystroke.
+    let pendingHist = '';
+    const commitHistory = debounce(() => { if (pendingHist) { pushHistory(pendingHist); pendingHist = ''; } }, 1200);
     function renderHistory() {
       const h = getHistory();
       historyRow.innerHTML = '';
@@ -524,7 +526,7 @@ return i=this.parent.children.indexOf(this),removed=this.parent.children.splice(
       const clear = document.createElement('button');
       clear.className = 'chip clear';
       clear.textContent = 'נקה היסטוריה';
-      clear.addEventListener('click', () => { try { localStorage.removeItem(HIST_KEY); } catch (e) {} renderHistory(); });
+      clear.addEventListener('click', () => { pendingHist = ''; try { localStorage.removeItem(HIST_KEY); } catch (e) {} renderHistory(); });
       historyRow.appendChild(clear);
       historyRow.hidden = false;
     }
@@ -857,9 +859,7 @@ return i=this.parent.children.indexOf(this),removed=this.parent.children.splice(
         const found = collectMatches(model, term, caseSensitive);
         const capped = found.length > MAX_MATCHES_PER_TERM;
         const shown = capped ? found.slice(0, MAX_MATCHES_PER_TERM) : found;
-        // Stable-sort by group so matches cluster (by day / category / sheet).
-        shown.forEach((m, i) => { m._i = i; });
-        shown.sort((a, b) => (a.group || '').localeCompare(b.group || '', 'he') || a._i - b._i);
+        // Keep the file's own order; a subheader is emitted when the group changes.
         totalFound += found.length;
         lastResults.push({ term: term, matches: shown });
 
@@ -1005,7 +1005,6 @@ return i=this.parent.children.indexOf(this),removed=this.parent.children.splice(
       const terms = parseTerms(queryEl.value);
       if (terms.length === 0) { if (!opts.live) setStatus('הקלד לפחות מונח אחד לחיפוש.', 'err'); return; }
 
-      searchBtn.disabled = true;
       try {
         const model = await getModel();
         setStatus('מחפש…', 'info');
@@ -1018,14 +1017,14 @@ return i=this.parent.children.indexOf(this),removed=this.parent.children.splice(
         } else {
           setStatus('נמצאו ' + total + ' תוצאות סה״כ.', 'ok');
         }
-        pushHistory(queryEl.value);
+        // Remember only searches that found something, once typing settles.
+        pendingHist = total > 0 ? queryEl.value : '';
+        commitHistory();
       } catch (err) {
         console.error(err);
         copyBtn.hidden = true;
         resultsEl.innerHTML = '';
         setStatus('שגיאה: ' + (err && err.message ? err.message : 'קריאת הקובץ נכשלה'), 'err');
-      } finally {
-        searchBtn.disabled = false;
       }
     }
 

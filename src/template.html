@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>חיפוש בקובץ</title>
+  <!-- Home-screen app (iOS): custom icon, name, and full-screen standalone mode -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="חיפוש בקובץ">
+  <meta name="theme-color" content="#0f172a">
+  <link rel="apple-touch-icon" href="<!--ICON-->">
+  <link rel="icon" href="<!--ICON-->">
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --card-2: #273449;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-2: #0ea5e9;
+      --border: #334155;
+      --mark-bg: #fbbf24;
+      --mark-text: #1e293b;
+      --danger: #f87171;
+      --ok: #34d399;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding: calc(16px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
+      -webkit-text-size-adjust: 100%;
+    }
+    .wrap { max-width: 760px; margin: 0 auto; }
+    header h1 {
+      font-size: 1.5rem;
+      margin: 0 0 4px;
+    }
+    header p {
+      margin: 0 0 20px;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    label { display: block; font-weight: 600; margin-bottom: 8px; font-size: 0.95rem; }
+    .hint { color: var(--muted); font-size: 0.8rem; font-weight: 400; }
+
+    input[type="file"] { display: none; }
+    .file-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      padding: 14px;
+      background: var(--card-2);
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+      color: var(--text);
+      font-size: 1rem;
+      cursor: pointer;
+      text-align: center;
+    }
+    .file-btn:active { background: #31425c; }
+    .file-name { margin-top: 10px; font-size: 0.85rem; color: var(--muted); word-break: break-all; }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 14px;
+      font-size: 1rem;
+      background: var(--card-2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      color: var(--text);
+    }
+    input[type="text"]:focus { outline: none; border-color: var(--accent); }
+
+    .options {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 14px;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+    .options input { width: 18px; height: 18px; accent-color: var(--accent-2); }
+
+    .search-btn {
+      width: 100%;
+      padding: 16px;
+      font-size: 1.05rem;
+      font-weight: 700;
+      background: linear-gradient(180deg, var(--accent), var(--accent-2));
+      color: #062434;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+    }
+    .search-btn:disabled { opacity: 0.5; cursor: default; }
+    .search-btn:active:not(:disabled) { filter: brightness(0.95); }
+
+    .copy-btn {
+      width: 100%;
+      padding: 12px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      background: var(--card-2);
+      color: var(--accent);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      cursor: pointer;
+      margin-bottom: 14px;
+    }
+    .copy-btn:active { background: #31425c; }
+    .copy-btn.done { color: var(--ok); border-color: var(--ok); }
+
+    #status { margin: 4px 2px 12px; font-size: 0.9rem; min-height: 1.2em; }
+    #status.err { color: var(--danger); }
+    #status.ok { color: var(--ok); }
+    #status.info { color: var(--muted); }
+
+    .term-group { margin-bottom: 18px; }
+    .term-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 8px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 6px;
+      margin-bottom: 8px;
+    }
+    .term-head .term { font-weight: 700; color: var(--accent); word-break: break-all; }
+    .term-head .count { font-size: 0.85rem; color: var(--muted); white-space: nowrap; }
+
+    .line {
+      display: flex;
+      gap: 10px;
+      padding: 7px 0;
+      border-bottom: 1px solid rgba(51,65,85,0.5);
+      font-size: 0.92rem;
+    }
+    .line:last-child { border-bottom: none; }
+    .ln {
+      flex: 0 0 auto;
+      min-width: 2.5em;
+      text-align: left;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+      font-size: 0.8rem;
+      padding-top: 1px;
+      direction: ltr;
+    }
+    .txt { flex: 1 1 auto; white-space: pre-wrap; word-break: break-word; unicode-bidi: plaintext; }
+    mark { background: var(--mark-bg); color: var(--mark-text); border-radius: 3px; padding: 0 2px; }
+
+    .match-card {
+      padding: 9px 0;
+      border-bottom: 1px solid rgba(51,65,85,0.5);
+    }
+    .match-card:last-child { border-bottom: none; }
+    .cat-chip {
+      display: inline-block;
+      background: rgba(56,189,248,0.15);
+      color: var(--accent);
+      border: 1px solid rgba(56,189,248,0.35);
+      border-radius: 999px;
+      padding: 1px 10px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      margin-bottom: 5px;
+      max-width: 100%;
+      word-break: break-word;
+      unicode-bidi: plaintext;
+    }
+    .match-val {
+      font-size: 0.95rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+      unicode-bidi: plaintext;
+    }
+    .time-badge {
+      display: inline-block;
+      background: rgba(52,211,153,0.15);
+      color: var(--ok);
+      border: 1px solid rgba(52,211,153,0.35);
+      border-radius: 6px;
+      padding: 0 7px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      margin-inline-start: 8px;
+      font-variant-numeric: tabular-nums;
+      direction: ltr;
+      unicode-bidi: isolate;
+      white-space: nowrap;
+    }
+    .match-ctx {
+      color: var(--muted);
+      font-size: 0.78rem;
+      margin-top: 3px;
+      unicode-bidi: plaintext;
+    }
+    .group-sub {
+      color: var(--text);
+      font-size: 0.83rem;
+      font-weight: 700;
+      margin: 12px 0 4px;
+      padding-inline-start: 8px;
+      border-inline-start: 3px solid var(--accent-2);
+      unicode-bidi: plaintext;
+    }
+
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; align-items: center; }
+    .chip {
+      background: var(--card-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 999px;
+      padding: 4px 12px;
+      font-size: 0.82rem;
+      cursor: pointer;
+      unicode-bidi: plaintext;
+    }
+    .chip:active { background: #31425c; }
+    .chip.clear { color: var(--muted); border-style: dashed; }
+    .chips-label { color: var(--muted); font-size: 0.78rem; margin-inline-end: 2px; }
+    .continue-chip { color: var(--accent); border-color: rgba(56,189,248,0.4); }
+
+    .no-match { color: var(--muted); font-size: 0.88rem; }
+    .more-note { color: var(--muted); font-size: 0.8rem; margin-top: 6px; }
+    footer { text-align: center; color: var(--muted); font-size: 0.75rem; margin-top: 8px; line-height: 1.6; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>🔎 חיפוש בקובץ</h1>
+      <p>הקובץ נשאר במכשיר שלך — שום דבר לא נשלח לאינטרנט. עובד גם בלי חיבור.</p>
+    </header>
+
+    <div class="card">
+      <label>1. בחירת קובץ <span class="hint">(טקסט, CSV, PDF, Word, Excel)</span></label>
+      <label class="file-btn" for="fileInput">
+        <span>📄 בחר / צלם קובץ…</span>
+      </label>
+      <input type="file" id="fileInput" accept=".txt,.csv,.log,.json,.md,.pdf,.docx,.xlsx">
+      <div class="file-name" id="fileName">לא נבחר קובץ</div>
+      <div class="chips" id="continueRow" hidden></div>
+    </div>
+
+    <div class="card">
+      <label for="query">2. מה לחפש? <span class="hint">התוצאות מתעדכנות תוך כדי הקלדה · כמה מונחים? הפרד בפסיק</span></label>
+      <input type="text" id="query" placeholder="הקלד מונח לחיפוש…" autocomplete="off">
+      <div class="chips" id="historyRow" hidden></div>
+      <div class="options">
+        <input type="checkbox" id="caseSensitive">
+        <label for="caseSensitive" style="margin:0;font-weight:400;">התאמת אותיות גדולות/קטנות (Case sensitive)</label>
+      </div>
+      <div class="options">
+        <input type="checkbox" id="hasHeader" checked>
+        <label for="hasHeader" style="margin:0;font-weight:400;">לטבלה (Excel/CSV) יש שורת כותרות בראש</label>
+      </div>
+    </div>
+
+    <div id="status"></div>
+    <button class="copy-btn" id="copyBtn" hidden>📋 העתק תוצאות</button>
+    <div id="results"></div>
+
+    <footer>הכול מתבצע במכשיר · ללא שרת · לשימוש פרטי</footer>
+  </div>
+
+<!--LIBS-->
+
+  <script>
+    const MAX_MATCHES_PER_TERM = 500;
+
+    const fileInput = document.getElementById('fileInput');
+    const fileNameEl = document.getElementById('fileName');
+    const queryEl = document.getElementById('query');
+    const caseEl = document.getElementById('caseSensitive');
+    const headerEl = document.getElementById('hasHeader');
+    const statusEl = document.getElementById('status');
+    const resultsEl = document.getElementById('results');
+    const copyBtn = document.getElementById('copyBtn');
+    const continueRow = document.getElementById('continueRow');
+    const historyRow = document.getElementById('historyRow');
+
+    let currentFile = null;
+    let lastResults = [];   // [{ term, matches:[{category,value,context,time,group}] }] for copying
+    let cachedModel = null; // parsed model, reused across searches of the same file
+    let cachedKey = null;   // identity of the file+options the cache was built for
+    let searchTimer = null; // debounce handle for live search
+
+    // Configure the (inlined) PDF worker so PDF parsing works fully offline.
+    if (window.pdfjsLib && window.PDF_WORKER_DATA_URI) {
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = window.PDF_WORKER_DATA_URI;
+    }
+
+    function useFile(file) {
+      currentFile = file || null;
+      cachedModel = null;
+      cachedKey = null;
+      fileNameEl.textContent = currentFile ? currentFile.name : 'לא נבחר קובץ';
+      resultsEl.innerHTML = '';
+      copyBtn.hidden = true;
+      setStatus('');
+    }
+
+    fileInput.addEventListener('change', () => {
+      const f = fileInput.files[0] || null;
+      useFile(f);
+      if (f) saveLastFile(f);
+      if (f && queryEl.value.trim()) runSearch();
+    });
+
+    queryEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') { clearTimeout(searchTimer); queryEl.blur(); runSearch(); } });
+    // Live search: re-run (debounced) as the user types, reusing the cached model.
+    queryEl.addEventListener('input', () => {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => {
+        if (currentFile && queryEl.value.trim()) runSearch({ live: true });
+        else if (!queryEl.value.trim()) { resultsEl.innerHTML = ''; copyBtn.hidden = true; setStatus(''); }
+      }, 250);
+    });
+    caseEl.addEventListener('change', () => { if (currentFile && queryEl.value.trim()) runSearch(); });
+    headerEl.addEventListener('change', () => { cachedModel = null; if (currentFile && queryEl.value.trim()) runSearch(); });
+
+    function setStatus(msg, kind) {
+      statusEl.textContent = msg;
+      statusEl.className = kind || '';
+    }
+
+    function debounce(fn, ms) {
+      let t = null;
+      return function () { clearTimeout(t); const a = arguments; t = setTimeout(() => fn.apply(null, a), ms); };
+    }
+
+    // ---- Remember last file (IndexedDB, stays on this device) ----
+    function idb() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open('fileSearchDB', 1);
+        req.onupgradeneeded = () => req.result.createObjectStore('files');
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+    async function idbPut(key, val) {
+      const db = await idb();
+      return new Promise((res, rej) => {
+        const tx = db.transaction('files', 'readwrite');
+        tx.objectStore('files').put(val, key);
+        tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+      });
+    }
+    async function idbGet(key) {
+      const db = await idb();
+      return new Promise((res, rej) => {
+        const tx = db.transaction('files', 'readonly');
+        const r = tx.objectStore('files').get(key);
+        r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+      });
+    }
+    async function idbDel(key) {
+      const db = await idb();
+      return new Promise((res, rej) => {
+        const tx = db.transaction('files', 'readwrite');
+        tx.objectStore('files').delete(key);
+        tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+      });
+    }
+
+    async function saveLastFile(file) {
+      try {
+        const buffer = await file.arrayBuffer();
+        await idbPut('lastFile', { name: file.name, type: file.type, buffer: buffer });
+        renderContinueChip(file.name);
+      } catch (e) { /* storage unavailable — ignore */ }
+    }
+
+    async function loadLastFileMeta() {
+      try {
+        const rec = await idbGet('lastFile');
+        if (rec && rec.name) renderContinueChip(rec.name);
+      } catch (e) { /* ignore */ }
+    }
+
+    function renderContinueChip(name) {
+      continueRow.innerHTML = '';
+      const chip = document.createElement('button');
+      chip.className = 'chip continue-chip';
+      chip.textContent = '📂 המשך עם: ' + name;
+      chip.addEventListener('click', continueLastFile);
+      const clear = document.createElement('button');
+      clear.className = 'chip clear';
+      clear.textContent = 'נקה';
+      clear.addEventListener('click', async () => { await idbDel('lastFile'); continueRow.hidden = true; });
+      continueRow.appendChild(chip);
+      continueRow.appendChild(clear);
+      continueRow.hidden = false;
+    }
+
+    async function continueLastFile() {
+      try {
+        const rec = await idbGet('lastFile');
+        if (!rec) return;
+        useFile(new File([rec.buffer], rec.name, { type: rec.type || '' }));
+        if (queryEl.value.trim()) runSearch();
+        else queryEl.focus();
+      } catch (e) { setStatus('טעינת הקובץ השמור נכשלה.', 'err'); }
+    }
+
+    // ---- Search history (localStorage) ----
+    const HIST_KEY = 'fileSearchHistory';
+    function getHistory() {
+      try { return JSON.parse(localStorage.getItem(HIST_KEY) || '[]'); } catch (e) { return []; }
+    }
+    function pushHistory(q) {
+      q = q.trim();
+      if (!q) return;
+      // Drop an exact duplicate and any shorter entry that is just a prefix of q
+      // (so live-typing fragments like "עי"/"עיד" don't pile up).
+      let h = getHistory().filter((x) => x !== q && !(q.startsWith(x) && x.length < q.length));
+      h.unshift(q);
+      h = h.slice(0, 8);
+      try { localStorage.setItem(HIST_KEY, JSON.stringify(h)); } catch (e) { /* ignore */ }
+      renderHistory();
+    }
+    // Commit to history only after typing settles, so live search doesn't
+    // record every intermediate keystroke.
+    let pendingHist = '';
+    const commitHistory = debounce(() => { if (pendingHist) { pushHistory(pendingHist); pendingHist = ''; } }, 1200);
+    function renderHistory() {
+      const h = getHistory();
+      historyRow.innerHTML = '';
+      if (h.length === 0) { historyRow.hidden = true; return; }
+      const label = document.createElement('span');
+      label.className = 'chips-label';
+      label.textContent = 'אחרונים:';
+      historyRow.appendChild(label);
+      h.forEach((q) => {
+        const chip = document.createElement('button');
+        chip.className = 'chip';
+        chip.textContent = q;
+        chip.addEventListener('click', () => { queryEl.value = q; runSearch(); });
+        historyRow.appendChild(chip);
+      });
+      const clear = document.createElement('button');
+      clear.className = 'chip clear';
+      clear.textContent = 'נקה היסטוריה';
+      clear.addEventListener('click', () => { pendingHist = ''; try { localStorage.removeItem(HIST_KEY); } catch (e) {} renderHistory(); });
+      historyRow.appendChild(clear);
+      historyRow.hidden = false;
+    }
+
+    function getExt(name) {
+      const i = name.lastIndexOf('.');
+      return i >= 0 ? name.slice(i + 1).toLowerCase() : '';
+    }
+
+    // ---- Extractors: each returns a single text string ----
+    function readAsText(file) {
+      return new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result);
+        r.onerror = () => reject(new Error('קריאת הקובץ נכשלה'));
+        r.readAsText(file);
+      });
+    }
+
+    function readAsArrayBuffer(file) {
+      return new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result);
+        r.onerror = () => reject(new Error('קריאת הקובץ נכשלה'));
+        r.readAsArrayBuffer(file);
+      });
+    }
+
+    function extractTimes(text) {
+      const t = text.match(/\d{1,2}:\d{2}/g);
+      if (!t) return '';
+      return t.length >= 2 ? t[0] + '–' + t[1] : t[0];
+    }
+
+    // PDF → rich lines. Rebuilds the layout from glyph coordinates so each
+    // match carries its section context (day / task / position) and time.
+    // Headers come in three levels by font height; a "position" label is a
+    // lone short line sitting in the right-hand column.
+    // Ask for a password (retrying) when a PDF is encrypted.
+    function pdfPasswordCb(updatePassword, reason) {
+      const msg = reason === window.pdfjsLib.PasswordResponses.INCORRECT_PASSWORD
+        ? 'הסיסמה שגויה — נסה שוב:'
+        : 'הקובץ מוגן בסיסמה. הזן סיסמה:';
+      const pw = window.prompt(msg);
+      if (pw === null) throw new Error('נדרשת סיסמה כדי לפתוח את ה־PDF');
+      updatePassword(pw);
+    }
+
+    async function extractPdfLines(file) {
+      if (!window.pdfjsLib) throw new Error('רכיב קריאת PDF לא נטען');
+      const buf = await readAsArrayBuffer(file);
+      const loadingTask = window.pdfjsLib.getDocument({ data: buf });
+      loadingTask.onPassword = pdfPasswordCb;
+      const pdf = await loadingTask.promise;
+
+      const rows = [];
+      for (let p = 1; p <= pdf.numPages; p++) {
+        const page = await pdf.getPage(p);
+        const items = (await page.getTextContent()).items
+          .filter((it) => it.str && it.str.trim())
+          .map((it) => ({ x: it.transform[4], y: it.transform[5], h: it.height || 0, s: it.str }));
+        items.sort((a, b) => b.y - a.y || a.x - b.x);
+        // Cluster glyphs into visual rows (tolerate ~3px so a name and its
+        // time on the same baseline stay together).
+        let cur = null;
+        for (const it of items) {
+          if (cur && Math.abs(cur.y - it.y) <= 3) { cur.frags.push(it); }
+          else { cur = { y: it.y, frags: [it] }; rows.push(cur); }
+        }
+      }
+
+      const built = rows.map((row) => {
+        const frags = row.frags.slice().sort((a, b) => b.x - a.x); // RTL: right first
+        return {
+          text: frags.map((f) => f.s).join(' ').replace(/\s+/g, ' ').trim(),
+          maxH: frags.reduce((m, f) => Math.max(m, f.h), 0),
+          nfrag: frags.length,
+          minX: Math.min.apply(null, frags.map((f) => f.x))
+        };
+      }).filter((r) => r.text);
+
+      const sizes = built.map((r) => r.maxH).sort((a, b) => a - b);
+      const body = sizes.length ? sizes[Math.floor(sizes.length / 2)] : 0;
+
+      const lines = [];
+      let day = null, task = null, subStack = [], contentSince = false, n = 0;
+      for (const r of built) {
+        const times = /\d{1,2}:\d{2}/.test(r.text);
+        if (body > 0 && r.maxH >= Math.max(body * 1.25, 9)) {           // day
+          day = r.text; task = null; subStack = []; contentSince = false; continue;
+        }
+        if (body > 0 && r.maxH >= body * 1.08) {                        // task / group
+          task = r.text; subStack = []; contentSince = false; continue;
+        }
+        // position: a lone short label parked in the right column
+        if (r.nfrag === 1 && !times && r.text.length <= 30 && r.minX >= 470 && /[א-ת]/.test(r.text)) {
+          if (contentSince) subStack = [r.text];
+          else { subStack.push(r.text); if (subStack.length > 2) subStack.shift(); }
+          contentSince = false;
+          continue;
+        }
+        // content row
+        contentSince = true;
+        n++;
+        const section = subStack.join(' · ');
+        const category = section || task || day || 'ללא כותרת';
+        const ctx = [];
+        if (day && day !== category) ctx.push(day);
+        if (task && task !== category && task !== section) ctx.push(task);
+        ctx.push('שורה ' + n);
+        const time = extractTimes(r.text);
+        // Clean value: drop the "מ-/עד-" words and HH:MM tokens (shown as a badge).
+        const clean = r.text.split(' ')
+          .filter((w) => !/^\d{1,2}:\d{2}$/.test(w) && w !== 'מ-' && w !== 'עד-' && w !== 'מ' && w !== 'עד')
+          .join(' ').replace(/\s+/g, ' ').trim();
+        lines.push({
+          text: clean || r.text,
+          category: category,
+          context: ctx.join(' · '),
+          time: time,
+          group: day || category
+        });
+      }
+      return lines;
+    }
+
+    // Word → line segments using the document's real heading styles (h1–h6).
+    async function extractDocxSegments(file) {
+      if (!window.mammoth) throw new Error('רכיב קריאת Word לא נטען');
+      const buf = await readAsArrayBuffer(file);
+      const res = await window.mammoth.convertToHtml({ arrayBuffer: buf });
+      const dom = new DOMParser().parseFromString(res.value || '', 'text/html');
+      const segs = [];
+      dom.body.querySelectorAll('h1,h2,h3,h4,h5,h6,p,li,td,th').forEach((el) => {
+        const text = (el.textContent || '').replace(/\s+/g, ' ').trim();
+        if (text) segs.push({ text, isHeading: /^H[1-6]$/.test(el.tagName) });
+      });
+      return segs;
+    }
+
+    // A conservative heading test for plain text (no styling available):
+    // Markdown headings, ALL-CAPS titles, or short pure-label lines ending ":".
+    function looksLikeHeading(line) {
+      const t = line.trim();
+      if (!t || t.length > 50) return false;
+      if (/^#{1,6}\s+/.test(t)) return true;
+      if (/^[^a-z]*$/.test(t) && /[A-Z֐-׿]/.test(t) && !/\d{2,}/.test(t)) return true; // ALL-CAPS / Hebrew title
+      if (/^[\wא-ת \-]{1,30}[:：]$/.test(t)) return true;         // short label ending with a colon
+      return false;
+    }
+
+    function plainTextSegments(raw) {
+      return String(raw).split(/\r\n|\r|\n/).map((text) => ({
+        text: text,
+        isHeading: looksLikeHeading(text)
+      }));
+    }
+
+    // Walk segments in order, attaching the current section heading to each line.
+    function assignHeadings(segments) {
+      let current = null;
+      const out = [];
+      let n = 0;
+      for (const s of segments) {
+        if (s.isHeading) current = s.text.replace(/^#{1,6}\s+/, '').replace(/[:：]$/, '').trim();
+        if (!s.text.trim()) { n++; continue; }
+        n++;
+        const cat = current || 'ללא כותרת';
+        out.push({ text: s.text, category: cat, context: 'שורה ' + n, time: '', group: cat });
+      }
+      return out;
+    }
+
+    // Fill merged cells with their anchor value so merged labels aren't blank.
+    function fillMerges(sheet) {
+      const merges = sheet['!merges'];
+      if (!merges) return;
+      merges.forEach((m) => {
+        const anchor = sheet[window.XLSX.utils.encode_cell({ r: m.s.r, c: m.s.c })];
+        if (!anchor) return;
+        for (let R = m.s.r; R <= m.e.r; R++) {
+          for (let C = m.s.c; C <= m.e.c; C++) {
+            const addr = window.XLSX.utils.encode_cell({ r: R, c: C });
+            if (!sheet[addr]) sheet[addr] = { t: anchor.t, v: anchor.v, w: anchor.w };
+          }
+        }
+      });
+    }
+
+    // Turn a SheetJS worksheet into { headers, rows } honoring the header toggle.
+    function sheetToTable(sheet, name) {
+      fillMerges(sheet);
+      const grid = window.XLSX.utils.sheet_to_json(sheet, { header: 1, blankrows: false, raw: false });
+      const cells = grid.map((row) => (row || []).map((c) => (c == null ? '' : String(c))));
+      let headers, rows;
+      if (headerEl.checked && cells.length > 0) {
+        headers = cells[0];
+        rows = cells.slice(1);
+      } else {
+        const width = cells.reduce((w, r) => Math.max(w, r.length), 0);
+        headers = Array.from({ length: width }, (_, i) => 'עמודה ' + (i + 1));
+        rows = cells;
+      }
+      return { name, headers, rows };
+    }
+
+    async function tablesFromXlsx(file) {
+      if (!window.XLSX) throw new Error('רכיב קריאת Excel לא נטען');
+      const buf = await readAsArrayBuffer(file);
+      const wb = window.XLSX.read(buf, { type: 'array' });
+      return wb.SheetNames.map((name) => sheetToTable(wb.Sheets[name], name));
+    }
+
+    async function tablesFromCsv(file) {
+      if (!window.XLSX) throw new Error('רכיב קריאת CSV לא נטען');
+      const text = await readAsText(file);
+      // Reuse SheetJS to parse CSV so quoted fields / embedded commas are handled.
+      const wb = window.XLSX.read(text, { type: 'string' });
+      const name = wb.SheetNames[0];
+      return [sheetToTable(wb.Sheets[name], name)];
+    }
+
+    // Parse a file into a structured model: a table (columns) or a document (lines).
+    async function parseFile(file) {
+      const ext = getExt(file.name);
+      if (ext === 'xlsx') return { kind: 'table', tables: await tablesFromXlsx(file) };
+      if (ext === 'csv')  return { kind: 'table', tables: await tablesFromCsv(file) };
+      if (ext === 'pdf')  return { kind: 'text', lines: await extractPdfLines(file) };
+      if (ext === 'docx') return { kind: 'text', lines: assignHeadings(await extractDocxSegments(file)) };
+      // txt / log / json / md / unknown → plain text
+      return { kind: 'text', lines: assignHeadings(plainTextSegments(await readAsText(file))) };
+    }
+
+    // ---- Search + rendering ----
+    function parseTerms(raw) {
+      return raw.split(',').map((t) => t.trim()).filter((t) => t.length > 0);
+    }
+
+    function escapeHtml(s) {
+      return s.replace(/[&<>"']/g, (c) => (
+        { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+      ));
+    }
+
+    function escapeRegExp(s) {
+      return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    // Build a tolerant matcher for `term`: ignores Hebrew nikkud and treats any
+    // run of whitespace as flexible, so "עידו  גולדנברג" or nikkud'd text still
+    // matches. Offsets map to the original string, so highlighting stays correct.
+    const NIKKUD = '[\\s\\u0591-\\u05C7]*';
+    function buildMatcher(term, caseSensitive) {
+      const parts = term.split(/\s+/).filter((p) => p.length > 0).map((word) =>
+        word.split('').map((ch) => escapeRegExp(ch)).join(NIKKUD)
+      );
+      const pattern = parts.join('[\\s\\u0591-\\u05C7]+');
+      return new RegExp(pattern || escapeRegExp(term), caseSensitive ? 'g' : 'gi');
+    }
+
+    // Highlight all matches of `matcher` inside a line, escaping every
+    // file-derived segment so <mark> is the only injected HTML.
+    function highlightLine(line, matcher) {
+      matcher.lastIndex = 0;
+      let out = '';
+      let last = 0;
+      let m;
+      while ((m = matcher.exec(line)) !== null) {
+        out += escapeHtml(line.slice(last, m.index));
+        out += '<mark>' + escapeHtml(m[0]) + '</mark>';
+        last = m.index + m[0].length;
+        if (m.index === matcher.lastIndex) matcher.lastIndex++; // guard against zero-length
+      }
+      out += escapeHtml(line.slice(last));
+      return out;
+    }
+
+    function matches(hay, matcher) {
+      matcher.lastIndex = 0;
+      return matcher.test(hay);
+    }
+
+    // Collect matches from the parsed model as uniform cards:
+    // { category, value, context, time, group }.
+    function collectMatches(model, term, caseSensitive) {
+      const out = [];
+      const matcher = buildMatcher(term, caseSensitive);
+      const limit = MAX_MATCHES_PER_TERM + 1;
+      if (model.kind === 'table') {
+        const multiSheet = model.tables.length > 1;
+        for (const table of model.tables) {
+          for (let r = 0; r < table.rows.length; r++) {
+            const row = table.rows[r];
+            const rowLabel = row[0] != null ? String(row[0]) : '';
+            for (let c = 0; c < row.length; c++) {
+              const cell = row[c];
+              if (cell && matches(cell, matcher)) {
+                let ctx = 'שורה ' + (r + 1);
+                if (rowLabel && c !== 0) ctx += ' · ' + rowLabel;
+                const grp = multiSheet ? ('גיליון ' + table.name) : (table.headers[c] || ('עמודה ' + (c + 1)));
+                out.push({
+                  category: table.headers[c] || ('עמודה ' + (c + 1)),
+                  value: cell,
+                  context: ctx,
+                  time: '',
+                  group: grp
+                });
+                if (out.length >= limit) return out;
+              }
+            }
+          }
+        }
+      } else {
+        for (const ln of model.lines) {
+          if (ln.text && matches(ln.text, matcher)) {
+            out.push({ category: ln.category, value: ln.text, context: ln.context, time: ln.time || '', group: ln.group || ln.category });
+            if (out.length >= limit) return out;
+          }
+        }
+      }
+      return out;
+    }
+
+    function renderResults(terms, model, caseSensitive) {
+      resultsEl.innerHTML = '';
+      lastResults = [];
+      let totalFound = 0;
+
+      terms.forEach((term) => {
+        const found = collectMatches(model, term, caseSensitive);
+        const capped = found.length > MAX_MATCHES_PER_TERM;
+        const shown = capped ? found.slice(0, MAX_MATCHES_PER_TERM) : found;
+        // Keep the file's own order; a subheader is emitted when the group changes.
+        totalFound += found.length;
+        lastResults.push({ term: term, matches: shown });
+
+        const matcher = buildMatcher(term, caseSensitive);
+        const group = document.createElement('div');
+        group.className = 'term-group';
+
+        const head = document.createElement('div');
+        head.className = 'term-head';
+        const countLabel = capped
+          ? ('מוצגות ' + MAX_MATCHES_PER_TERM + '+ תוצאות')
+          : (found.length + ' תוצאות');
+        head.innerHTML = '<span class="term">' + escapeHtml(term) + '</span>' +
+                         '<span class="count">' + countLabel + '</span>';
+        group.appendChild(head);
+
+        if (shown.length === 0) {
+          const nm = document.createElement('div');
+          nm.className = 'no-match';
+          nm.textContent = 'לא נמצאו תוצאות';
+          group.appendChild(nm);
+        } else {
+          const manyGroups = new Set(shown.map((m) => m.group)).size > 1;
+          let lastGroup = null;
+          shown.forEach((mt) => {
+            if (manyGroups && mt.group && mt.group !== lastGroup) {
+              lastGroup = mt.group;
+              const sub = document.createElement('div');
+              sub.className = 'group-sub';
+              sub.textContent = mt.group;
+              group.appendChild(sub);
+            }
+            const card = document.createElement('div');
+            card.className = 'match-card';
+
+            const chip = document.createElement('span');
+            chip.className = 'cat-chip';
+            chip.textContent = mt.category;
+
+            const val = document.createElement('div');
+            val.className = 'match-val';
+            val.innerHTML = highlightLine(mt.value, matcher);
+            if (mt.time) {
+              const badge = document.createElement('span');
+              badge.className = 'time-badge';
+              badge.textContent = '🕐 ' + mt.time;
+              val.appendChild(badge);
+            }
+
+            const ctx = document.createElement('div');
+            ctx.className = 'match-ctx';
+            ctx.textContent = mt.context;
+
+            card.appendChild(chip);
+            card.appendChild(val);
+            card.appendChild(ctx);
+            group.appendChild(card);
+          });
+          if (capped) {
+            const note = document.createElement('div');
+            note.className = 'more-note';
+            note.textContent = 'יש עוד תוצאות — מוצגות ' + MAX_MATCHES_PER_TERM + ' הראשונות.';
+            group.appendChild(note);
+          }
+        }
+        resultsEl.appendChild(group);
+      });
+
+      return totalFound;
+    }
+
+    // Build a plain-text version of the current results for copying.
+    function buildCopyText() {
+      const out = [];
+      const fname = currentFile ? currentFile.name : '';
+      if (fname) out.push('קובץ: ' + fname);
+      lastResults.forEach((g) => {
+        out.push('');
+        out.push('▸ ' + g.term + ' (' + g.matches.length + ' תוצאות)');
+        if (g.matches.length === 0) { out.push('   לא נמצאו תוצאות'); return; }
+        const manyGroups = new Set(g.matches.map((m) => m.group)).size > 1;
+        let lastGroup = null;
+        g.matches.forEach((m) => {
+          if (manyGroups && m.group && m.group !== lastGroup) { lastGroup = m.group; out.push('  ' + m.group + ':'); }
+          const cat = m.category ? '[' + m.category + '] ' : '';
+          const time = m.time ? ' 🕐 ' + m.time : '';
+          const ctx = m.context ? '  —  ' + m.context : '';
+          out.push('   • ' + cat + m.value + time + ctx);
+        });
+      });
+      return out.join('\n').trim();
+    }
+
+    async function copyResults() {
+      const text = buildCopyText();
+      if (!text) return;
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(text);
+        } else {
+          const ta = document.createElement('textarea');
+          ta.value = text;
+          ta.style.position = 'fixed';
+          ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.focus();
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+        }
+        copyBtn.textContent = '✓ הועתק ללוח';
+        copyBtn.classList.add('done');
+        setTimeout(() => {
+          copyBtn.textContent = '📋 העתק תוצאות';
+          copyBtn.classList.remove('done');
+        }, 1800);
+      } catch (e) {
+        copyBtn.textContent = 'ההעתקה נכשלה — בחר והעתק ידנית';
+        setTimeout(() => { copyBtn.textContent = '📋 העתק תוצאות'; }, 2200);
+      }
+    }
+
+    copyBtn.addEventListener('click', copyResults);
+
+    function fileKey(file) {
+      return [file.name, file.size, file.lastModified, headerEl.checked].join('|');
+    }
+
+    // Parse once per file+options; reuse the cached model for later searches.
+    async function getModel() {
+      const key = fileKey(currentFile);
+      if (cachedModel && cachedKey === key) return cachedModel;
+      setStatus('טוען וקורא את הקובץ…', 'info');
+      const model = await parseFile(currentFile);
+      cachedModel = model;
+      cachedKey = key;
+      return model;
+    }
+
+    async function runSearch(opts) {
+      opts = opts || {};
+      if (!currentFile) { if (!opts.live) setStatus('קודם בחר קובץ.', 'err'); return; }
+      const terms = parseTerms(queryEl.value);
+      if (terms.length === 0) { if (!opts.live) setStatus('הקלד לפחות מונח אחד לחיפוש.', 'err'); return; }
+
+      try {
+        const model = await getModel();
+        setStatus('מחפש…', 'info');
+        const total = renderResults(terms, model, caseEl.checked);
+        copyBtn.hidden = total === 0;
+        copyBtn.textContent = '📋 העתק תוצאות';
+        copyBtn.classList.remove('done');
+        if (total === 0) {
+          setStatus('החיפוש הסתיים — לא נמצאו תוצאות.', 'info');
+        } else {
+          setStatus('נמצאו ' + total + ' תוצאות סה״כ.', 'ok');
+        }
+        // Remember only searches that found something, once typing settles.
+        pendingHist = total > 0 ? queryEl.value : '';
+        commitHistory();
+      } catch (err) {
+        console.error(err);
+        copyBtn.hidden = true;
+        resultsEl.innerHTML = '';
+        setStatus('שגיאה: ' + (err && err.message ? err.message : 'קריאת הקובץ נכשלה'), 'err');
+      }
+    }
+
+    // On load: restore search history and offer the last-used file.
+    renderHistory();
+    loadLastFileMeta();
+  </script>
+</body>
+</html>
