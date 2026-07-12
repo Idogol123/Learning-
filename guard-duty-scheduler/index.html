@@ -49,9 +49,10 @@
   .card{background:var(--card); border:1px solid var(--line); border-radius:var(--r); padding:14px; margin:12px 0; box-shadow:var(--shadow)}
   .card h2{margin:0 0 4px; font-size:16px; display:flex; align-items:center; gap:8px}
   input,select,button{font:inherit; color:inherit}
-  input[type=text],input[type=number],input[type=time],input[type=date],input[type=datetime-local],select{
+  input[type=text],input[type=number],input[type=time],input[type=date],input[type=datetime-local],select,textarea{
     width:100%; padding:13px; border:1.5px solid var(--line); border-radius:11px; background:var(--bg); color:var(--ink);
   }
+  textarea{font:inherit; line-height:1.7; resize:vertical; min-height:120px}
   select{-webkit-appearance:none; appearance:none; background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path fill='%236b7160' d='M6 8 0 0h12z'/></svg>"); background-repeat:no-repeat; background-position:left 14px center; padding-inline-start:36px}
   .hint{font-size:12px; color:var(--muted); margin:6px 0 0}
   label{display:block; font-size:13px; color:var(--muted); margin:10px 0 4px; font-weight:600}
@@ -202,8 +203,17 @@
     <input id="fileInput" type="file" accept=".txt,.csv,text/plain,text/csv">
     <label style="margin-top:10px">תמונה של רשימה — מהגלריה או מהמצלמה (OCR, דורש אינטרנט)</label>
     <input id="imageInput" type="file" accept="image/*">
-    <p class="hint">אפשר לבחור תמונה קיימת מהמכשיר, או לצלם עכשיו.</p>
+    <p class="hint">אפשר לבחור תמונה קיימת מהמכשיר, או לצלם עכשיו. זיהוי עברית אינו מושלם — תמיד תעבור על התוצאה לפני הוספה.</p>
     <div id="ocrProgress"><i></i></div>
+    <div id="reviewPanel" class="hide" style="margin-top:12px; border-top:1px dashed var(--line); padding-top:10px">
+      <label>בדוק ותקן — שם בכל שורה. מחק שורות מיותרות, תקן טעויות זיהוי, ואז הוסף:</label>
+      <textarea id="reviewText" spellcheck="false" autocomplete="off" placeholder="שם בכל שורה…"></textarea>
+      <p class="hint" id="reviewInfo"></p>
+      <div class="btn-wrap">
+        <button class="btn sm" type="button" id="reviewAdd">➕ הוסף את השמות</button>
+        <button class="btn sec sm" type="button" id="reviewCancel">ביטול</button>
+      </div>
+    </div>
   </div>
   <p class="hint" id="namesInfo"></p>
 </section>
@@ -379,6 +389,34 @@ function fmtDay(d){ return DAYS[d.getDay()]+" "+pad(d.getDate())+"/"+pad(d.getMo
 function fmtDur(min){ min=Math.round(min); const h=Math.floor(min/60), m=min%60; return m?(h?h+":"+pad(m)+"ש":m+" ד׳"):(h+"ש"); }
 function escapeHtml(s){ return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 function parseNames(text){ return text.split(/[\r\n,;]+/).map(l=>l.trim()).filter(Boolean); }
+
+// --- OCR cleanup: strip junk so a WhatsApp/list screenshot yields real names ---
+// Known non-name UI text (WhatsApp members screen, invites, admin labels, phones…)
+const OCR_JUNK = [
+  /צירוף/, /הזמנ/, /קישור/, /\bqr\b/i, /קוד\s*qr/i, /מנהל/, /את\s*\/?\s*ה/, /הוספת/, /תג\s*חבר/,
+  /^חבר(ים)?$/, /סגל/, /דורס/, /קבוצה/, /משתתפ/, /יצא\b/, /הוסר/, /^\+?\d/, /טלפון/
+];
+function cleanNameLine(raw){
+  let s = String(raw);
+  try{ s = s.replace(/[\p{Extended_Pictographic}️‍]/gu, " "); }catch(e){}   // drop emoji
+  s = s.replace(/[0-9٠-٩₪$€©®%|/\\«»@~^*+=<>_()\[\]{}.,:;"'`]/g, " ");        // drop digits & symbols
+  return s.replace(/\s+/g, " ").trim();
+}
+function looksLikeName(raw){
+  const s = cleanNameLine(raw);
+  if(s.length < 2 || s.length > 30) return false;
+  const heb = (s.match(/[֐-׿]/g) || []).length;
+  if(heb < 2) return false;                                     // require a real Hebrew name
+  if(OCR_JUNK.some(re => re.test(raw.toLowerCase()))) return false;
+  return true;
+}
+// Turn raw OCR text into cleaned candidate names (deduped). Falls back to raw lines if nothing survives.
+function ocrCandidates(text){
+  const lines = text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+  const seen = new Set(), out = [];
+  lines.forEach(l=>{ if(looksLikeName(l)){ const n=cleanNameLine(l); if(!seen.has(n)){ seen.add(n); out.push(n); } } });
+  return out;
+}
 function parseCsv(text){
   const lines=text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean); if(!lines.length) return [];
   let rows=lines.map(l=>(l.split(",")[0]||"").replace(/^["']|["']$/g,"").trim()).filter(Boolean);
@@ -765,8 +803,19 @@ async function runOcr(file){
     if(typeof Tesseract==="undefined") await loadScript("https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js");
     const {data}=await Tesseract.recognize(file,"heb+eng",{logger:m=>{ if(m.status==="recognizing text") bar.style.width=(10+m.progress*88)+"%"; }});
     bar.style.width="100%";
-    const added=addNamesText(data.text);
-    showMsg("נוספו "+added+" שמות מהתמונה — בדוק ותקן ✓","ok");
+    const cands=ocrCandidates(data.text);
+    const ta=$("#reviewText"), info=$("#reviewInfo");
+    if(cands.length){
+      ta.value=cands.join("\n");
+      info.textContent="זוהו "+cands.length+" שמות אפשריים (סוננו מספרים וטקסט מיותר). עבור עליהם, מחק/תקן, ואז הוסף.";
+      showMsg("זוהו "+cands.length+" שמות — בדוק ותקן לפני הוספה ✓","ok");
+    } else {
+      ta.value=data.text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean).join("\n");
+      info.textContent="לא זוהו שמות ברורים. ערוך את הטקסט ידנית — שם בכל שורה.";
+      showMsg("הזיהוי לא היה ברור — נקה את הטקסט ידנית.","info");
+    }
+    $("#reviewPanel").classList.remove("hide");
+    ta.focus();
   }catch(e){ showMsg("זיהוי מהתמונה נכשל (כנראה אין אינטרנט). הקלד/הדבק ידנית.","err"); }
   finally{ setTimeout(()=>{ prog.style.display="none"; bar.style.width="0"; },800); }
 }
@@ -821,6 +870,14 @@ function init(){
       const added=addNamesText(names.join("\n")); showMsg("נוספו "+added+" שמות מהקובץ ✓","ok"); };
     rd.readAsText(f,"utf-8"); e.target.value=""; });
   $("#imageInput").addEventListener("change",e=>{ const f=e.target.files[0]; if(f) runOcr(f); e.target.value=""; });
+  $("#reviewAdd").addEventListener("click",()=>{
+    const txt=$("#reviewText").value.trim();
+    if(!txt){ showMsg("אין שמות להוסיף.","err"); return; }
+    const added=addNamesText(txt);
+    $("#reviewPanel").classList.add("hide"); $("#reviewText").value="";
+    showMsg(added?("נוספו "+added+" שמות ✓"):"כל השמות כבר קיימים.","ok");
+  });
+  $("#reviewCancel").addEventListener("click",()=>{ $("#reviewPanel").classList.add("hide"); $("#reviewText").value=""; });
   $("#clearNames").addEventListener("click",()=>{ if(!state.guards.length) return; if(confirm("לנקות את כל השמות?")){ state.guards=[]; renderChips(); saveState(); updateWhenSummary(); } });
   $("#saveSquad").addEventListener("click",()=>{
     const guards=state.guards.map(g=>g.name.trim()).filter(Boolean);
