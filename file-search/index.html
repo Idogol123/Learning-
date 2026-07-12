@@ -676,6 +676,19 @@ return i=this.parent.children.indexOf(this),removed=this.parent.children.splice(
       updatePassword(pw);
     }
 
+    // Strip a sub-group heading down to its label: drop the head-count integers,
+    // the HH:MM times and the "מ-/עד-" range markers, leaving e.g. "תורני גדוד".
+    // Filter token-by-token — JS "\b" is ASCII-only and won't fence Hebrew words.
+    function cleanGroupLabel(t) {
+      return t
+        .replace(/\d{1,2}:\d{2}/g, ' ')   // times
+        .replace(/[-–]/g, ' ')            // dashes glued to מ-/עד-/times
+        .split(/\s+/)
+        .filter((w) => w && !/^\d{1,3}$/.test(w) && w !== 'מ' && w !== 'עד')
+        .join(' ')
+        .trim();
+    }
+
     async function extractPdfLines(file) {
       if (!window.pdfjsLib) throw new Error('רכיב קריאת PDF לא נטען');
       const buf = await readAsArrayBuffer(file);
@@ -714,16 +727,30 @@ return i=this.parent.children.indexOf(this),removed=this.parent.children.splice(
 
       const lines = [];
       let day = null, task = null, subStack = [], contentSince = false, n = 0;
+      let groupLabel = null, groupCaption = null;
       for (const r of built) {
         const times = /\d{1,2}:\d{2}/.test(r.text);
         if (body > 0 && r.maxH >= Math.max(body * 1.25, 9)) {           // day
-          day = r.text; task = null; subStack = []; contentSince = false; continue;
+          day = r.text; task = null; subStack = []; groupLabel = null; groupCaption = null; contentSince = false; continue;
         }
         if (body > 0 && r.maxH >= body * 1.08) {                        // task / group
-          task = r.text; subStack = []; contentSince = false; continue;
+          task = r.text; subStack = []; groupLabel = null; groupCaption = null; contentSince = false; continue;
+        }
+        // sub-group heading: a right-column row that carries a time range *and* a
+        // bare head-count integer, e.g. "מטבח 50 05:30–20:00" or
+        // "תורני גדוד 196 15 08:00–20:00". These sit at body height (not bold), so
+        // the font tests above miss them; without catching them here the name list
+        // that follows would inherit the previous position label (e.g. the kitchen
+        // commander) and every person on the roster would look like kitchen staff.
+        if (times && r.minX >= 400 && /[א-ת]/.test(r.text) &&
+            /\b\d{1,3}\b/.test(r.text.replace(/\d{1,2}:\d{2}/g, ' '))) {
+          groupLabel = cleanGroupLabel(r.text);
+          groupCaption = subStack.length ? subStack.join(' · ') : null; // e.g. its commander
+          subStack = []; contentSince = false; continue;
         }
         // position: a lone short label parked in the right column
         if (r.nfrag === 1 && !times && r.text.length <= 30 && r.minX >= 470 && /[א-ת]/.test(r.text)) {
+          groupLabel = null; groupCaption = null;
           if (contentSince) subStack = [r.text];
           else { subStack.push(r.text); if (subStack.length > 2) subStack.shift(); }
           contentSince = false;
@@ -733,10 +760,11 @@ return i=this.parent.children.indexOf(this),removed=this.parent.children.splice(
         contentSince = true;
         n++;
         const section = subStack.join(' · ');
-        const category = section || task || day || 'ללא כותרת';
+        const category = section || groupLabel || task || day || 'ללא כותרת';
         const ctx = [];
         if (day && day !== category) ctx.push(day);
         if (task && task !== category && task !== section) ctx.push(task);
+        if (groupCaption && groupCaption !== category) ctx.push(groupCaption);
         ctx.push('שורה ' + n);
         const time = extractTimes(r.text);
         // Clean value: drop the "מ-/עד-" words and HH:MM tokens (shown as a badge).
