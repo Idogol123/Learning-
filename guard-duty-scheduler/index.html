@@ -141,8 +141,6 @@
   .saved-item .nm{font-weight:600}
   .saved-item .meta{font-size:12px; color:var(--muted)}
 
-  #ocrProgress{height:6px; background:var(--chip); border-radius:6px; overflow:hidden; margin-top:8px; display:none}
-  #ocrProgress > i{display:block; height:100%; width:0; background:var(--accent); transition:width .2s}
 
   /* sticky generate bar */
   .sticky-bar{position:fixed; left:0; right:0; bottom:0; z-index:15;
@@ -194,28 +192,22 @@
   <div id="chips" class="chips"></div>
   <input id="nameInput" type="text" autocomplete="off" placeholder="שם שומר + Enter…">
   <div class="btn-wrap">
-    <button class="btn sec sm" type="button" id="importToggle">📎 מקובץ / תמונה</button>
+    <button class="btn sec sm" type="button" id="importToggle">📋 הדבק רשימה</button>
     <button class="btn sec sm" type="button" id="saveSquad">💾 שמור חבורה</button>
     <button class="btn sec sm" type="button" id="clearNames">🧹 נקה שמות</button>
   </div>
   <div id="importPanel" class="hide" style="margin-top:10px">
-    <label>קובץ שמות (.txt / .csv)</label>
-    <input id="fileInput" type="file" accept=".txt,.csv,text/plain,text/csv">
-    <label style="margin-top:10px">תמונה של רשימה — מהגלריה או מהמצלמה (OCR, דורש אינטרנט)</label>
-    <input id="imageInput" type="file" accept="image/*">
-    <p class="hint">אפשר לבחור תמונה קיימת מהמכשיר, או לצלם עכשיו. זיהוי עברית אינו מושלם — תמיד תעבור על התוצאה לפני הוספה.</p>
-    <div id="ocrProgress"><i></i></div>
-    <div id="reviewPanel" class="hide" style="margin-top:12px; border-top:1px dashed var(--line); padding-top:10px">
-      <label>בדוק ותקן — שם בכל שורה. מחק שורות מיותרות, תקן טעויות זיהוי, ואז הוסף:</label>
-      <textarea id="reviewText" spellcheck="false" autocomplete="off" placeholder="שם בכל שורה…"></textarea>
-      <p class="hint" id="reviewInfo"></p>
-      <div class="btn-wrap">
-        <button class="btn sm" type="button" id="reviewAdd">➕ הוסף את השמות</button>
-        <button class="btn sec sm" type="button" id="reviewCancel">ביטול</button>
-      </div>
+    <label>הדבק רשימת שמות — שם בכל שורה</label>
+    <textarea id="pasteText" spellcheck="false" autocomplete="off" placeholder="דני&#10;רותם&#10;יוסי…"></textarea>
+    <div class="btn-wrap">
+      <button class="btn sm" type="button" id="pasteAdd">➕ הוסף שמות</button>
+      <button class="btn sec sm" type="button" id="pasteCancel">סגור</button>
     </div>
+    <label style="margin-top:8px">או קובץ שמות (.txt / .csv)</label>
+    <input id="fileInput" type="file" accept=".txt,.csv,text/plain,text/csv">
   </div>
   <p class="hint" id="namesInfo"></p>
+  <p class="hint" id="saveTip" style="display:none">💡 טיפ: לחץ <b>💾 שמור חבורה</b> — בפעם הבאה תטען את כל השמות בלחיצה אחת.</p>
 </section>
 
 <!-- מתי -->
@@ -254,23 +246,11 @@
 
 <!-- כמה -->
 <section class="card no-print">
-  <h2>📍 עמדות ואורך משמרת</h2>
-  <label style="margin-top:2px">עמדות שמירה</label>
+  <h2>📍 עמדות שמירה</h2>
   <div id="posList"></div>
   <button class="btn sec sm" type="button" id="posAdd" style="margin-top:10px">➕ הוסף עמדה</button>
   <p class="hint">עמדות מאוישות במקביל. תן שם לכל עמדה (שער, סיור, מגדל…) או השאר ריק.</p>
-
-  <label style="margin-top:14px">אורך כל משמרת</label>
-  <select id="shiftLen">
-    <option value="auto">אוטומטי — סבב שווה לכולם</option>
-    <option value="30">30 דקות</option>
-    <option value="45">45 דקות</option>
-    <option value="60">שעה</option>
-    <option value="90">שעה וחצי</option>
-    <option value="120">שעתיים</option>
-    <option value="180">שלוש שעות</option>
-  </select>
-  <p class="hint" id="shiftHint"></p>
+  <p class="hint">המשמרות מתחלקות אוטומטית לסבב שווה, עד <b>4 שעות</b> לכל משמרת לכל היותר.</p>
 
   <details>
     <summary>הגדרות לילה ומשמרת קשה (לאיזון ולדוח)</summary>
@@ -314,7 +294,7 @@
 
 <!-- רשימות שמורות -->
 <section class="card no-print">
-  <details>
+  <details id="savedDetails">
     <summary>★ חבורות שמורות</summary>
     <div id="savedLists" style="margin-top:8px"></div>
     <button class="btn sec sm" type="button" id="resetAll" style="margin-top:10px">אפס הכל</button>
@@ -349,7 +329,6 @@ let state = {
   startOff: 6*60,                      // minutes from axis base -> 22:00
   endOff: 14*60,                       // minutes from axis base -> 06:00 (+1 day)
   start:"", end:"",                    // datetime-local for multi mode
-  shiftLen:"auto",
   nightStart:"22:00", nightEnd:"06:00", hardStart:"02:00", hardEnd:"05:00",
   positions:[""],                      // array of position names ("" => "עמדה N")
   guards:[],                           // {name, ua}
@@ -389,35 +368,6 @@ function fmtDay(d){ return DAYS[d.getDay()]+" "+pad(d.getDate())+"/"+pad(d.getMo
 function fmtDur(min){ min=Math.round(min); const h=Math.floor(min/60), m=min%60; return m?(h?h+":"+pad(m)+"ש":m+" ד׳"):(h+"ש"); }
 function escapeHtml(s){ return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 function parseNames(text){ return text.split(/[\r\n,;]+/).map(l=>l.trim()).filter(Boolean); }
-
-// --- OCR cleanup: strip junk so a WhatsApp/list screenshot yields real names ---
-// Known non-name UI text (WhatsApp members screen, invites, admin labels, phones…)
-const OCR_JUNK = [
-  /צירוף/, /הזמנ/, /קישור/, /\bqr\b/i, /קוד\s*qr/i, /מנהל/, /את\s*\/?\s*ה/, /הוספת/, /תג\s*חבר/,
-  /^חבר(ים)?$/, /סגל/, /דורס/, /קבוצה/, /משתתפ/, /יצא\b/, /הוסר/, /^\+?\d/, /טלפון/
-];
-function cleanNameLine(raw){
-  let s = String(raw);
-  try{ s = s.replace(/[\p{Extended_Pictographic}️‍]/gu, " "); }catch(e){}   // drop emoji
-  s = s.replace(/[0-9٠-٩₪$€©®%|/\\«»@~^*+=<>_()\[\]{}.,:;"'`]/g, " ");        // drop digits & symbols
-  s = s.replace(/[A-Za-z]/g, " ");                                            // drop Latin fragments glued to Hebrew names
-  return s.replace(/\s+/g, " ").trim();
-}
-function looksLikeName(raw){
-  const s = cleanNameLine(raw);
-  if(s.length < 2 || s.length > 30) return false;
-  const heb = (s.match(/[֐-׿]/g) || []).length;
-  if(heb < 2) return false;                                     // require a real Hebrew name
-  if(OCR_JUNK.some(re => re.test(raw.toLowerCase()))) return false;
-  return true;
-}
-// Turn raw OCR text into cleaned candidate names (deduped). Falls back to raw lines if nothing survives.
-function ocrCandidates(text){
-  const lines = text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
-  const seen = new Set(), out = [];
-  lines.forEach(l=>{ if(looksLikeName(l)){ const n=cleanNameLine(l); if(!seen.has(n)){ seen.add(n); out.push(n); } } });
-  return out;
-}
 function parseCsv(text){
   const lines=text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean); if(!lines.length) return [];
   let rows=lines.map(l=>(l.split(",")[0]||"").replace(/^["']|["']$/g,"").trim()).filter(Boolean);
@@ -453,6 +403,7 @@ function renderChips(){
 function updateNamesInfo(){
   const total=state.guards.length, ua=state.guards.filter(g=>g.ua).length;
   $("#namesInfo").textContent = total ? (total+" שומרים"+(ua?" · "+ua+" לא זמינים 🚫":"")) : "עדיין אין שומרים.";
+  const tip=$("#saveTip"); if(tip) tip.style.display = total>=3 ? "block" : "none";
 }
 
 /* ---------- Positions editor ---------- */
@@ -568,21 +519,16 @@ function updateWhenSummary(){
     if(!w){ el.textContent="בחר תאריך ושעה תקינים (התחלה לפני סיום)."; }
     else el.textContent = fmtDay(w.s)+" "+fmtTime(w.s)+" → "+fmtDay(w.e)+" "+fmtTime(w.e)+" · "+fmtDur(w.mins)+" · "+posTxt;
   }
-  updateShiftHint();
-}
-function updateShiftHint(){
-  const w=getWindow(); const el=$("#shiftHint"); if(!el) return;
-  const G=state.guards.filter(g=>!g.ua && g.name.trim()).length;
-  const P=state.positions.length;
-  if(!w){ el.textContent=""; return; }
-  let R;
-  if(state.shiftLen==="auto"){ if(G<P){ el.textContent="צריך לפחות "+P+" שומרים זמינים."; return; } R=G/gcd(P,G); }
-  else { R=Math.max(1,Math.round(w.mins/parseInt(state.shiftLen,10))); }
-  const each=Math.round(w.mins/R);
-  el.textContent = R+" משמרות · ~"+fmtDur(each)+" כל אחת";
 }
 
 /* ---------- Scheduling ---------- */
+// Even rotation for everyone, but iron rule: no shift longer than 4 hours.
+const MAX_SHIFT_MIN=240;
+function computeRounds(mins,G,P){
+  let R=G/gcd(P,G);
+  if(mins/R > MAX_SHIFT_MIN) R *= Math.ceil(mins/(R*MAX_SHIFT_MIN));
+  return Math.max(1,Math.round(R));
+}
 function generate(reshuffle){
   selCell=null;
   const win=getWindow();
@@ -596,10 +542,7 @@ function generate(reshuffle){
   if(reshuffle){ pushUndo(); state.seed=Math.floor(Math.random()*1e9); } else { undoStack=[]; }
   const rng=mulberry32(state.seed);
 
-  let R;
-  if(state.shiftLen==="auto"){ R=G/gcd(P,G); }
-  else { R=Math.max(1,Math.round(win.mins/parseInt(state.shiftLen,10))); }
-  R=Math.max(1,Math.round(R));
+  const R=computeRounds(win.mins,G,P);
 
   const nA=timeToMin(state.nightStart), nB=timeToMin(state.nightEnd), hA=timeToMin(state.hardStart), hB=timeToMin(state.hardEnd);
 
@@ -783,6 +726,7 @@ function renderSquadQuick(){
 }
 function renderSaved(){
   const wrap=$("#savedLists"); const lists=getLists();
+  const det=$("#savedDetails"); if(det) det.open = lists.length>0;   // show groups when they exist
   if(!lists.length){ wrap.innerHTML='<p class="hint">אין חבורות שמורות. לחץ "שמור חבורה" אחרי הזנת שמות.</p>'; return; }
   wrap.innerHTML="";
   lists.forEach((L,i)=>{ const div=document.createElement("div"); div.className="saved-item";
@@ -793,62 +737,6 @@ function renderSaved(){
     load.addEventListener("click",()=>{ loadSquad(L); showMsg('נטענה "'+L.name+'" ✓',"ok"); window.scrollTo({top:0,behavior:"smooth"}); });
     del.addEventListener("click",()=>{ const l=getLists(); l.splice(i,1); setLists(l); renderSaved(); renderSquadQuick(); });
     wrap.appendChild(div); });
-}
-
-/* ---------- OCR ---------- */
-const TESS_CDN="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js";
-function loadScript(src){ return new Promise((res,rej)=>{ const s=document.createElement("script"); s.src=src; s.onload=res; s.onerror=()=>rej(new Error("load")); document.head.appendChild(s); }); }
-function loadImageEl(file){
-  return new Promise((res,rej)=>{ const url=URL.createObjectURL(file); const im=new Image();
-    im.onload=()=>res({im,url}); im.onerror=()=>{ URL.revokeObjectURL(url); rej(new Error("image")); }; im.src=url; });
-}
-// Prepare a screenshot for OCR: upscale small images, grayscale, auto-invert dark-mode
-// screenshots (Tesseract wants dark text on light bg), and stretch contrast.
-async function preprocessImage(file){
-  let im,url;
-  try{ ({im,url}=await loadImageEl(file)); }catch(e){ return file; }
-  const iw=im.naturalWidth||im.width, ih=im.naturalHeight||im.height;
-  if(!iw||!ih){ try{URL.revokeObjectURL(url);}catch(e){} return file; }
-  const target=1800, s=Math.min(3, Math.max(iw,ih)<target ? target/Math.max(iw,ih) : 1);
-  const w=Math.round(iw*s), h=Math.round(ih*s);
-  const cv=document.createElement("canvas"); cv.width=w; cv.height=h;
-  const ctx=cv.getContext("2d",{willReadFrequently:true});
-  ctx.drawImage(im,0,0,w,h); try{URL.revokeObjectURL(url);}catch(e){}
-  try{
-    const id=ctx.getImageData(0,0,w,h), d=id.data; let sum=0;
-    for(let i=0;i<d.length;i+=4){ const g=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2]; d[i]=d[i+1]=d[i+2]=g; sum+=g; }
-    const invert=(sum/(d.length/4))<128;   // dark background -> invert to dark-on-light
-    const contrast=1.4;
-    for(let i=0;i<d.length;i+=4){ let g=d[i]; if(invert) g=255-g; g=(g-128)*contrast+128; g=g<0?0:g>255?255:g; d[i]=d[i+1]=d[i+2]=g; }
-    ctx.putImageData(id,0,0);
-  }catch(e){}
-  return cv;
-}
-async function runOcr(file){
-  const prog=$("#ocrProgress"), bar=prog.firstElementChild; prog.style.display="block"; bar.style.width="4%";
-  showMsg("מעבד תמונה ומזהה שמות (דורש אינטרנט)…","info");
-  let worker=null;
-  try{
-    if(typeof Tesseract==="undefined") await loadScript(TESS_CDN);
-    const src=await preprocessImage(file); bar.style.width="12%";
-    worker=await Tesseract.createWorker("heb",1,{logger:m=>{ if(m&&m.status&&m.status.indexOf("recogn")>=0) bar.style.width=(15+(m.progress||0)*80)+"%"; }});
-    try{ await worker.setParameters({tessedit_pageseg_mode:"6", preserve_interword_spaces:"1"}); }catch(e){}
-    const {data}=await worker.recognize(src);
-    bar.style.width="100%";
-    const cands=ocrCandidates(data.text);
-    const ta=$("#reviewText"), info=$("#reviewInfo");
-    if(cands.length){
-      ta.value=cands.join("\n");
-      info.textContent="זוהו "+cands.length+" שמות (סוננו מספרים, כותרות וטקסט מיותר). עבור עליהם, תקן טעויות זיהוי, ואז הוסף.";
-      showMsg("זוהו "+cands.length+" שמות — בדוק ותקן לפני הוספה ✓","ok");
-    } else {
-      ta.value=(data.text||"").split(/\r?\n/).map(l=>l.trim()).filter(Boolean).join("\n");
-      info.textContent="לא זוהו שמות ברורים. ערוך את הטקסט ידנית — שם בכל שורה.";
-      showMsg("הזיהוי לא היה ברור — נקה את הטקסט ידנית.","info");
-    }
-    $("#reviewPanel").classList.remove("hide"); ta.focus();
-  }catch(e){ showMsg("זיהוי מהתמונה נכשל (בדוק חיבור לאינטרנט). אפשר להקליד/להדביק ידנית.","err"); }
-  finally{ if(worker){ try{ await worker.terminate(); }catch(e){} } setTimeout(()=>{ prog.style.display="none"; bar.style.width="0"; },800); }
 }
 
 /* ---------- PWA ---------- */
@@ -876,8 +764,7 @@ function init(){
   renderPositions();
   $("#posAdd").addEventListener("click",addPosition);
 
-  // shift length + night/hard
-  $("#shiftLen").value=state.shiftLen;
+  // night/hard
   ["nightStart","nightEnd","hardStart","hardEnd"].forEach(k=>{ if(state[k]) $("#"+k).value=state[k]; });
 
   // when: mode + timeline + multi inputs
@@ -900,15 +787,14 @@ function init(){
       if(!names.length){ showMsg("לא נמצאו שמות בקובץ.","err"); return; }
       const added=addNamesText(names.join("\n")); showMsg("נוספו "+added+" שמות מהקובץ ✓","ok"); };
     rd.readAsText(f,"utf-8"); e.target.value=""; });
-  $("#imageInput").addEventListener("change",e=>{ const f=e.target.files[0]; if(f) runOcr(f); e.target.value=""; });
-  $("#reviewAdd").addEventListener("click",()=>{
-    const txt=$("#reviewText").value.trim();
+  $("#pasteAdd").addEventListener("click",()=>{
+    const txt=$("#pasteText").value.trim();
     if(!txt){ showMsg("אין שמות להוסיף.","err"); return; }
     const added=addNamesText(txt);
-    $("#reviewPanel").classList.add("hide"); $("#reviewText").value="";
+    $("#pasteText").value=""; $("#importPanel").classList.add("hide");
     showMsg(added?("נוספו "+added+" שמות ✓"):"כל השמות כבר קיימים.","ok");
   });
-  $("#reviewCancel").addEventListener("click",()=>{ $("#reviewPanel").classList.add("hide"); $("#reviewText").value=""; });
+  $("#pasteCancel").addEventListener("click",()=>{ $("#importPanel").classList.add("hide"); });
   $("#clearNames").addEventListener("click",()=>{ if(!state.guards.length) return; if(confirm("לנקות את כל השמות?")){ state.guards=[]; renderChips(); saveState(); updateWhenSummary(); } });
   $("#saveSquad").addEventListener("click",()=>{
     const guards=state.guards.map(g=>g.name.trim()).filter(Boolean);
@@ -923,7 +809,6 @@ function init(){
   $("#baseDate").addEventListener("input",e=>{ state.baseDate=e.target.value||todayDateStr(); syncTimeline(); updateWhenSummary(); saveState(); });
   $("#start").addEventListener("input",e=>{ state.start=e.target.value; state.mode="multi"; updateWhenSummary(); saveState(); });
   $("#end").addEventListener("input",e=>{ state.end=e.target.value; state.mode="multi"; updateWhenSummary(); saveState(); });
-  $("#shiftLen").addEventListener("change",e=>{ state.shiftLen=e.target.value; updateWhenSummary(); saveState(); });
   ["nightStart","nightEnd","hardStart","hardEnd"].forEach(k=>$("#"+k).addEventListener("input",e=>{ state[k]=e.target.value; saveState(); }));
 
   // actions
@@ -936,11 +821,11 @@ function init(){
   $("#csvBtn").addEventListener("click",exportCsv);
   $("#resetAll").addEventListener("click",()=>{
     if(!confirm("לאפס הכל (שמות, זמנים, שיבוץ)? חבורות שמורות יישארו.")) return;
-    state={mode:"single",baseDate:todayDateStr(),startOff:6*60,endOff:14*60,start:"",end:"",shiftLen:"auto",
+    state={mode:"single",baseDate:todayDateStr(),startOff:6*60,endOff:14*60,start:"",end:"",
       nightStart:"22:00",nightEnd:"06:00",hardStart:"02:00",hardEnd:"05:00",positions:[""],guards:[],seed:Math.floor(Math.random()*1e9)};
     schedule=null; undoStack=[]; updateUndoBtn(); saveState();
     ["nightStart","nightEnd","hardStart","hardEnd"].forEach(k=>$("#"+k).value=state[k]);
-    $("#shiftLen").value="auto"; $("#baseDate").value=state.baseDate;
+    $("#baseDate").value=state.baseDate;
     renderChips(); renderPositions(); setMode("single"); $("#output").style.display="none"; showMsg("אופס ✓","ok");
   });
 
