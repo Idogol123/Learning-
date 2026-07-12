@@ -42,6 +42,10 @@ jobs:
         run: |
           mkdir -p _site
           cp landing/index.html _site/index.html
+          # Stamp the landing page with the last-change time (Israel time) so
+          # visitors can tell whether they're on the latest deployed version.
+          BUILD_TIME=$(TZ='Asia/Jerusalem' git log -1 --format=%cd --date=format-local:'%d/%m/%Y %H:%M')
+          sed -i "s|__BUILD_TIME__|${BUILD_TIME}|" _site/index.html
           cp landing/manifest.webmanifest _site/manifest.webmanifest
           cp landing/sw.js _site/sw.js
           cp landing/icon-192.png landing/icon-512.png landing/icon-maskable-512.png landing/apple-touch-icon.png _site/

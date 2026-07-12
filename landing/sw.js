@@ -2,7 +2,7 @@
    Caches just the hub's own shell so it opens offline. Requests for the
    individual tools are left untouched — each tool has its own service
    worker and cache under its own path. */
-const CACHE = 'tools-hub-v1';
+const CACHE = 'tools-hub-v2';
 const SHELL = [
   './',
   './index.html',
@@ -37,7 +37,26 @@ self.addEventListener('fetch', (e) => {
   const deeperPath = rel.slice(base.length);
   if (deeperPath.includes('/')) return; // e.g. "guard-duty-scheduler/…"
 
-  // Cache-first for the shell, then fall back to a cached copy of the hub.
+  // The HTML document (a navigation, or the hub's index) is served
+  // network-first so returning visitors always get the freshly deployed page
+  // (and its up-to-date "last updated" stamp). Offline, we fall back to the
+  // cached copy. Static assets (icons/manifest) stay cache-first for speed.
+  const isDoc = e.request.mode === 'navigate' ||
+    deeperPath === '' || deeperPath === 'index.html';
+  if (isDoc) {
+    e.respondWith(
+      fetch(e.request)
+        .then((res) => {
+          const copy = res.clone();
+          caches.open(CACHE).then((c) => c.put(e.request, copy)).catch(() => {});
+          return res;
+        })
+        .catch(() => caches.match(e.request).then((hit) => hit || caches.match('./index.html')))
+    );
+    return;
+  }
+
+  // Cache-first for the shell assets, then fall back to a cached copy of the hub.
   e.respondWith(
     caches.match(e.request).then((hit) =>
       hit ||
