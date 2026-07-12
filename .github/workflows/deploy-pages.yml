@@ -42,6 +42,9 @@ jobs:
         run: |
           mkdir -p _site
           cp landing/index.html _site/index.html
+          cp landing/manifest.webmanifest _site/manifest.webmanifest
+          cp landing/sw.js _site/sw.js
+          cp landing/icon-192.png landing/icon-512.png landing/icon-maskable-512.png landing/apple-touch-icon.png _site/
           cp -r guard-duty-scheduler _site/guard-duty-scheduler
           cp -r file-search _site/file-search
       - name: Upload site

@@ -3,24 +3,41 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#4b5320">
+<meta name="description" content="אוסף כלים קטנים שעובדים ישירות בדפדפן, גם בלי חיבור לאינטרנט. הנתונים נשמרים במכשיר בלבד.">
+<meta name="theme-color" content="#f4f5f0" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#15170f" media="(prefers-color-scheme: dark)">
 <title>הכלים שלי</title>
+
+<!-- Installable as an app (home screen) -->
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icon-192.png">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="הכלים שלי">
 <style>
   :root{ --bg:#f4f5f0; --card:#fff; --ink:#20241a; --muted:#6b7160; --accent:#4b5320; --line:#dcded2; --shadow:0 1px 3px rgba(0,0,0,.08),0 6px 18px rgba(0,0,0,.06); }
   @media (prefers-color-scheme: dark){ :root{ --bg:#15170f; --card:#1e2018; --ink:#eef0e4; --muted:#a6ac98; --accent:#8a9a3a; --line:#33362a; --shadow:none; } }
   *{box-sizing:border-box}
   body{ margin:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Hebrew",Arial,sans-serif;
-    background:var(--bg); color:var(--ink); direction:rtl; line-height:1.5; padding:24px 16px calc(24px + env(safe-area-inset-bottom)); max-width:640px; margin:0 auto; }
+    background:var(--bg); color:var(--ink); direction:rtl; line-height:1.5;
+    padding:calc(24px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom)); max-width:640px; margin:0 auto; }
   h1{ font-size:24px; margin:8px 0 4px; }
   .sub{ color:var(--muted); font-size:14px; margin:0 0 20px; }
   a.card{ display:flex; align-items:center; gap:14px; text-decoration:none; color:inherit;
-    background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px; margin:12px 0; box-shadow:var(--shadow); }
+    background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px; margin:12px 0; box-shadow:var(--shadow);
+    transition:transform .12s ease, box-shadow .12s ease, border-color .12s ease; }
+  a.card:hover{ border-color:var(--c, var(--accent)); }
   a.card:active{ transform:translateY(1px); }
-  .ico{ font-size:32px; width:52px; height:52px; flex:0 0 auto; display:flex; align-items:center; justify-content:center;
-    background:var(--accent); color:#fff; border-radius:14px; }
-  .t{ font-size:18px; font-weight:700; }
-  .d{ font-size:13px; color:var(--muted); margin-top:2px; }
-  .arr{ margin-inline-start:auto; color:var(--muted); font-size:22px; }
+  .ico{ font-size:30px; width:52px; height:52px; flex:0 0 auto; display:flex; align-items:center; justify-content:center;
+    background:var(--c, var(--accent)); color:#fff; border-radius:14px; }
+  .tx{ display:flex; flex-direction:column; min-width:0; }
+  .t{ display:block; font-size:18px; font-weight:700; }
+  .d{ display:block; font-size:13px; color:var(--muted); margin-top:2px; }
+  .arr{ margin-inline-start:auto; color:var(--c, var(--muted)); font-size:26px; font-weight:300; line-height:1; }
+  .install{ display:none; width:100%; margin:4px 0 16px; padding:12px 16px; border:1.5px dashed var(--accent); border-radius:14px;
+    background:transparent; color:var(--accent); font:inherit; font-weight:700; font-size:14px; cursor:pointer; }
   footer{ text-align:center; color:var(--muted); font-size:11.5px; margin-top:24px; }
 </style>
 </head>
@@ -28,18 +45,43 @@
   <h1>🧰 הכלים שלי</h1>
   <p class="sub">אוסף כלים קטנים שעובדים ישירות בדפדפן.</p>
 
-  <a class="card" href="./guard-duty-scheduler/">
+  <button class="install" id="install" type="button">📲 התקן את אוסף הכלים למסך הבית</button>
+
+  <a class="card" href="./guard-duty-scheduler/" style="--c:#4b5320">
     <span class="ico">🛡️</span>
-    <span><span class="t">שיבוץ שמירות</span><span class="d">טבלת שמירות עם שעות שוות, איזון לילות ושיתוף לוואטסאפ</span></span>
+    <span class="tx"><span class="t">שיבוץ שמירות</span><span class="d">טבלת שמירות עם שעות שוות, איזון לילות ושיתוף לוואטסאפ</span></span>
     <span class="arr">‹</span>
   </a>
 
-  <a class="card" href="./file-search/">
+  <a class="card" href="./file-search/" style="--c:#0369a1">
     <span class="ico">🔎</span>
-    <span><span class="t">חיפוש בקובץ</span><span class="d">חיפוש מהיר בתוך קבצים, ישירות בדפדפן</span></span>
+    <span class="tx"><span class="t">חיפוש בקובץ</span><span class="d">חיפוש מהיר בתוך קבצים, ישירות בדפדפן</span></span>
     <span class="arr">‹</span>
   </a>
 
   <footer>עובד אופליין · הנתונים נשמרים במכשיר בלבד</footer>
+
+<script>
+  // Register the hub's service worker so it opens offline and is installable.
+  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+    window.addEventListener('load', function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); });
+  }
+
+  // Offer "add to home screen" when the browser signals the app is installable.
+  (function(){
+    var btn = document.getElementById('install');
+    var deferred = null;
+    window.addEventListener('beforeinstallprompt', function(e){
+      e.preventDefault(); deferred = e; btn.style.display = 'block';
+    });
+    btn.addEventListener('click', async function(){
+      if(!deferred) return;
+      deferred.prompt();
+      try{ await deferred.userChoice; }catch(e){}
+      deferred = null; btn.style.display = 'none';
+    });
+    window.addEventListener('appinstalled', function(){ btn.style.display = 'none'; });
+  })();
+</script>
 </body>
 </html>
