@@ -49,9 +49,10 @@
   .card{background:var(--card); border:1px solid var(--line); border-radius:var(--r); padding:14px; margin:12px 0; box-shadow:var(--shadow)}
   .card h2{margin:0 0 4px; font-size:16px; display:flex; align-items:center; gap:8px}
   input,select,button{font:inherit; color:inherit}
-  input[type=text],input[type=number],input[type=time],input[type=datetime-local]{
+  input[type=text],input[type=number],input[type=time],input[type=date],input[type=datetime-local],select{
     width:100%; padding:13px; border:1.5px solid var(--line); border-radius:11px; background:var(--bg); color:var(--ink);
   }
+  select{-webkit-appearance:none; appearance:none; background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path fill='%236b7160' d='M6 8 0 0h12z'/></svg>"); background-repeat:no-repeat; background-position:left 14px center; padding-inline-start:36px}
   .hint{font-size:12px; color:var(--muted); margin:6px 0 0}
   label{display:block; font-size:13px; color:var(--muted); margin:10px 0 4px; font-weight:600}
 
@@ -78,12 +79,32 @@
   .quick{display:flex; flex-wrap:wrap; gap:8px; margin:4px 0}
   .quick .chip{border-style:dashed; background:transparent; font-weight:600}
 
-  /* stepper */
-  .stepper{display:inline-flex; align-items:center; gap:0; border:1.5px solid var(--line); border-radius:12px; overflow:hidden}
-  .stepper button{width:46px; height:46px; border:none; background:var(--chip); font-size:22px; font-weight:700; cursor:pointer; color:var(--ink)}
-  .stepper input{width:56px; text-align:center; border:none; border-inline:1.5px solid var(--line); border-radius:0; background:var(--card)}
-  .field-row{display:flex; align-items:center; gap:12px; margin-top:6px}
+  /* positions editor */
+  .pos-row{display:flex; align-items:center; gap:8px; margin-top:8px}
+  .pos-row .pnum{flex:0 0 auto; width:26px; height:26px; border-radius:8px; background:var(--accent); color:#fff;
+    display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700}
+  .pos-row input{flex:1}
+  .pos-row .del{flex:0 0 auto; width:40px; height:40px; border-radius:10px; border:1.5px solid var(--line);
+    background:var(--chip); color:var(--danger); font-size:18px; font-weight:800; cursor:pointer}
 
+  /* night timeline (single-night drag) */
+  .tl{margin:16px 4px 2px; user-select:none}
+  .tl-track{position:relative; height:14px; background:var(--chip); border:1.5px solid var(--line);
+    border-radius:999px; margin:34px 15px 0; touch-action:none}
+  .tl-range{position:absolute; top:-1.5px; bottom:-1.5px; background:var(--accent); border-radius:999px; opacity:.9}
+  .tl-h{position:absolute; top:50%; width:32px; height:32px; margin-left:-16px; transform:translateY(-50%);
+    background:var(--card); border:3px solid var(--accent); border-radius:50%; box-shadow:var(--shadow);
+    cursor:grab; touch-action:none; z-index:2}
+  .tl-h:active{cursor:grabbing}
+  .tl-h::after{content:attr(data-time); position:absolute; top:-30px; left:50%; transform:translateX(-50%);
+    font-size:12.5px; font-weight:800; color:var(--accent); white-space:nowrap;
+    background:var(--card); border:1px solid var(--line); padding:1px 7px; border-radius:8px}
+  .tl-ticks{position:relative; height:15px; margin:8px 15px 0}
+  .tl-ticks span{position:absolute; transform:translateX(-50%); font-size:10.5px; color:var(--muted)}
+  .tl-readout{text-align:center; font-size:15px; font-weight:700; margin-top:18px; color:var(--ink)}
+  .tl-readout small{display:block; font-weight:600; color:var(--muted); font-size:12px; margin-top:2px}
+
+  /* stepper (kept for compatibility, unused) */
   details{margin-top:10px; border-top:1px dashed var(--line); padding-top:8px}
   details summary{cursor:pointer; font-size:13px; font-weight:600; color:var(--accent)}
   .row{display:flex; gap:10px; flex-wrap:wrap}
@@ -179,40 +200,70 @@
   <div id="importPanel" class="hide" style="margin-top:10px">
     <label>קובץ שמות (.txt / .csv)</label>
     <input id="fileInput" type="file" accept=".txt,.csv,text/plain,text/csv">
-    <label style="margin-top:10px">תמונה של רשימה (OCR — דורש אינטרנט)</label>
-    <input id="imageInput" type="file" accept="image/*" capture="environment">
+    <label style="margin-top:10px">תמונה של רשימה — מהגלריה או מהמצלמה (OCR, דורש אינטרנט)</label>
+    <input id="imageInput" type="file" accept="image/*">
+    <p class="hint">אפשר לבחור תמונה קיימת מהמכשיר, או לצלם עכשיו.</p>
     <div id="ocrProgress"><i></i></div>
   </div>
   <p class="hint" id="namesInfo"></p>
 </section>
 
-<!-- מתי וכמה -->
+<!-- מתי -->
 <section class="card no-print">
-  <h2>🕒 מתי וכמה</h2>
-  <div class="chips presets" id="presets">
-    <span class="chip" data-preset="night">🌙 הלילה</span>
-    <span class="chip" data-preset="12from">12 שעות</span>
-    <span class="chip" data-preset="24from">24 שעות</span>
-    <span class="chip" data-preset="custom">✏️ מותאם</span>
+  <h2>🕒 מתי שומרים?</h2>
+  <div class="chips presets" id="modeChips">
+    <span class="chip" data-mode="single">🌙 לילה אחד</span>
+    <span class="chip" data-mode="multi">📅 כמה ימים</span>
   </div>
-  <div id="whenSummary" class="hint"></div>
-  <div id="customWhen" class="hide">
-    <div class="row" style="margin-top:8px">
-      <div><span class="hint">מ־</span><input id="start" type="datetime-local"></div>
-      <div><span class="hint">עד</span><input id="end" type="datetime-local"></div>
+
+  <!-- single night: draggable timeline -->
+  <div id="singleWhen">
+    <label style="margin-top:12px">בלילה של</label>
+    <input id="baseDate" type="date">
+    <div class="tl">
+      <div class="tl-track" id="tlTrack">
+        <div class="tl-range" id="tlRange"></div>
+        <div class="tl-h" id="tlStart" data-h="start" data-time="22:00"></div>
+        <div class="tl-h" id="tlEnd" data-h="end" data-time="06:00"></div>
+      </div>
+      <div class="tl-ticks" id="tlTicks"></div>
     </div>
+    <div class="tl-readout" id="tlReadout"></div>
+    <p class="hint" style="text-align:center">גרור את שתי הנקודות כדי לקבוע התחלה וסיום.</p>
   </div>
-  <div class="field-row">
-    <label style="margin:0">עמדות שמירה</label>
-    <span class="stepper">
-      <button type="button" id="posMinus">−</button>
-      <input id="positions" type="number" min="1" inputmode="numeric" value="1" readonly>
-      <button type="button" id="posPlus">+</button>
-    </span>
-    <span class="hint" id="posHint">מאוישות במקביל</span>
+
+  <!-- multi day: exact datetimes -->
+  <div id="multiWhen" class="hide">
+    <div class="row" style="margin-top:12px">
+      <div><span class="hint">התחלה (תאריך ושעה)</span><input id="start" type="datetime-local"></div>
+      <div><span class="hint">סיום (תאריך ושעה)</span><input id="end" type="datetime-local"></div>
+    </div>
+    <div id="multiSummary" class="hint" style="margin-top:8px"></div>
   </div>
+</section>
+
+<!-- כמה -->
+<section class="card no-print">
+  <h2>📍 עמדות ואורך משמרת</h2>
+  <label style="margin-top:2px">עמדות שמירה</label>
+  <div id="posList"></div>
+  <button class="btn sec sm" type="button" id="posAdd" style="margin-top:10px">➕ הוסף עמדה</button>
+  <p class="hint">עמדות מאוישות במקביל. תן שם לכל עמדה (שער, סיור, מגדל…) או השאר ריק.</p>
+
+  <label style="margin-top:14px">אורך כל משמרת</label>
+  <select id="shiftLen">
+    <option value="auto">אוטומטי — סבב שווה לכולם</option>
+    <option value="30">30 דקות</option>
+    <option value="45">45 דקות</option>
+    <option value="60">שעה</option>
+    <option value="90">שעה וחצי</option>
+    <option value="120">שעתיים</option>
+    <option value="180">שלוש שעות</option>
+  </select>
+  <p class="hint" id="shiftHint"></p>
+
   <details>
-    <summary>הגדרות לילה ומשמרת קשה</summary>
+    <summary>הגדרות לילה ומשמרת קשה (לאיזון ולדוח)</summary>
     <div class="row" style="margin-top:8px">
       <div><span class="hint">לילה מ־</span><input id="nightStart" type="time" value="22:00"></div>
       <div><span class="hint">עד</span><input id="nightEnd" type="time" value="06:00"></div>
@@ -221,7 +272,7 @@
       <div><span class="hint">קשה (★) מ־</span><input id="hardStart" type="time" value="02:00"></div>
       <div><span class="hint">עד</span><input id="hardEnd" type="time" value="05:00"></div>
     </div>
-    <p class="hint">משמרת מסומנת לילה/קשה אם אמצעה נופל בטווח (לאיזון ולדוח).</p>
+    <p class="hint">משמרת מסומנת לילה/קשה אם אמצעה נופל בטווח.</p>
   </details>
 </section>
 
@@ -271,19 +322,32 @@
 (function(){
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
-const LS_STATE = "gds_state_v2";
+const LS_STATE = "gds_state_v3";
 const LS_LISTS = "gds_lists_v1";
 const pad = n => String(n).padStart(2,"0");
 
+// Single-night timeline axis: from base day 16:00 for 20h (to 12:00 next day).
+const AXIS_BASE_H = 16;      // axis starts at 16:00
+const AXIS_MAX = 20*60;      // 1200 minutes span
+const SNAP = 15;             // minute snapping
+
+function todayDateStr(){ const d=new Date(); return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
+
 let state = {
-  positions:1, preset:"", start:"", end:"",
+  mode:"single",                       // "single" | "multi"
+  baseDate: todayDateStr(),            // evening date for single-night mode
+  startOff: 6*60,                      // minutes from axis base -> 22:00
+  endOff: 14*60,                       // minutes from axis base -> 06:00 (+1 day)
+  start:"", end:"",                    // datetime-local for multi mode
+  shiftLen:"auto",
   nightStart:"22:00", nightEnd:"06:00", hardStart:"02:00", hardEnd:"05:00",
-  guards:[],            // {name, ua}
+  positions:[""],                      // array of position names ("" => "עמדה N")
+  guards:[],                           // {name, ua}
   seed: Math.floor(Math.random()*1e9)
 };
 let schedule = null;
 let selCell = null;
-let undoStack = [];   // snapshots of `schedule` before each reshuffle / swap
+let undoStack = [];
 
 function pushUndo(){ if(schedule){ undoStack.push(JSON.parse(JSON.stringify(schedule))); if(undoStack.length>30) undoStack.shift(); updateUndoBtn(); } }
 function updateUndoBtn(){ const b=$("#undoBtn"); if(b) b.classList.toggle("hide", undoStack.length===0); }
@@ -292,8 +356,15 @@ function undo(){ if(!undoStack.length) return; schedule=undoStack.pop(); selCell
 function saveState(){ try{ localStorage.setItem(LS_STATE, JSON.stringify({state, schedule})); }catch(e){} }
 function loadState(){
   try{ const raw=localStorage.getItem(LS_STATE); if(!raw) return;
-    const o=JSON.parse(raw); if(o.state) Object.assign(state,o.state); if(o.schedule) schedule=o.schedule;
+    const o=JSON.parse(raw);
+    if(o.state){ Object.assign(state,o.state); state.positions=normPositions(state.positions); }
+    if(o.schedule) schedule=o.schedule;
   }catch(e){}
+}
+function normPositions(p){
+  if(Array.isArray(p)) return p.length?p.map(x=>String(x==null?"":x)):[""];
+  if(typeof p==="number" && p>0) return Array.from({length:p},()=>"");
+  return [""];
 }
 
 /* ---------- Utilities ---------- */
@@ -305,7 +376,7 @@ function inWindow(cm,a,b){ if(a===null||b===null) return false; if(a===b) return
 function fmtTime(d){ return pad(d.getHours())+":"+pad(d.getMinutes()); }
 const DAYS=["ראשון","שני","שלישי","רביעי","חמישי","שישי","שבת"];
 function fmtDay(d){ return DAYS[d.getDay()]+" "+pad(d.getDate())+"/"+pad(d.getMonth()+1); }
-function fmtDur(min){ min=Math.round(min); const h=Math.floor(min/60), m=min%60; return m?(h?h+":"+pad(m):m+" ד׳"):(h+"ש׳"); }
+function fmtDur(min){ min=Math.round(min); const h=Math.floor(min/60), m=min%60; return m?(h?h+":"+pad(m)+"ש":m+" ד׳"):(h+"ש"); }
 function escapeHtml(s){ return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 function parseNames(text){ return text.split(/[\r\n,;]+/).map(l=>l.trim()).filter(Boolean); }
 function parseCsv(text){
@@ -316,6 +387,9 @@ function parseCsv(text){
 }
 function showMsg(text,type){ const m=$("#msg"); m.textContent=text; m.className="msg show "+(type||"info");
   if(type==="ok"||type==="info") setTimeout(()=>m.classList.remove("show"),3500); }
+
+// position display name
+function posName(names,p){ const n=(names&&names[p]!=null?String(names[p]):"").trim(); return n || ("עמדה "+(p+1)); }
 
 /* ---------- Names (chips) ---------- */
 function addNamesText(text){
@@ -342,54 +416,152 @@ function updateNamesInfo(){
   $("#namesInfo").textContent = total ? (total+" שומרים"+(ua?" · "+ua+" לא זמינים 🚫":"")) : "עדיין אין שומרים.";
 }
 
-/* ---------- Time presets ---------- */
-function toLocalInput(d){ return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())+"T"+pad(d.getHours())+":"+pad(d.getMinutes()); }
-function applyPreset(kind){
-  state.preset=kind;
-  if(kind==="custom"){ $("#customWhen").classList.remove("hide"); }
-  else{
-    $("#customWhen").classList.add("hide");
-    const now=new Date(); let s,e;
-    if(kind==="night"){ s=new Date(now); s.setHours(19,0,0,0); if(now.getHours()>=12 && now.getHours()<19){} e=new Date(s); e.setDate(e.getDate()+1); e.setHours(7,0,0,0); }
-    else if(kind==="12from"){ s=new Date(now); s.setSeconds(0,0); e=new Date(s.getTime()+12*3600000); }
-    else { s=new Date(now); s.setSeconds(0,0); e=new Date(s.getTime()+24*3600000); }
-    state.start=toLocalInput(s); state.end=toLocalInput(e);
-    $("#start").value=state.start; $("#end").value=state.end;
-  }
-  renderPresets(); updateWhenSummary(); saveState();
+/* ---------- Positions editor ---------- */
+function renderPositions(){
+  const wrap=$("#posList"); wrap.innerHTML="";
+  state.positions.forEach((nm,i)=>{
+    const row=document.createElement("div"); row.className="pos-row";
+    const num=document.createElement("span"); num.className="pnum"; num.textContent=(i+1);
+    const inp=document.createElement("input"); inp.type="text"; inp.value=nm;
+    inp.placeholder="עמדה "+(i+1)+" (שם חופשי)"; inp.autocomplete="off";
+    inp.addEventListener("input",e=>{ state.positions[i]=e.target.value; saveState(); updateWhenSummary(); });
+    const del=document.createElement("button"); del.type="button"; del.className="del"; del.textContent="×";
+    del.title="הסר עמדה";
+    del.addEventListener("click",()=>{ if(state.positions.length<=1) return; state.positions.splice(i,1); renderPositions(); saveState(); updateWhenSummary(); });
+    if(state.positions.length<=1) del.style.visibility="hidden";
+    row.appendChild(num); row.appendChild(inp); row.appendChild(del);
+    wrap.appendChild(row);
+  });
 }
-function renderPresets(){ $$("#presets .chip").forEach(c=>c.classList.toggle("on",c.dataset.preset===state.preset)); }
+function addPosition(){ if(state.positions.length>=12) return; state.positions.push(""); renderPositions(); saveState(); updateWhenSummary(); }
+
+/* ---------- When: mode + single-night timeline ---------- */
+function toLocalInput(d){ return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())+"T"+pad(d.getHours())+":"+pad(d.getMinutes()); }
+function offToDate(off){ const base=new Date(state.baseDate+"T"+pad(AXIS_BASE_H)+":00:00"); return new Date(base.getTime()+off*60000); }
+function offToLabel(off){ const total=AXIS_BASE_H*60+off; const cm=((total%1440)+1440)%1440; return pad(Math.floor(cm/60))+":"+pad(cm%60); }
+
+function setMode(mode){
+  state.mode=mode;
+  $$("#modeChips .chip").forEach(c=>c.classList.toggle("on",c.dataset.mode===mode));
+  $("#singleWhen").classList.toggle("hide", mode!=="single");
+  $("#multiWhen").classList.toggle("hide", mode!=="multi");
+  if(mode==="multi" && (!state.start||!state.end)){
+    const w=singleWindow(); if(w){ state.start=toLocalInput(w.s); state.end=toLocalInput(w.e); $("#start").value=state.start; $("#end").value=state.end; }
+  }
+  syncTimeline(); updateWhenSummary(); saveState();
+}
+function singleWindow(){
+  const base=new Date(state.baseDate+"T"+pad(AXIS_BASE_H)+":00:00");
+  if(isNaN(base)) return null;
+  const s=new Date(base.getTime()+state.startOff*60000);
+  const e=new Date(base.getTime()+state.endOff*60000);
+  if(e<=s) return null;
+  return {s,e,mins:Math.round((e-s)/60000)};
+}
 function getWindow(){
+  if(state.mode==="single") return singleWindow();
   if(!state.start||!state.end) return null;
   const s=new Date(state.start), e=new Date(state.end);
   if(isNaN(s)||isNaN(e)||e<=s) return null;
   return {s,e,mins:Math.round((e-s)/60000)};
 }
-function updateWhenSummary(){
-  const w=getWindow();
-  const label={night:"🌙 הלילה",12:"12 שעות",24:"24 שעות"}[state.preset==="12from"?12:state.preset==="24from"?24:"night"];
-  const pl = state.preset==="custom"?"מותאם":(state.preset==="12from"?"12 שעות":state.preset==="24from"?"24 שעות":"🌙 הלילה");
-  if(!w){ $("#whenSummary").textContent="בחר זמן."; return; }
-  $("#whenSummary").textContent = pl+" · "+fmtTime(w.s)+"–"+fmtTime(w.e)+" · "+fmtDur(w.mins)+" · "+
-    (state.positions>1?state.positions+" עמדות":"עמדה אחת");
+function syncTimeline(){
+  if(state.mode!=="single") return;
+  const sp=state.startOff/AXIS_MAX*100, ep=state.endOff/AXIS_MAX*100;
+  const hs=$("#tlStart"), he=$("#tlEnd"), rg=$("#tlRange");
+  hs.style.left=sp+"%";
+  he.style.left=ep+"%";
+  hs.setAttribute("data-time",offToLabel(state.startOff));
+  he.setAttribute("data-time",offToLabel(state.endOff));
+  rg.style.left=sp+"%"; rg.style.width=(ep-sp)+"%";
+  const w=singleWindow();
+  const ro=$("#tlReadout");
+  if(w){
+    const cross = w.s.toDateString()!==w.e.toDateString();
+    ro.innerHTML = fmtTime(w.s)+" → "+fmtTime(w.e)+" · "+fmtDur(w.mins)+
+      "<small>"+fmtDay(w.s)+(cross?" → "+fmtDay(w.e):"")+"</small>";
+  } else { ro.textContent="בחר טווח."; }
 }
-function setPositions(n){ state.positions=Math.max(1,Math.floor(n||1)); $("#positions").value=state.positions; updateWhenSummary(); saveState(); }
+function buildTicks(){
+  const ticks=$("#tlTicks"); ticks.innerHTML="";
+  for(let off=0; off<=AXIS_MAX; off+=240){
+    const s=document.createElement("span");
+    s.style.left=(off/AXIS_MAX*100)+"%";
+    s.textContent=offToLabel(off);
+    ticks.appendChild(s);
+  }
+}
+function setupTimeline(){
+  buildTicks();
+  const track=$("#tlTrack");
+  let dragH=null;
+  function valFromX(clientX){
+    const r=track.getBoundingClientRect();
+    let frac=(clientX-r.left)/r.width; frac=Math.max(0,Math.min(1,frac));
+    let v=Math.round(frac*AXIS_MAX/SNAP)*SNAP; return Math.max(0,Math.min(AXIS_MAX,v));
+  }
+  function apply(v){
+    if(dragH==="start"){ state.startOff=Math.min(v, state.endOff-SNAP); }
+    else { state.endOff=Math.max(v, state.startOff+SNAP); }
+    state.mode="single"; syncTimeline(); updateWhenSummary();
+  }
+  function onMove(e){ if(!dragH) return; e.preventDefault(); apply(valFromX(e.clientX)); }
+  function onUp(){ if(!dragH) return; dragH=null; saveState();
+    window.removeEventListener("pointermove",onMove); window.removeEventListener("pointerup",onUp); }
+  function begin(which,clientX){ dragH=which;
+    window.addEventListener("pointermove",onMove,{passive:false}); window.addEventListener("pointerup",onUp);
+    if(clientX!=null) apply(valFromX(clientX)); }
+  $("#tlStart").addEventListener("pointerdown",e=>{ e.preventDefault(); begin("start",null); });
+  $("#tlEnd").addEventListener("pointerdown",e=>{ e.preventDefault(); begin("end",null); });
+  track.addEventListener("pointerdown",e=>{
+    if(e.target.classList.contains("tl-h")) return;
+    const v=valFromX(e.clientX);
+    const which=Math.abs(v-state.startOff)<=Math.abs(v-state.endOff)?"start":"end";
+    begin(which,e.clientX);
+  });
+}
+
+function updateWhenSummary(){
+  const w=getWindow(), P=state.positions.length;
+  const posTxt = P>1 ? (P+" עמדות") : (posName(state.positions,0));
+  if(state.mode==="multi"){
+    const el=$("#multiSummary");
+    if(!w){ el.textContent="בחר תאריך ושעה תקינים (התחלה לפני סיום)."; }
+    else el.textContent = fmtDay(w.s)+" "+fmtTime(w.s)+" → "+fmtDay(w.e)+" "+fmtTime(w.e)+" · "+fmtDur(w.mins)+" · "+posTxt;
+  }
+  updateShiftHint();
+}
+function updateShiftHint(){
+  const w=getWindow(); const el=$("#shiftHint"); if(!el) return;
+  const G=state.guards.filter(g=>!g.ua && g.name.trim()).length;
+  const P=state.positions.length;
+  if(!w){ el.textContent=""; return; }
+  let R;
+  if(state.shiftLen==="auto"){ if(G<P){ el.textContent="צריך לפחות "+P+" שומרים זמינים."; return; } R=G/gcd(P,G); }
+  else { R=Math.max(1,Math.round(w.mins/parseInt(state.shiftLen,10))); }
+  const each=Math.round(w.mins/R);
+  el.textContent = R+" משמרות · ~"+fmtDur(each)+" כל אחת";
+}
 
 /* ---------- Scheduling ---------- */
-function guardAvailableAt(g){ return !g.ua; }
 function generate(reshuffle){
   selCell=null;
   const win=getWindow();
-  const P=Math.max(1,Math.floor(state.positions||1));
+  const P=state.positions.length;
   if(!win){ showMsg("בחר זמן תקין (התחלה לפני סיום).","err"); return; }
   const guards=state.guards.filter(g=>g.name.trim());
   if(guards.length===0){ showMsg("הוסף לפחות שומר אחד.","err"); return; }
-  const availAll=guards.filter(g=>!g.ua); const G=availAll.length;
+  const G=guards.filter(g=>!g.ua).length;
   if(G<P){ showMsg("צריך לפחות "+P+" שומרים זמינים ל-"+P+" עמדות (יש "+G+").","err"); return; }
 
   if(reshuffle){ pushUndo(); state.seed=Math.floor(Math.random()*1e9); } else { undoStack=[]; }
   const rng=mulberry32(state.seed);
-  const R=G/gcd(P,G);
+
+  let R;
+  if(state.shiftLen==="auto"){ R=G/gcd(P,G); }
+  else { R=Math.max(1,Math.round(win.mins/parseInt(state.shiftLen,10))); }
+  R=Math.max(1,Math.round(R));
+
   const nA=timeToMin(state.nightStart), nB=timeToMin(state.nightEnd), hA=timeToMin(state.hardStart), hB=timeToMin(state.hardEnd);
 
   const slots=[];
@@ -404,7 +576,7 @@ function generate(reshuffle){
   for(let r=0;r<R;r++){
     const slot=slots[r]; const used=new Set();
     for(let p=0;p<P;p++){
-      let cands=guards.map((g,gi)=>({g,gi})).filter(({g,gi})=>!used.has(gi)&&guardAvailableAt(g));
+      let cands=guards.map((g,gi)=>({g,gi})).filter(({g,gi})=>!used.has(gi)&&!g.ua);
       if(!cands.length){ slot.assign[p]=-1; continue; }
       cands.sort((A,B)=>{ const a=info[A.gi], b=info[B.gi];
         if(a.count!==b.count) return a.count-b.count;
@@ -416,7 +588,7 @@ function generate(reshuffle){
       const inf=info[pick]; inf.count++; if(slot.isNight) inf.nights++; if(slot.isHard) inf.hard++; inf.lastRound=r; inf.posLast[p]=r;
     }
   }
-  schedule={slots, P, R, guardNames:guards.map(g=>g.name.trim())};
+  schedule={slots, P, R, mode:state.mode, guardNames:guards.map(g=>g.name.trim()), positionNames:state.positions.slice()};
   saveState(); renderOutput();
   showMsg(reshuffle?"עורבב ✓":"השיבוץ מוכן ✓","ok");
   $("#output").scrollIntoView({behavior:"smooth",block:"start"});
@@ -428,14 +600,15 @@ function guardMinutes(){
   return m;
 }
 function maxHoursSpread(){ const m=guardMinutes(); const v=Object.values(m).map(x=>x.min); return (Math.max(...v)-Math.min(...v))/60; }
+function scheduleSpansDays(){ const a=new Date(schedule.slots[0].start), b=new Date(schedule.slots[schedule.slots.length-1].end); return a.toDateString()!==b.toDateString(); }
 
 /* ---------- Output ---------- */
 function renderOutput(){
   if(!schedule){ $("#output").style.display="none"; return; }
   $("#output").style.display="block";
-  const P=schedule.P;
+  const P=schedule.P, PN=schedule.positionNames;
   let html='<table><thead><tr><th>משמרת</th>';
-  for(let p=0;p<P;p++) html+='<th>עמדה '+(p+1)+'</th>';
+  for(let p=0;p<P;p++) html+='<th>'+(P>1?escapeHtml(posName(PN,p)):"שומר")+'</th>';
   html+='</tr></thead><tbody>'; let lastDay=null;
   schedule.slots.forEach((sl,ri)=>{
     const st=new Date(sl.start), en=new Date(sl.end); const dk=st.toDateString();
@@ -473,15 +646,31 @@ function onCellClick(td){
   selCell.classList.remove("sel"); selCell=null; saveState(); renderOutput();
 }
 
-/* ---------- Sharing ---------- */
+/* ---------- Sharing (concise) ---------- */
 function buildText(){
-  const P=schedule.P; let lines=["🛡️ שיבוץ שמירות",""]; let lastDay=null;
-  schedule.slots.forEach(sl=>{ const st=new Date(sl.start), en=new Date(sl.end);
-    if(st.toDateString()!==lastDay){ lines.push("— "+fmtDay(st)+" —"); lastDay=st.toDateString(); }
-    let cells=[]; for(let p=0;p<P;p++){ const gi=sl.assign[p]; cells.push((P>1?("עמדה "+(p+1)+": "):"")+(gi>=0?schedule.guardNames[gi]:"—")); }
-    lines.push(fmtTime(st)+"–"+fmtTime(en)+(sl.isNight?" 🌙":"")+" | "+cells.join(" | ")); });
-  lines.push(""); const m=guardMinutes(); lines.push("סיכום:");
-  schedule.guardNames.forEach((n,i)=> lines.push("• "+n+": "+fmtDur(m[i].min)+" ("+m[i].nights+" לילות)"));
+  const P=schedule.P, PN=schedule.positionNames;
+  const first=new Date(schedule.slots[0].start);
+  const multiDay=(schedule.mode==="multi") && scheduleSpansDays();
+  const lines=[];
+  let head="🛡️ שמירות · "+fmtDay(first);
+  if(P===1){ const pn=(PN[0]||"").trim(); if(pn) head+=" · "+pn; }
+  lines.push(head, "");
+  let lastDay=null;
+  schedule.slots.forEach(sl=>{
+    const st=new Date(sl.start), en=new Date(sl.end);
+    if(multiDay && st.toDateString()!==lastDay){ if(lastDay!==null) lines.push(""); lines.push("📅 "+fmtDay(st)); lastDay=st.toDateString(); }
+    const t=fmtTime(st)+"–"+fmtTime(en)+(sl.isNight?" 🌙":"");
+    if(P===1){
+      const gi=sl.assign[0];
+      lines.push(t+"  "+(gi>=0?schedule.guardNames[gi]:"—"));
+    } else {
+      lines.push(t);
+      for(let p=0;p<P;p++){ const gi=sl.assign[p]; lines.push("   • "+posName(PN,p)+": "+(gi>=0?schedule.guardNames[gi]:"—")); }
+    }
+  });
+  const m=guardMinutes(); const vals=Object.values(m).map(x=>x.min);
+  const avg=vals.reduce((a,b)=>a+b,0)/(vals.length||1);
+  lines.push("", "⏱️ ~"+fmtDur(avg)+" לכל אחד");
   return lines.join("\n");
 }
 async function shareWa(){
@@ -491,8 +680,8 @@ async function shareWa(){
   catch(e){ window.prompt("העתק:", text); }
 }
 function drawImage(){
-  const P=schedule.P, scale=2;
-  const cols=["משמרת"]; for(let p=0;p<P;p++) cols.push("עמדה "+(p+1));
+  const P=schedule.P, PN=schedule.positionNames, scale=2;
+  const cols=["משמרת"]; for(let p=0;p<P;p++) cols.push(P>1?posName(PN,p):"שומר");
   const rows=[]; let lastDay=null;
   schedule.slots.forEach(sl=>{ const st=new Date(sl.start), en=new Date(sl.end);
     if(st.toDateString()!==lastDay){ rows.push({day:fmtDay(st)}); lastDay=st.toDateString(); }
@@ -529,7 +718,8 @@ async function saveImage(){
   },"image/png"); }catch(e){ showMsg("שמירת תמונה נכשלה: "+e.message,"err"); }
 }
 function exportCsv(){
-  const P=schedule.P; let rows=[["משמרת"].concat(Array.from({length:P},(_,p)=>"עמדה "+(p+1)))];
+  const P=schedule.P, PN=schedule.positionNames;
+  let rows=[["משמרת"].concat(Array.from({length:P},(_,p)=>P>1?posName(PN,p):"שומר"))];
   schedule.slots.forEach(sl=>{ const st=new Date(sl.start),en=new Date(sl.end); const line=[fmtTime(st)+"-"+fmtTime(en)];
     for(let p=0;p<P;p++){ const gi=sl.assign[p]; line.push(gi>=0?schedule.guardNames[gi]:"—"); } rows.push(line); });
   const csv="﻿"+rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(",")).join("\r\n");
@@ -540,11 +730,16 @@ function exportCsv(){
 /* ---------- Saved squads ---------- */
 function getLists(){ try{ return JSON.parse(localStorage.getItem(LS_LISTS)||"[]"); }catch(e){ return []; } }
 function setLists(l){ try{ localStorage.setItem(LS_LISTS,JSON.stringify(l)); }catch(e){} }
+function loadSquad(L){
+  state.guards=L.guards.map(n=>({name:n,ua:false}));
+  state.positions=normPositions(L.positions);
+  renderChips(); renderPositions(); saveState(); updateWhenSummary();
+}
 function renderSquadQuick(){
   const wrap=$("#squadQuick"); const lists=getLists(); wrap.innerHTML="";
   lists.forEach((L,i)=>{ const chip=document.createElement("span"); chip.className="chip";
     chip.textContent="👥 "+L.name+" ("+L.guards.length+")";
-    chip.addEventListener("click",()=>{ state.guards=L.guards.map(n=>({name:n,ua:false})); if(L.positions) setPositions(L.positions); renderChips(); saveState(); showMsg('נטענה "'+L.name+'" ✓',"ok"); });
+    chip.addEventListener("click",()=>{ loadSquad(L); showMsg('נטענה "'+L.name+'" ✓',"ok"); });
     wrap.appendChild(chip); });
 }
 function renderSaved(){
@@ -552,10 +747,11 @@ function renderSaved(){
   if(!lists.length){ wrap.innerHTML='<p class="hint">אין חבורות שמורות. לחץ "שמור חבורה" אחרי הזנת שמות.</p>'; return; }
   wrap.innerHTML="";
   lists.forEach((L,i)=>{ const div=document.createElement("div"); div.className="saved-item";
-    div.innerHTML='<div><div class="nm">'+escapeHtml(L.name)+'</div><div class="meta">'+L.guards.length+' שומרים · '+(L.positions||1)+' עמדות</div></div>'+
+    const nPos=normPositions(L.positions).length;
+    div.innerHTML='<div><div class="nm">'+escapeHtml(L.name)+'</div><div class="meta">'+L.guards.length+' שומרים · '+nPos+' עמדות</div></div>'+
       '<div style="display:flex;gap:6px"><button class="btn sec sm" type="button">טען</button><button class="btn sec sm" type="button">✕</button></div>';
     const [load,del]=div.querySelectorAll("button");
-    load.addEventListener("click",()=>{ state.guards=L.guards.map(n=>({name:n,ua:false})); if(L.positions) setPositions(L.positions); renderChips(); saveState(); showMsg('נטענה "'+L.name+'" ✓',"ok"); window.scrollTo({top:0,behavior:"smooth"}); });
+    load.addEventListener("click",()=>{ loadSquad(L); showMsg('נטענה "'+L.name+'" ✓',"ok"); window.scrollTo({top:0,behavior:"smooth"}); });
     del.addEventListener("click",()=>{ const l=getLists(); l.splice(i,1); setLists(l); renderSaved(); renderSquadQuick(); });
     wrap.appendChild(div); });
 }
@@ -592,13 +788,24 @@ function setupPwa(){
 /* ---------- Wire up ---------- */
 function init(){
   loadState();
-  // guards
+
+  // names
   renderChips(); renderSquadQuick(); renderSaved();
-  // when
+
+  // positions
+  renderPositions();
+  $("#posAdd").addEventListener("click",addPosition);
+
+  // shift length + night/hard
+  $("#shiftLen").value=state.shiftLen;
   ["nightStart","nightEnd","hardStart","hardEnd"].forEach(k=>{ if(state[k]) $("#"+k).value=state[k]; });
-  $("#positions").value=state.positions;
-  if(!state.start || !state.end || !state.preset){ applyPreset(state.preset||"night"); }
-  else { if(state.preset==="custom"){ $("#customWhen").classList.remove("hide"); $("#start").value=state.start; $("#end").value=state.end; } renderPresets(); updateWhenSummary(); }
+
+  // when: mode + timeline + multi inputs
+  $("#baseDate").value=state.baseDate;
+  if(state.mode==="multi"){ $("#start").value=state.start; $("#end").value=state.end; }
+  setupTimeline();
+  setMode(state.mode||"single");
+  syncTimeline(); updateWhenSummary();
   if(schedule) renderOutput();
 
   // name input
@@ -614,21 +821,21 @@ function init(){
       const added=addNamesText(names.join("\n")); showMsg("נוספו "+added+" שמות מהקובץ ✓","ok"); };
     rd.readAsText(f,"utf-8"); e.target.value=""; });
   $("#imageInput").addEventListener("change",e=>{ const f=e.target.files[0]; if(f) runOcr(f); e.target.value=""; });
-  $("#clearNames").addEventListener("click",()=>{ if(!state.guards.length) return; if(confirm("לנקות את כל השמות?")){ state.guards=[]; renderChips(); saveState(); } });
+  $("#clearNames").addEventListener("click",()=>{ if(!state.guards.length) return; if(confirm("לנקות את כל השמות?")){ state.guards=[]; renderChips(); saveState(); updateWhenSummary(); } });
   $("#saveSquad").addEventListener("click",()=>{
     const guards=state.guards.map(g=>g.name.trim()).filter(Boolean);
     if(!guards.length){ showMsg("אין שמות לשמור.","err"); return; }
     const name=(window.prompt("שם החבורה:","")||"").trim(); if(!name) return;
-    const l=getLists(); l.push({name,positions:state.positions,guards}); setLists(l);
+    const l=getLists(); l.push({name,positions:state.positions.slice(),guards}); setLists(l);
     renderSaved(); renderSquadQuick(); showMsg('נשמרה "'+name+'" ✓',"ok");
   });
 
   // when controls
-  $$("#presets .chip").forEach(c=>c.addEventListener("click",()=>applyPreset(c.dataset.preset)));
-  $("#start").addEventListener("input",e=>{ state.start=e.target.value; state.preset="custom"; updateWhenSummary(); saveState(); });
-  $("#end").addEventListener("input",e=>{ state.end=e.target.value; state.preset="custom"; updateWhenSummary(); saveState(); });
-  $("#posMinus").addEventListener("click",()=>setPositions(state.positions-1));
-  $("#posPlus").addEventListener("click",()=>setPositions(state.positions+1));
+  $$("#modeChips .chip").forEach(c=>c.addEventListener("click",()=>setMode(c.dataset.mode)));
+  $("#baseDate").addEventListener("input",e=>{ state.baseDate=e.target.value||todayDateStr(); syncTimeline(); updateWhenSummary(); saveState(); });
+  $("#start").addEventListener("input",e=>{ state.start=e.target.value; state.mode="multi"; updateWhenSummary(); saveState(); });
+  $("#end").addEventListener("input",e=>{ state.end=e.target.value; state.mode="multi"; updateWhenSummary(); saveState(); });
+  $("#shiftLen").addEventListener("change",e=>{ state.shiftLen=e.target.value; updateWhenSummary(); saveState(); });
   ["nightStart","nightEnd","hardStart","hardEnd"].forEach(k=>$("#"+k).addEventListener("input",e=>{ state[k]=e.target.value; saveState(); }));
 
   // actions
@@ -641,10 +848,12 @@ function init(){
   $("#csvBtn").addEventListener("click",exportCsv);
   $("#resetAll").addEventListener("click",()=>{
     if(!confirm("לאפס הכל (שמות, זמנים, שיבוץ)? חבורות שמורות יישארו.")) return;
-    state={positions:1,preset:"",start:"",end:"",nightStart:"22:00",nightEnd:"06:00",hardStart:"02:00",hardEnd:"05:00",guards:[],seed:Math.floor(Math.random()*1e9)};
+    state={mode:"single",baseDate:todayDateStr(),startOff:6*60,endOff:14*60,start:"",end:"",shiftLen:"auto",
+      nightStart:"22:00",nightEnd:"06:00",hardStart:"02:00",hardEnd:"05:00",positions:[""],guards:[],seed:Math.floor(Math.random()*1e9)};
     schedule=null; undoStack=[]; updateUndoBtn(); saveState();
     ["nightStart","nightEnd","hardStart","hardEnd"].forEach(k=>$("#"+k).value=state[k]);
-    renderChips(); applyPreset("night"); $("#output").style.display="none"; showMsg("אופס ✓","ok");
+    $("#shiftLen").value="auto"; $("#baseDate").value=state.baseDate;
+    renderChips(); renderPositions(); setMode("single"); $("#output").style.display="none"; showMsg("אופס ✓","ok");
   });
 
   setupPwa();
