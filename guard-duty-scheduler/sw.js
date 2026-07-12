@@ -1,6 +1,7 @@
-/* Service worker: cache-first app shell so the tool works fully offline
-   after the first load. Bump CACHE to invalidate old caches on update. */
-const CACHE = "gds-v1";
+/* Service worker: network-first for the HTML page (so updates arrive as soon
+   as you're online), cache-first for static icons. Works offline after first
+   load. Bump CACHE to invalidate old caches on update. */
+const CACHE = "gds-v2";
 const ASSETS = [
   "./",
   "./index.html",
@@ -31,18 +32,34 @@ self.addEventListener("fetch", e => {
   const url = new URL(req.url);
   // Only handle same-origin requests; let cross-origin (e.g. Tesseract CDN) pass through.
   if (url.origin !== self.location.origin) return;
-  e.respondWith(
-    caches.match(req).then(cached => {
-      if (cached) return cached;
-      return fetch(req)
+
+  const isHTML = req.mode === "navigate" || req.destination === "document" ||
+    url.pathname.endsWith("/") || url.pathname.endsWith("index.html");
+
+  if (isHTML) {
+    // Network-first: always try to get the latest page, fall back to cache offline.
+    e.respondWith(
+      fetch(req)
         .then(resp => {
-          if (resp && resp.status === 200 && resp.type === "basic") {
+          if (resp && resp.status === 200) {
             const copy = resp.clone();
             caches.open(CACHE).then(c => c.put(req, copy));
           }
           return resp;
         })
-        .catch(() => caches.match("./index.html"));
-    })
+        .catch(() => caches.match(req).then(c => c || caches.match("./index.html")))
+    );
+    return;
+  }
+
+  // Static assets: cache-first.
+  e.respondWith(
+    caches.match(req).then(cached => cached || fetch(req).then(resp => {
+      if (resp && resp.status === 200 && resp.type === "basic") {
+        const copy = resp.clone();
+        caches.open(CACHE).then(c => c.put(req, copy));
+      }
+      return resp;
+    }))
   );
 });

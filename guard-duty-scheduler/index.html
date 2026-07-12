@@ -400,6 +400,7 @@ function cleanNameLine(raw){
   let s = String(raw);
   try{ s = s.replace(/[\p{Extended_Pictographic}️‍]/gu, " "); }catch(e){}   // drop emoji
   s = s.replace(/[0-9٠-٩₪$€©®%|/\\«»@~^*+=<>_()\[\]{}.,:;"'`]/g, " ");        // drop digits & symbols
+  s = s.replace(/[A-Za-z]/g, " ");                                            // drop Latin fragments glued to Hebrew names
   return s.replace(/\s+/g, " ").trim();
 }
 function looksLikeName(raw){
@@ -795,29 +796,59 @@ function renderSaved(){
 }
 
 /* ---------- OCR ---------- */
+const TESS_CDN="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js";
 function loadScript(src){ return new Promise((res,rej)=>{ const s=document.createElement("script"); s.src=src; s.onload=res; s.onerror=()=>rej(new Error("load")); document.head.appendChild(s); }); }
-async function runOcr(file){
-  const prog=$("#ocrProgress"), bar=prog.firstElementChild; prog.style.display="block"; bar.style.width="5%";
-  showMsg("טוען זיהוי טקסט (דורש אינטרנט)…","info");
+function loadImageEl(file){
+  return new Promise((res,rej)=>{ const url=URL.createObjectURL(file); const im=new Image();
+    im.onload=()=>res({im,url}); im.onerror=()=>{ URL.revokeObjectURL(url); rej(new Error("image")); }; im.src=url; });
+}
+// Prepare a screenshot for OCR: upscale small images, grayscale, auto-invert dark-mode
+// screenshots (Tesseract wants dark text on light bg), and stretch contrast.
+async function preprocessImage(file){
+  let im,url;
+  try{ ({im,url}=await loadImageEl(file)); }catch(e){ return file; }
+  const iw=im.naturalWidth||im.width, ih=im.naturalHeight||im.height;
+  if(!iw||!ih){ try{URL.revokeObjectURL(url);}catch(e){} return file; }
+  const target=1800, s=Math.min(3, Math.max(iw,ih)<target ? target/Math.max(iw,ih) : 1);
+  const w=Math.round(iw*s), h=Math.round(ih*s);
+  const cv=document.createElement("canvas"); cv.width=w; cv.height=h;
+  const ctx=cv.getContext("2d",{willReadFrequently:true});
+  ctx.drawImage(im,0,0,w,h); try{URL.revokeObjectURL(url);}catch(e){}
   try{
-    if(typeof Tesseract==="undefined") await loadScript("https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js");
-    const {data}=await Tesseract.recognize(file,"heb+eng",{logger:m=>{ if(m.status==="recognizing text") bar.style.width=(10+m.progress*88)+"%"; }});
+    const id=ctx.getImageData(0,0,w,h), d=id.data; let sum=0;
+    for(let i=0;i<d.length;i+=4){ const g=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2]; d[i]=d[i+1]=d[i+2]=g; sum+=g; }
+    const invert=(sum/(d.length/4))<128;   // dark background -> invert to dark-on-light
+    const contrast=1.4;
+    for(let i=0;i<d.length;i+=4){ let g=d[i]; if(invert) g=255-g; g=(g-128)*contrast+128; g=g<0?0:g>255?255:g; d[i]=d[i+1]=d[i+2]=g; }
+    ctx.putImageData(id,0,0);
+  }catch(e){}
+  return cv;
+}
+async function runOcr(file){
+  const prog=$("#ocrProgress"), bar=prog.firstElementChild; prog.style.display="block"; bar.style.width="4%";
+  showMsg("מעבד תמונה ומזהה שמות (דורש אינטרנט)…","info");
+  let worker=null;
+  try{
+    if(typeof Tesseract==="undefined") await loadScript(TESS_CDN);
+    const src=await preprocessImage(file); bar.style.width="12%";
+    worker=await Tesseract.createWorker("heb",1,{logger:m=>{ if(m&&m.status&&m.status.indexOf("recogn")>=0) bar.style.width=(15+(m.progress||0)*80)+"%"; }});
+    try{ await worker.setParameters({tessedit_pageseg_mode:"6", preserve_interword_spaces:"1"}); }catch(e){}
+    const {data}=await worker.recognize(src);
     bar.style.width="100%";
     const cands=ocrCandidates(data.text);
     const ta=$("#reviewText"), info=$("#reviewInfo");
     if(cands.length){
       ta.value=cands.join("\n");
-      info.textContent="זוהו "+cands.length+" שמות אפשריים (סוננו מספרים וטקסט מיותר). עבור עליהם, מחק/תקן, ואז הוסף.";
+      info.textContent="זוהו "+cands.length+" שמות (סוננו מספרים, כותרות וטקסט מיותר). עבור עליהם, תקן טעויות זיהוי, ואז הוסף.";
       showMsg("זוהו "+cands.length+" שמות — בדוק ותקן לפני הוספה ✓","ok");
     } else {
-      ta.value=data.text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean).join("\n");
+      ta.value=(data.text||"").split(/\r?\n/).map(l=>l.trim()).filter(Boolean).join("\n");
       info.textContent="לא זוהו שמות ברורים. ערוך את הטקסט ידנית — שם בכל שורה.";
       showMsg("הזיהוי לא היה ברור — נקה את הטקסט ידנית.","info");
     }
-    $("#reviewPanel").classList.remove("hide");
-    ta.focus();
-  }catch(e){ showMsg("זיהוי מהתמונה נכשל (כנראה אין אינטרנט). הקלד/הדבק ידנית.","err"); }
-  finally{ setTimeout(()=>{ prog.style.display="none"; bar.style.width="0"; },800); }
+    $("#reviewPanel").classList.remove("hide"); ta.focus();
+  }catch(e){ showMsg("זיהוי מהתמונה נכשל (בדוק חיבור לאינטרנט). אפשר להקליד/להדביק ידנית.","err"); }
+  finally{ if(worker){ try{ await worker.terminate(); }catch(e){} } setTimeout(()=>{ prog.style.display="none"; bar.style.width="0"; },800); }
 }
 
 /* ---------- PWA ---------- */
