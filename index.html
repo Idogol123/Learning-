@@ -190,12 +190,52 @@
       word-break: break-word;
       unicode-bidi: plaintext;
     }
+    .time-badge {
+      display: inline-block;
+      background: rgba(52,211,153,0.15);
+      color: var(--ok);
+      border: 1px solid rgba(52,211,153,0.35);
+      border-radius: 6px;
+      padding: 0 7px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      margin-inline-start: 8px;
+      font-variant-numeric: tabular-nums;
+      direction: ltr;
+      unicode-bidi: isolate;
+      white-space: nowrap;
+    }
     .match-ctx {
       color: var(--muted);
       font-size: 0.78rem;
       margin-top: 3px;
       unicode-bidi: plaintext;
     }
+    .group-sub {
+      color: var(--text);
+      font-size: 0.83rem;
+      font-weight: 700;
+      margin: 12px 0 4px;
+      padding-inline-start: 8px;
+      border-inline-start: 3px solid var(--accent-2);
+      unicode-bidi: plaintext;
+    }
+
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; align-items: center; }
+    .chip {
+      background: var(--card-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 999px;
+      padding: 4px 12px;
+      font-size: 0.82rem;
+      cursor: pointer;
+      unicode-bidi: plaintext;
+    }
+    .chip:active { background: #31425c; }
+    .chip.clear { color: var(--muted); border-style: dashed; }
+    .chips-label { color: var(--muted); font-size: 0.78rem; margin-inline-end: 2px; }
+    .continue-chip { color: var(--accent); border-color: rgba(56,189,248,0.4); }
 
     .no-match { color: var(--muted); font-size: 0.88rem; }
     .more-note { color: var(--muted); font-size: 0.8rem; margin-top: 6px; }
@@ -216,11 +256,13 @@
       </label>
       <input type="file" id="fileInput" accept=".txt,.csv,.log,.json,.md,.pdf,.docx,.xlsx">
       <div class="file-name" id="fileName">לא נבחר קובץ</div>
+      <div class="chips" id="continueRow" hidden></div>
     </div>
 
     <div class="card">
       <label for="query">2. מה לחפש? <span class="hint">כמה מונחים? הפרד בפסיק — לדוגמה: שם, 100, מילה</span></label>
       <input type="text" id="query" placeholder="הקלד מונח לחיפוש…" autocomplete="off">
+      <div class="chips" id="historyRow" hidden></div>
       <div class="options">
         <input type="checkbox" id="caseSensitive">
         <label for="caseSensitive" style="margin:0;font-weight:400;">התאמת אותיות גדולות/קטנות (Case sensitive)</label>
@@ -322,28 +364,169 @@ return i=this.parent.children.indexOf(this),removed=this.parent.children.splice(
     const statusEl = document.getElementById('status');
     const resultsEl = document.getElementById('results');
     const copyBtn = document.getElementById('copyBtn');
+    const continueRow = document.getElementById('continueRow');
+    const historyRow = document.getElementById('historyRow');
 
     let currentFile = null;
-    let lastResults = [];   // [{ term, matches:[{category,value,context}] }] for copying
+    let lastResults = [];   // [{ term, matches:[{category,value,context,time,group}] }] for copying
+    let cachedModel = null; // parsed model, reused across searches of the same file
+    let cachedKey = null;   // identity of the file+options the cache was built for
+    let searchTimer = null; // debounce handle for live search
 
     // Configure the (inlined) PDF worker so PDF parsing works fully offline.
     if (window.pdfjsLib && window.PDF_WORKER_DATA_URI) {
       window.pdfjsLib.GlobalWorkerOptions.workerSrc = window.PDF_WORKER_DATA_URI;
     }
 
-    fileInput.addEventListener('change', () => {
-      currentFile = fileInput.files[0] || null;
+    function useFile(file) {
+      currentFile = file || null;
+      cachedModel = null;
+      cachedKey = null;
       fileNameEl.textContent = currentFile ? currentFile.name : 'לא נבחר קובץ';
       resultsEl.innerHTML = '';
+      copyBtn.hidden = true;
       setStatus('');
+    }
+
+    fileInput.addEventListener('change', () => {
+      const f = fileInput.files[0] || null;
+      useFile(f);
+      if (f) saveLastFile(f);
+      if (f && queryEl.value.trim()) runSearch();
     });
 
-    searchBtn.addEventListener('click', runSearch);
-    queryEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') runSearch(); });
+    searchBtn.addEventListener('click', () => runSearch());
+    queryEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') { clearTimeout(searchTimer); runSearch(); } });
+    // Live search: re-run (debounced) as the user types, reusing the cached model.
+    queryEl.addEventListener('input', () => {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => {
+        if (currentFile && queryEl.value.trim()) runSearch({ live: true });
+        else if (!queryEl.value.trim()) { resultsEl.innerHTML = ''; copyBtn.hidden = true; setStatus(''); }
+      }, 250);
+    });
+    caseEl.addEventListener('change', () => { if (currentFile && queryEl.value.trim()) runSearch(); });
+    headerEl.addEventListener('change', () => { cachedModel = null; if (currentFile && queryEl.value.trim()) runSearch(); });
 
     function setStatus(msg, kind) {
       statusEl.textContent = msg;
       statusEl.className = kind || '';
+    }
+
+    function debounce(fn, ms) {
+      let t = null;
+      return function () { clearTimeout(t); const a = arguments; t = setTimeout(() => fn.apply(null, a), ms); };
+    }
+
+    // ---- Remember last file (IndexedDB, stays on this device) ----
+    function idb() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open('fileSearchDB', 1);
+        req.onupgradeneeded = () => req.result.createObjectStore('files');
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+    async function idbPut(key, val) {
+      const db = await idb();
+      return new Promise((res, rej) => {
+        const tx = db.transaction('files', 'readwrite');
+        tx.objectStore('files').put(val, key);
+        tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+      });
+    }
+    async function idbGet(key) {
+      const db = await idb();
+      return new Promise((res, rej) => {
+        const tx = db.transaction('files', 'readonly');
+        const r = tx.objectStore('files').get(key);
+        r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+      });
+    }
+    async function idbDel(key) {
+      const db = await idb();
+      return new Promise((res, rej) => {
+        const tx = db.transaction('files', 'readwrite');
+        tx.objectStore('files').delete(key);
+        tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+      });
+    }
+
+    async function saveLastFile(file) {
+      try {
+        const buffer = await file.arrayBuffer();
+        await idbPut('lastFile', { name: file.name, type: file.type, buffer: buffer });
+        renderContinueChip(file.name);
+      } catch (e) { /* storage unavailable — ignore */ }
+    }
+
+    async function loadLastFileMeta() {
+      try {
+        const rec = await idbGet('lastFile');
+        if (rec && rec.name) renderContinueChip(rec.name);
+      } catch (e) { /* ignore */ }
+    }
+
+    function renderContinueChip(name) {
+      continueRow.innerHTML = '';
+      const chip = document.createElement('button');
+      chip.className = 'chip continue-chip';
+      chip.textContent = '📂 המשך עם: ' + name;
+      chip.addEventListener('click', continueLastFile);
+      const clear = document.createElement('button');
+      clear.className = 'chip clear';
+      clear.textContent = 'נקה';
+      clear.addEventListener('click', async () => { await idbDel('lastFile'); continueRow.hidden = true; });
+      continueRow.appendChild(chip);
+      continueRow.appendChild(clear);
+      continueRow.hidden = false;
+    }
+
+    async function continueLastFile() {
+      try {
+        const rec = await idbGet('lastFile');
+        if (!rec) return;
+        useFile(new File([rec.buffer], rec.name, { type: rec.type || '' }));
+        if (queryEl.value.trim()) runSearch();
+        else queryEl.focus();
+      } catch (e) { setStatus('טעינת הקובץ השמור נכשלה.', 'err'); }
+    }
+
+    // ---- Search history (localStorage) ----
+    const HIST_KEY = 'fileSearchHistory';
+    function getHistory() {
+      try { return JSON.parse(localStorage.getItem(HIST_KEY) || '[]'); } catch (e) { return []; }
+    }
+    function pushHistory(q) {
+      q = q.trim();
+      if (!q) return;
+      let h = getHistory().filter((x) => x !== q);
+      h.unshift(q);
+      h = h.slice(0, 8);
+      try { localStorage.setItem(HIST_KEY, JSON.stringify(h)); } catch (e) { /* ignore */ }
+      renderHistory();
+    }
+    function renderHistory() {
+      const h = getHistory();
+      historyRow.innerHTML = '';
+      if (h.length === 0) { historyRow.hidden = true; return; }
+      const label = document.createElement('span');
+      label.className = 'chips-label';
+      label.textContent = 'אחרונים:';
+      historyRow.appendChild(label);
+      h.forEach((q) => {
+        const chip = document.createElement('button');
+        chip.className = 'chip';
+        chip.textContent = q;
+        chip.addEventListener('click', () => { queryEl.value = q; runSearch(); });
+        historyRow.appendChild(chip);
+      });
+      const clear = document.createElement('button');
+      clear.className = 'chip clear';
+      clear.textContent = 'נקה היסטוריה';
+      clear.addEventListener('click', () => { try { localStorage.removeItem(HIST_KEY); } catch (e) {} renderHistory(); });
+      historyRow.appendChild(clear);
+      historyRow.hidden = false;
     }
 
     function getExt(name) {
@@ -380,10 +563,22 @@ return i=this.parent.children.indexOf(this),removed=this.parent.children.splice(
     // match carries its section context (day / task / position) and time.
     // Headers come in three levels by font height; a "position" label is a
     // lone short line sitting in the right-hand column.
+    // Ask for a password (retrying) when a PDF is encrypted.
+    function pdfPasswordCb(updatePassword, reason) {
+      const msg = reason === window.pdfjsLib.PasswordResponses.INCORRECT_PASSWORD
+        ? 'הסיסמה שגויה — נסה שוב:'
+        : 'הקובץ מוגן בסיסמה. הזן סיסמה:';
+      const pw = window.prompt(msg);
+      if (pw === null) throw new Error('נדרשת סיסמה כדי לפתוח את ה־PDF');
+      updatePassword(pw);
+    }
+
     async function extractPdfLines(file) {
       if (!window.pdfjsLib) throw new Error('רכיב קריאת PDF לא נטען');
       const buf = await readAsArrayBuffer(file);
-      const pdf = await window.pdfjsLib.getDocument({ data: buf }).promise;
+      const loadingTask = window.pdfjsLib.getDocument({ data: buf });
+      loadingTask.onPassword = pdfPasswordCb;
+      const pdf = await loadingTask.promise;
 
       const rows = [];
       for (let p = 1; p <= pdf.numPages; p++) {
@@ -439,10 +634,19 @@ return i=this.parent.children.indexOf(this),removed=this.parent.children.splice(
         const ctx = [];
         if (day && day !== category) ctx.push(day);
         if (task && task !== category && task !== section) ctx.push(task);
-        const time = extractTimes(r.text);
-        if (time) ctx.push(time);
         ctx.push('שורה ' + n);
-        lines.push({ text: r.text, category: category, context: ctx.join(' · ') });
+        const time = extractTimes(r.text);
+        // Clean value: drop the "מ-/עד-" words and HH:MM tokens (shown as a badge).
+        const clean = r.text.split(' ')
+          .filter((w) => !/^\d{1,2}:\d{2}$/.test(w) && w !== 'מ-' && w !== 'עד-' && w !== 'מ' && w !== 'עד')
+          .join(' ').replace(/\s+/g, ' ').trim();
+        lines.push({
+          text: clean || r.text,
+          category: category,
+          context: ctx.join(' · '),
+          time: time,
+          group: day || category
+        });
       }
       return lines;
     }
@@ -488,13 +692,31 @@ return i=this.parent.children.indexOf(this),removed=this.parent.children.splice(
         if (s.isHeading) current = s.text.replace(/^#{1,6}\s+/, '').replace(/[:：]$/, '').trim();
         if (!s.text.trim()) { n++; continue; }
         n++;
-        out.push({ text: s.text, category: current || 'ללא כותרת', context: 'שורה ' + n });
+        const cat = current || 'ללא כותרת';
+        out.push({ text: s.text, category: cat, context: 'שורה ' + n, time: '', group: cat });
       }
       return out;
     }
 
+    // Fill merged cells with their anchor value so merged labels aren't blank.
+    function fillMerges(sheet) {
+      const merges = sheet['!merges'];
+      if (!merges) return;
+      merges.forEach((m) => {
+        const anchor = sheet[window.XLSX.utils.encode_cell({ r: m.s.r, c: m.s.c })];
+        if (!anchor) return;
+        for (let R = m.s.r; R <= m.e.r; R++) {
+          for (let C = m.s.c; C <= m.e.c; C++) {
+            const addr = window.XLSX.utils.encode_cell({ r: R, c: C });
+            if (!sheet[addr]) sheet[addr] = { t: anchor.t, v: anchor.v, w: anchor.w };
+          }
+        }
+      });
+    }
+
     // Turn a SheetJS worksheet into { headers, rows } honoring the header toggle.
     function sheetToTable(sheet, name) {
+      fillMerges(sheet);
       const grid = window.XLSX.utils.sheet_to_json(sheet, { header: 1, blankrows: false, raw: false });
       const cells = grid.map((row) => (row || []).map((c) => (c == null ? '' : String(c))));
       let headers, rows;
@@ -551,33 +773,45 @@ return i=this.parent.children.indexOf(this),removed=this.parent.children.splice(
       return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
 
-    // Highlight all occurrences of `term` inside a line, escaping every
+    // Build a tolerant matcher for `term`: ignores Hebrew nikkud and treats any
+    // run of whitespace as flexible, so "עידו  גולדנברג" or nikkud'd text still
+    // matches. Offsets map to the original string, so highlighting stays correct.
+    const NIKKUD = '[\\s\\u0591-\\u05C7]*';
+    function buildMatcher(term, caseSensitive) {
+      const parts = term.split(/\s+/).filter((p) => p.length > 0).map((word) =>
+        word.split('').map((ch) => escapeRegExp(ch)).join(NIKKUD)
+      );
+      const pattern = parts.join('[\\s\\u0591-\\u05C7]+');
+      return new RegExp(pattern || escapeRegExp(term), caseSensitive ? 'g' : 'gi');
+    }
+
+    // Highlight all matches of `matcher` inside a line, escaping every
     // file-derived segment so <mark> is the only injected HTML.
-    function highlightLine(line, term, caseSensitive) {
-      const flags = caseSensitive ? 'g' : 'gi';
-      const re = new RegExp(escapeRegExp(term), flags);
+    function highlightLine(line, matcher) {
+      matcher.lastIndex = 0;
       let out = '';
       let last = 0;
       let m;
-      while ((m = re.exec(line)) !== null) {
+      while ((m = matcher.exec(line)) !== null) {
         out += escapeHtml(line.slice(last, m.index));
         out += '<mark>' + escapeHtml(m[0]) + '</mark>';
         last = m.index + m[0].length;
-        if (m.index === re.lastIndex) re.lastIndex++; // guard against zero-length
+        if (m.index === matcher.lastIndex) matcher.lastIndex++; // guard against zero-length
       }
       out += escapeHtml(line.slice(last));
       return out;
     }
 
-    function contains(hay, term, caseSensitive) {
-      return (caseSensitive ? hay : hay.toLowerCase())
-        .includes(caseSensitive ? term : term.toLowerCase());
+    function matches(hay, matcher) {
+      matcher.lastIndex = 0;
+      return matcher.test(hay);
     }
 
     // Collect matches from the parsed model as uniform cards:
-    // { category, value, context }.
+    // { category, value, context, time, group }.
     function collectMatches(model, term, caseSensitive) {
       const out = [];
+      const matcher = buildMatcher(term, caseSensitive);
       const limit = MAX_MATCHES_PER_TERM + 1;
       if (model.kind === 'table') {
         const multiSheet = model.tables.length > 1;
@@ -587,13 +821,16 @@ return i=this.parent.children.indexOf(this),removed=this.parent.children.splice(
             const rowLabel = row[0] != null ? String(row[0]) : '';
             for (let c = 0; c < row.length; c++) {
               const cell = row[c];
-              if (cell && contains(cell, term, caseSensitive)) {
-                let ctx = (multiSheet ? 'גיליון ' + table.name + ' · ' : '') + 'שורה ' + (r + 1);
+              if (cell && matches(cell, matcher)) {
+                let ctx = 'שורה ' + (r + 1);
                 if (rowLabel && c !== 0) ctx += ' · ' + rowLabel;
+                const grp = multiSheet ? ('גיליון ' + table.name) : (table.headers[c] || ('עמודה ' + (c + 1)));
                 out.push({
                   category: table.headers[c] || ('עמודה ' + (c + 1)),
                   value: cell,
-                  context: ctx
+                  context: ctx,
+                  time: '',
+                  group: grp
                 });
                 if (out.length >= limit) return out;
               }
@@ -602,8 +839,8 @@ return i=this.parent.children.indexOf(this),removed=this.parent.children.splice(
         }
       } else {
         for (const ln of model.lines) {
-          if (ln.text && contains(ln.text, term, caseSensitive)) {
-            out.push({ category: ln.category, value: ln.text, context: ln.context });
+          if (ln.text && matches(ln.text, matcher)) {
+            out.push({ category: ln.category, value: ln.text, context: ln.context, time: ln.time || '', group: ln.group || ln.category });
             if (out.length >= limit) return out;
           }
         }
@@ -617,12 +854,16 @@ return i=this.parent.children.indexOf(this),removed=this.parent.children.splice(
       let totalFound = 0;
 
       terms.forEach((term) => {
-        const matches = collectMatches(model, term, caseSensitive);
-        const capped = matches.length > MAX_MATCHES_PER_TERM;
-        const shown = capped ? matches.slice(0, MAX_MATCHES_PER_TERM) : matches;
-        totalFound += matches.length;
+        const found = collectMatches(model, term, caseSensitive);
+        const capped = found.length > MAX_MATCHES_PER_TERM;
+        const shown = capped ? found.slice(0, MAX_MATCHES_PER_TERM) : found;
+        // Stable-sort by group so matches cluster (by day / category / sheet).
+        shown.forEach((m, i) => { m._i = i; });
+        shown.sort((a, b) => (a.group || '').localeCompare(b.group || '', 'he') || a._i - b._i);
+        totalFound += found.length;
         lastResults.push({ term: term, matches: shown });
 
+        const matcher = buildMatcher(term, caseSensitive);
         const group = document.createElement('div');
         group.className = 'term-group';
 
@@ -630,7 +871,7 @@ return i=this.parent.children.indexOf(this),removed=this.parent.children.splice(
         head.className = 'term-head';
         const countLabel = capped
           ? ('מוצגות ' + MAX_MATCHES_PER_TERM + '+ תוצאות')
-          : (matches.length + ' תוצאות');
+          : (found.length + ' תוצאות');
         head.innerHTML = '<span class="term">' + escapeHtml(term) + '</span>' +
                          '<span class="count">' + countLabel + '</span>';
         group.appendChild(head);
@@ -641,7 +882,16 @@ return i=this.parent.children.indexOf(this),removed=this.parent.children.splice(
           nm.textContent = 'לא נמצאו תוצאות';
           group.appendChild(nm);
         } else {
+          const manyGroups = new Set(shown.map((m) => m.group)).size > 1;
+          let lastGroup = null;
           shown.forEach((mt) => {
+            if (manyGroups && mt.group && mt.group !== lastGroup) {
+              lastGroup = mt.group;
+              const sub = document.createElement('div');
+              sub.className = 'group-sub';
+              sub.textContent = mt.group;
+              group.appendChild(sub);
+            }
             const card = document.createElement('div');
             card.className = 'match-card';
 
@@ -651,7 +901,13 @@ return i=this.parent.children.indexOf(this),removed=this.parent.children.splice(
 
             const val = document.createElement('div');
             val.className = 'match-val';
-            val.innerHTML = highlightLine(mt.value, term, caseSensitive);
+            val.innerHTML = highlightLine(mt.value, matcher);
+            if (mt.time) {
+              const badge = document.createElement('span');
+              badge.className = 'time-badge';
+              badge.textContent = '🕐 ' + mt.time;
+              val.appendChild(badge);
+            }
 
             const ctx = document.createElement('div');
             ctx.className = 'match-ctx';
@@ -684,10 +940,14 @@ return i=this.parent.children.indexOf(this),removed=this.parent.children.splice(
         out.push('');
         out.push('▸ ' + g.term + ' (' + g.matches.length + ' תוצאות)');
         if (g.matches.length === 0) { out.push('   לא נמצאו תוצאות'); return; }
+        const manyGroups = new Set(g.matches.map((m) => m.group)).size > 1;
+        let lastGroup = null;
         g.matches.forEach((m) => {
+          if (manyGroups && m.group && m.group !== lastGroup) { lastGroup = m.group; out.push('  ' + m.group + ':'); }
           const cat = m.category ? '[' + m.category + '] ' : '';
+          const time = m.time ? ' 🕐 ' + m.time : '';
           const ctx = m.context ? '  —  ' + m.context : '';
-          out.push('   • ' + cat + m.value + ctx);
+          out.push('   • ' + cat + m.value + time + ctx);
         });
       });
       return out.join('\n').trim();
@@ -724,17 +984,30 @@ return i=this.parent.children.indexOf(this),removed=this.parent.children.splice(
 
     copyBtn.addEventListener('click', copyResults);
 
-    async function runSearch() {
-      if (!currentFile) { setStatus('קודם בחר קובץ.', 'err'); return; }
+    function fileKey(file) {
+      return [file.name, file.size, file.lastModified, headerEl.checked].join('|');
+    }
+
+    // Parse once per file+options; reuse the cached model for later searches.
+    async function getModel() {
+      const key = fileKey(currentFile);
+      if (cachedModel && cachedKey === key) return cachedModel;
+      setStatus('טוען וקורא את הקובץ…', 'info');
+      const model = await parseFile(currentFile);
+      cachedModel = model;
+      cachedKey = key;
+      return model;
+    }
+
+    async function runSearch(opts) {
+      opts = opts || {};
+      if (!currentFile) { if (!opts.live) setStatus('קודם בחר קובץ.', 'err'); return; }
       const terms = parseTerms(queryEl.value);
-      if (terms.length === 0) { setStatus('הקלד לפחות מונח אחד לחיפוש.', 'err'); return; }
+      if (terms.length === 0) { if (!opts.live) setStatus('הקלד לפחות מונח אחד לחיפוש.', 'err'); return; }
 
       searchBtn.disabled = true;
-      setStatus('טוען וקורא את הקובץ…', 'info');
-      resultsEl.innerHTML = '';
-
       try {
-        const model = await parseFile(currentFile);
+        const model = await getModel();
         setStatus('מחפש…', 'info');
         const total = renderResults(terms, model, caseEl.checked);
         copyBtn.hidden = total === 0;
@@ -745,14 +1018,20 @@ return i=this.parent.children.indexOf(this),removed=this.parent.children.splice(
         } else {
           setStatus('נמצאו ' + total + ' תוצאות סה״כ.', 'ok');
         }
+        pushHistory(queryEl.value);
       } catch (err) {
         console.error(err);
         copyBtn.hidden = true;
+        resultsEl.innerHTML = '';
         setStatus('שגיאה: ' + (err && err.message ? err.message : 'קריאת הקובץ נכשלה'), 'err');
       } finally {
         searchBtn.disabled = false;
       }
     }
+
+    // On load: restore search history and offer the last-used file.
+    renderHistory();
+    loadLastFileMeta();
   </script>
 </body>
 </html>
