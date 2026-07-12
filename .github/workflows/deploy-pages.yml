@@ -1,0 +1,42 @@
+name: Deploy guard-duty-scheduler to Pages
+
+# Publishes the guard-duty-scheduler/ folder to GitHub Pages so the app can be
+# installed to the home screen (PWA install requires HTTPS hosting).
+# Runs on push to the default branch, or manually from the Actions tab.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "guard-duty-scheduler/**"
+      - ".github/workflows/deploy-pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      - name: Upload site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: guard-duty-scheduler
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

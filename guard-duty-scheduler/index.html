@@ -2,6 +2,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#4b5320">
 <title>שיבוץ שמירות</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="שמירות">
 <style>
   :root{
     --bg:#f4f5f0; --card:#ffffff; --ink:#20241a; --muted:#6b7160;
@@ -116,6 +123,19 @@
   <h1>🛡️ שיבוץ שמירות</h1>
   <p>כלי אופליין פרטי · שעות שוות · מנוחה · חלוקת לילות הוגנת</p>
 </header>
+
+<div id="installBar" class="card no-print" style="display:none; background:var(--chip); align-items:center; gap:10px">
+  <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:space-between">
+    <span style="font-size:14px; font-weight:600">📲 להתקין את "שמירות" למסך הבית לגישה מהירה ואופליין?</span>
+    <span style="display:flex; gap:8px">
+      <button class="btn sm" type="button" id="installBtn">התקן</button>
+      <button class="btn sec sm" type="button" id="installDismiss">לא עכשיו</button>
+    </span>
+  </div>
+</div>
+<div id="iosHelp" class="msg info no-print" style="display:none">
+  להתקנה ב-iPhone: הקישו על <b>שיתוף</b> ⬆️ בתחתית הדפדפן, ואז <b>"הוסף למסך הבית"</b>.
+</div>
 
 <div id="msg" class="msg"></div>
 
@@ -660,6 +680,36 @@ function updateWindowInfo(){
   $("#windowInfo").textContent = w ? ("משך: "+fmtDur(w.mins)+" ("+(w.mins/60).toFixed(w.mins%60?1:0)+" שעות)") : "";
 }
 
+/* ---------- PWA: service worker + install ---------- */
+let deferredPrompt=null;
+function setupPwa(){
+  if("serviceWorker" in navigator && location.protocol.startsWith("http")){
+    navigator.serviceWorker.register("sw.js").catch(()=>{});
+  }
+  const bar=$("#installBar"), btn=$("#installBtn"), dismiss=$("#installDismiss");
+  const dismissed=()=>{ try{ return localStorage.getItem("gds_install_dismissed")==="1"; }catch(e){ return false; } };
+  const standalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone===true;
+
+  window.addEventListener("beforeinstallprompt",e=>{
+    e.preventDefault(); deferredPrompt=e;
+    if(!dismissed() && !standalone) bar.style.display="block";
+  });
+  btn.addEventListener("click",async()=>{
+    if(!deferredPrompt) return;
+    deferredPrompt.prompt();
+    try{ await deferredPrompt.userChoice; }catch(e){}
+    deferredPrompt=null; bar.style.display="none";
+  });
+  dismiss.addEventListener("click",()=>{ bar.style.display="none"; try{ localStorage.setItem("gds_install_dismissed","1"); }catch(e){} });
+  window.addEventListener("appinstalled",()=>{ bar.style.display="none"; showMsg("הותקן למסך הבית ✓","ok"); });
+
+  // iOS Safari has no beforeinstallprompt — show manual hint (once), only when served over http(s)
+  const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
+  if(isIOS && !standalone && !dismissed() && location.protocol.startsWith("http")){
+    $("#iosHelp").style.display="block";
+  }
+}
+
 /* ---------- Wire up ---------- */
 function init(){
   loadState();
@@ -718,6 +768,8 @@ function init(){
     const l=getLists(); l.push({name,positions:state.positions,guards}); setLists(l);
     $("#saveName").value=""; renderSaved(); showMsg('נשמרה הרשימה "'+name+'" ✓',"ok");
   });
+
+  setupPwa();
 }
 document.addEventListener("DOMContentLoaded",init);
 })();
