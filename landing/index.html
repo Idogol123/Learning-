@@ -39,6 +39,7 @@
   .install{ display:none; width:100%; margin:4px 0 16px; padding:12px 16px; border:1.5px dashed var(--accent); border-radius:14px;
     background:transparent; color:var(--accent); font:inherit; font-weight:700; font-size:14px; cursor:pointer; }
   footer{ text-align:center; color:var(--muted); font-size:11.5px; margin-top:24px; }
+  .upd{ display:inline-block; margin-top:6px; opacity:.7; font-size:11px; }
 </style>
 </head>
 <body>
@@ -59,9 +60,21 @@
     <span class="arr">‹</span>
   </a>
 
-  <footer>עובד אופליין · הנתונים נשמרים במכשיר בלבד</footer>
+  <footer>עובד אופליין · הנתונים נשמרים במכשיר בלבד
+    <br><span class="upd">עודכן לאחרונה: <span id="built">__BUILD_TIME__</span></span>
+  </footer>
 
 <script>
+  // Hide the "last updated" line if the deploy placeholder wasn't replaced
+  // (e.g. when the file is opened locally without the Pages build step).
+  (function(){
+    var el = document.getElementById('built');
+    if (el && el.textContent.indexOf('_') !== -1) {
+      var line = el.closest('.upd');
+      if (line) line.style.display = 'none';
+    }
+  })();
+
   // Register the hub's service worker so it opens offline and is installable.
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     window.addEventListener('load', function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); });
