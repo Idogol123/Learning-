@@ -1,3 +1,6 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#4b5320">
@@ -133,6 +136,8 @@
     tr.night td{background:#eee!important}
   }
 </style>
+</head>
+<body>
 
 <header>
   <h1>🛡️ שיבוץ שמירות</h1>
@@ -227,6 +232,7 @@
   <div class="btn-wrap no-print"><button class="btn big wa" id="shareWa">💬 שתף לוואטסאפ</button></div>
   <div class="btn-wrap no-print">
     <button class="btn ghost" id="reshuffle">🔀 ערבב</button>
+    <button class="btn sec hide" id="undoBtn">↩️ בטל</button>
     <button class="btn sec" id="saveImg">🖼️ תמונה</button>
     <button class="btn sec" id="printBtn">🖨️ הדפסה</button>
     <button class="btn sec" id="csvBtn">📄 CSV</button>
@@ -271,6 +277,11 @@ let state = {
 };
 let schedule = null;
 let selCell = null;
+let undoStack = [];   // snapshots of `schedule` before each reshuffle / swap
+
+function pushUndo(){ if(schedule){ undoStack.push(JSON.parse(JSON.stringify(schedule))); if(undoStack.length>30) undoStack.shift(); updateUndoBtn(); } }
+function updateUndoBtn(){ const b=$("#undoBtn"); if(b) b.classList.toggle("hide", undoStack.length===0); }
+function undo(){ if(!undoStack.length) return; schedule=undoStack.pop(); selCell=null; saveState(); renderOutput(); updateUndoBtn(); showMsg("בוטל ✓","ok"); }
 
 function saveState(){ try{ localStorage.setItem(LS_STATE, JSON.stringify({state, schedule})); }catch(e){} }
 function loadState(){
@@ -370,7 +381,7 @@ function generate(reshuffle){
   const availAll=guards.filter(g=>!g.ua); const G=availAll.length;
   if(G<P){ showMsg("צריך לפחות "+P+" שומרים זמינים ל-"+P+" עמדות (יש "+G+").","err"); return; }
 
-  if(reshuffle) state.seed=Math.floor(Math.random()*1e9);
+  if(reshuffle){ pushUndo(); state.seed=Math.floor(Math.random()*1e9); } else { undoStack=[]; }
   const rng=mulberry32(state.seed);
   const R=G/gcd(P,G);
   const nA=timeToMin(state.nightStart), nB=timeToMin(state.nightEnd), hA=timeToMin(state.hardStart), hB=timeToMin(state.hardEnd);
@@ -444,11 +455,13 @@ function renderOutput(){
     '<div class="stat"><b>'+schedule.R+'</b>משמרות</div>'+
     '<div class="stat"><b>'+fmtDur(schedule.slots[0].mins)+'</b>אורך משמרת</div>'+
     '<div class="stat"><b>'+(sp<=0.017?"שוויוני":("±"+fmtDur(Math.round(sp*60))))+'</b>פער שעות</div>';
+  updateUndoBtn();
 }
 function onCellClick(td){
   if(!selCell){ selCell=td; td.classList.add("sel"); return; }
   if(selCell===td){ td.classList.remove("sel"); selCell=null; return; }
   const r1=+selCell.dataset.r,p1=+selCell.dataset.p,r2=+td.dataset.r,p2=+td.dataset.p;
+  pushUndo();
   const s1=schedule.slots[r1], s2=schedule.slots[r2];
   [s1.assign[p1],s2.assign[p2]]=[s2.assign[p2],s1.assign[p1]];
   selCell.classList.remove("sel"); selCell=null; saveState(); renderOutput();
@@ -615,6 +628,7 @@ function init(){
   // actions
   $("#generate").addEventListener("click",()=>generate(false));
   $("#reshuffle").addEventListener("click",()=>generate(true));
+  $("#undoBtn").addEventListener("click",undo);
   $("#shareWa").addEventListener("click",shareWa);
   $("#saveImg").addEventListener("click",saveImage);
   $("#printBtn").addEventListener("click",()=>window.print());
@@ -622,7 +636,7 @@ function init(){
   $("#resetAll").addEventListener("click",()=>{
     if(!confirm("לאפס הכל (שמות, זמנים, שיבוץ)? חבורות שמורות יישארו.")) return;
     state={positions:1,preset:"",start:"",end:"",nightStart:"22:00",nightEnd:"06:00",hardStart:"02:00",hardEnd:"05:00",guards:[],seed:Math.floor(Math.random()*1e9)};
-    schedule=null; saveState();
+    schedule=null; undoStack=[]; updateUndoBtn(); saveState();
     ["nightStart","nightEnd","hardStart","hardEnd"].forEach(k=>$("#"+k).value=state[k]);
     renderChips(); applyPreset("night"); $("#output").style.display="none"; showMsg("אופס ✓","ok");
   });
@@ -632,3 +646,5 @@ function init(){
 document.addEventListener("DOMContentLoaded",init);
 })();
 </script>
+</body>
+</html>
