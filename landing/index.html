@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#4b5320">
+<title>הכלים שלי</title>
+<style>
+  :root{ --bg:#f4f5f0; --card:#fff; --ink:#20241a; --muted:#6b7160; --accent:#4b5320; --line:#dcded2; --shadow:0 1px 3px rgba(0,0,0,.08),0 6px 18px rgba(0,0,0,.06); }
+  @media (prefers-color-scheme: dark){ :root{ --bg:#15170f; --card:#1e2018; --ink:#eef0e4; --muted:#a6ac98; --accent:#8a9a3a; --line:#33362a; --shadow:none; } }
+  *{box-sizing:border-box}
+  body{ margin:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Hebrew",Arial,sans-serif;
+    background:var(--bg); color:var(--ink); direction:rtl; line-height:1.5; padding:24px 16px calc(24px + env(safe-area-inset-bottom)); max-width:640px; margin:0 auto; }
+  h1{ font-size:24px; margin:8px 0 4px; }
+  .sub{ color:var(--muted); font-size:14px; margin:0 0 20px; }
+  a.card{ display:flex; align-items:center; gap:14px; text-decoration:none; color:inherit;
+    background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px; margin:12px 0; box-shadow:var(--shadow); }
+  a.card:active{ transform:translateY(1px); }
+  .ico{ font-size:32px; width:52px; height:52px; flex:0 0 auto; display:flex; align-items:center; justify-content:center;
+    background:var(--accent); color:#fff; border-radius:14px; }
+  .t{ font-size:18px; font-weight:700; }
+  .d{ font-size:13px; color:var(--muted); margin-top:2px; }
+  .arr{ margin-inline-start:auto; color:var(--muted); font-size:22px; }
+  footer{ text-align:center; color:var(--muted); font-size:11.5px; margin-top:24px; }
+</style>
+</head>
+<body>
+  <h1>🧰 הכלים שלי</h1>
+  <p class="sub">אוסף כלים קטנים שעובדים ישירות בדפדפן.</p>
+
+  <a class="card" href="./guard-duty-scheduler/">
+    <span class="ico">🛡️</span>
+    <span><span class="t">שיבוץ שמירות</span><span class="d">טבלת שמירות עם שעות שוות, איזון לילות ושיתוף לוואטסאפ</span></span>
+    <span class="arr">‹</span>
+  </a>
+
+  <a class="card" href="./file-search/">
+    <span class="ico">🔎</span>
+    <span><span class="t">חיפוש בקובץ</span><span class="d">חיפוש מהיר בתוך קבצים, ישירות בדפדפן</span></span>
+    <span class="arr">‹</span>
+  </a>
+
+  <footer>עובד אופליין · הנתונים נשמרים במכשיר בלבד</footer>
+</body>
+</html>

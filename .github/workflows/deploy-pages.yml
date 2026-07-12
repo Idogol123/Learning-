@@ -1,7 +1,10 @@
-name: Deploy guard-duty-scheduler to Pages
+name: Deploy tools to Pages
 
-# Publishes the guard-duty-scheduler/ folder to GitHub Pages so the app can be
-# installed to the home screen (PWA install requires HTTPS hosting).
+# Publishes a single Pages site containing all browser tools, each under its
+# own path, plus a landing page at the root:
+#   /                       -> landing/index.html
+#   /guard-duty-scheduler/  -> guard-duty-scheduler/
+#   /file-search/           -> file-search/
 # Runs on push to the default branch, or manually from the Actions tab.
 
 on:
@@ -9,6 +12,8 @@ on:
     branches: [main]
     paths:
       - "guard-duty-scheduler/**"
+      - "file-search/**"
+      - "landing/**"
       - ".github/workflows/deploy-pages.yml"
   workflow_dispatch:
 
@@ -33,10 +38,16 @@ jobs:
         uses: actions/configure-pages@v5
         with:
           enablement: true
+      - name: Assemble site
+        run: |
+          mkdir -p _site
+          cp landing/index.html _site/index.html
+          cp -r guard-duty-scheduler _site/guard-duty-scheduler
+          cp -r file-search _site/file-search
       - name: Upload site
         uses: actions/upload-pages-artifact@v3
         with:
-          path: guard-duty-scheduler
+          path: _site
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
