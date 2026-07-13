@@ -97,6 +97,7 @@
     background:var(--card); border:3px solid var(--accent); border-radius:50%; box-shadow:var(--shadow);
     cursor:grab; touch-action:none; z-index:2}
   .tl-h:active{cursor:grabbing}
+  .tl-h:focus-visible{outline:3px solid var(--accent); outline-offset:3px}
   .tl-h::after{content:attr(data-time); position:absolute; top:-30px; left:50%; transform:translateX(-50%);
     font-size:12.5px; font-weight:800; color:var(--accent); white-space:nowrap;
     background:var(--card); border:1px solid var(--line); padding:1px 7px; border-radius:8px}
@@ -225,8 +226,8 @@
     <div class="tl">
       <div class="tl-track" id="tlTrack">
         <div class="tl-range" id="tlRange"></div>
-        <div class="tl-h" id="tlStart" data-h="start" data-time="22:00"></div>
-        <div class="tl-h" id="tlEnd" data-h="end" data-time="06:00"></div>
+        <div class="tl-h" id="tlStart" data-h="start" data-time="22:00" role="slider" tabindex="0" aria-label="התחלת השמירה"></div>
+        <div class="tl-h" id="tlEnd" data-h="end" data-time="06:00" role="slider" tabindex="0" aria-label="סיום השמירה"></div>
       </div>
       <div class="tl-ticks" id="tlTicks"></div>
     </div>
@@ -455,6 +456,12 @@ function getWindow(){
   if(isNaN(s)||isNaN(e)||e<=s) return null;
   return {s,e,mins:Math.round((e-s)/60000)};
 }
+function setSlider(el,min,max,now,text){
+  el.setAttribute("aria-valuemin",min);
+  el.setAttribute("aria-valuemax",max);
+  el.setAttribute("aria-valuenow",now);
+  el.setAttribute("aria-valuetext",text);
+}
 function syncTimeline(){
   if(state.mode!=="single") return;
   const sp=state.startOff/AXIS_MAX*100, ep=state.endOff/AXIS_MAX*100;
@@ -463,6 +470,11 @@ function syncTimeline(){
   he.style.left=ep+"%";
   hs.setAttribute("data-time",offToLabel(state.startOff));
   he.setAttribute("data-time",offToLabel(state.endOff));
+  // Accessibility: expose each handle as an ARIA slider. Bounds reflect the
+  // real limits (a handle can't cross the other), values are in axis-minutes,
+  // and valuetext gives the human HH:MM the screen reader should announce.
+  setSlider(hs, 0, state.endOff-SNAP, state.startOff, offToLabel(state.startOff));
+  setSlider(he, state.startOff+SNAP, AXIS_MAX, state.endOff, offToLabel(state.endOff));
   rg.style.left=sp+"%"; rg.style.width=(ep-sp)+"%";
   const w=singleWindow();
   const ro=$("#tlReadout");
@@ -490,17 +502,19 @@ function setupTimeline(){
     let frac=(clientX-r.left)/r.width; frac=Math.max(0,Math.min(1,frac));
     let v=Math.round(frac*AXIS_MAX/SNAP)*SNAP; return Math.max(0,Math.min(AXIS_MAX,v));
   }
-  function apply(v){
-    if(dragH==="start"){ state.startOff=Math.min(v, state.endOff-SNAP); }
+  // Move one handle to v (axis-minutes), clamped so it can't cross the other.
+  function applyTo(which,v){
+    v=Math.max(0,Math.min(AXIS_MAX,v));
+    if(which==="start"){ state.startOff=Math.min(v, state.endOff-SNAP); }
     else { state.endOff=Math.max(v, state.startOff+SNAP); }
     state.mode="single"; syncTimeline(); updateWhenSummary();
   }
-  function onMove(e){ if(!dragH) return; e.preventDefault(); apply(valFromX(e.clientX)); }
+  function onMove(e){ if(!dragH) return; e.preventDefault(); applyTo(dragH,valFromX(e.clientX)); }
   function onUp(){ if(!dragH) return; dragH=null; saveState();
     window.removeEventListener("pointermove",onMove); window.removeEventListener("pointerup",onUp); }
   function begin(which,clientX){ dragH=which;
     window.addEventListener("pointermove",onMove,{passive:false}); window.addEventListener("pointerup",onUp);
-    if(clientX!=null) apply(valFromX(clientX)); }
+    if(clientX!=null) applyTo(which,valFromX(clientX)); }
   $("#tlStart").addEventListener("pointerdown",e=>{ e.preventDefault(); begin("start",null); });
   $("#tlEnd").addEventListener("pointerdown",e=>{ e.preventDefault(); begin("end",null); });
   track.addEventListener("pointerdown",e=>{
@@ -509,6 +523,26 @@ function setupTimeline(){
     const which=Math.abs(v-state.startOff)<=Math.abs(v-state.endOff)?"start":"end";
     begin(which,e.clientX);
   });
+  // Keyboard: arrows nudge by SNAP, PageUp/Down by an hour, Home/End to bounds.
+  // (In RTL the axis still runs 16:00 -> 12:00 left→right, so Right/Up increase.)
+  function onKey(which,e){
+    const cur = which==="start" ? state.startOff : state.endOff;
+    let v=cur;
+    switch(e.key){
+      case "ArrowRight": case "ArrowUp":   v=cur+SNAP; break;
+      case "ArrowLeft":  case "ArrowDown": v=cur-SNAP; break;
+      case "PageUp":   v=cur+60; break;
+      case "PageDown": v=cur-60; break;
+      case "Home": v=0; break;
+      case "End":  v=AXIS_MAX; break;
+      default: return;
+    }
+    e.preventDefault();
+    applyTo(which,v);
+    saveState();
+  }
+  $("#tlStart").addEventListener("keydown",e=>onKey("start",e));
+  $("#tlEnd").addEventListener("keydown",e=>onKey("end",e));
 }
 
 function updateWhenSummary(){
@@ -525,9 +559,15 @@ function updateWhenSummary(){
 // Even rotation for everyone, but iron rule: no shift longer than 4 hours.
 const MAX_SHIFT_MIN=240;
 function computeRounds(mins,G,P){
-  let R=G/gcd(P,G);
-  if(mins/R > MAX_SHIFT_MIN) R *= Math.ceil(mins/(R*MAX_SHIFT_MIN));
-  return Math.max(1,Math.round(R));
+  // base = smallest #rounds so R*P slots divide evenly among the G guards
+  // (R*P = k*base*P is always a multiple of G) -> everyone gets equal count.
+  const base=G/gcd(P,G);
+  // If a shift would exceed the 4h iron rule, split each round into more
+  // rounds -- but only by a whole factor, so R stays a multiple of base and
+  // the equal-count guarantee (and thus equal hours) is never broken.
+  let mult=1;
+  if(mins/base > MAX_SHIFT_MIN) mult=Math.ceil(mins/(base*MAX_SHIFT_MIN));
+  return Math.max(1, base*mult);
 }
 function generate(reshuffle){
   selCell=null;
