@@ -6,6 +6,7 @@ name: Deploy tools to Pages
 #   /guard-duty-scheduler/  -> guard-duty-scheduler/
 #   /file-search/           -> file-search/
 #   /portfolio-tracker/     -> portfolio-tracker/
+#   /event-history/         -> event-history/
 # Runs on push to the default branch, or manually from the Actions tab.
 
 on:
@@ -15,6 +16,7 @@ on:
       - "guard-duty-scheduler/**"
       - "file-search/**"
       - "portfolio-tracker/**"
+      - "event-history/**"
       - "landing/**"
       - ".github/workflows/deploy-pages.yml"
   workflow_dispatch:
@@ -54,6 +56,7 @@ jobs:
           cp -r guard-duty-scheduler _site/guard-duty-scheduler
           cp -r file-search _site/file-search
           cp -r portfolio-tracker _site/portfolio-tracker
+          cp -r event-history _site/event-history
       - name: Upload site
         uses: actions/upload-pages-artifact@v3
         with:
