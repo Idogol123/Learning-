@@ -108,6 +108,9 @@
   .stat{background:var(--chip); border-radius:10px; padding:9px 12px; font-size:12.5px; flex:1; min-width:96px; text-align:center; color:var(--muted)}
   .stat b{display:block; font-size:17px; color:var(--ink); margin-bottom:1px}
   .stat b.gain{color:var(--gain)} .stat b.loss{color:var(--loss)}
+  button.stat-cta{flex-basis:100%; cursor:pointer; border:1.5px dashed var(--accent);
+    color:var(--accent); font-weight:700; line-height:1.35}
+  button.stat-cta:active{transform:translateY(1px)}
 
   .hold-item{display:flex; gap:8px; align-items:center; justify-content:space-between; padding:9px 2px; border-bottom:1px solid var(--line)}
   .hold-item:last-child{border-bottom:none}
@@ -762,10 +765,13 @@ function renderTable(){
       '<td class="'+(r.dayChg==null?'':(r.dayChg>=0?'gain':'loss'))+'">'+(r.dayChg==null?'—':(r.dayChg>=0?'+':'')+r.dayChg.toFixed(2)+'%')+'</td></tr>';
   });
   // totals
-  let totCost=0,totVal=0,haveCost=false,haveVal=false;
-  rows.forEach(r=>{ if(r.vILS!=null){totVal+=r.vILS;haveVal=true;} if(r.cILS!=null){totCost+=r.cILS;haveCost=true;} });
-  const totPl=(haveVal&&haveCost)?totVal-totCost:null;
-  const totPlPct=(totPl!=null&&totCost>0)?totPl/totCost*100:null;
+  let totVal=0,haveVal=false;
+  // P/L totals only over rows that have BOTH value and cost, so the value total
+  // is never compared against a partial cost total.
+  let plVal=0,plCost=0,haveCost=false;
+  rows.forEach(r=>{ if(r.vILS!=null){totVal+=r.vILS;haveVal=true;} if(r.vILS!=null&&r.cILS!=null){plVal+=r.vILS;plCost+=r.cILS;haveCost=true;} });
+  const totPl=haveCost?plVal-plCost:null;
+  const totPlPct=(totPl!=null&&plCost>0)?totPl/plCost*100:null;
   html+='</tbody><tfoot><tr><td>סה״כ</td><td>—</td><td>—</td>'+
     '<td>'+(haveVal?fmtILS(totVal):'—')+'</td><td>'+(haveVal?'100%':'—')+'</td>'+
     '<td class="'+(totPl==null?'':(totPl>=0?'gain':'loss'))+'">'+(totPl==null?'—':(totPl>=0?'+':'')+fmtILS(totPl))+'</td>'+
@@ -781,23 +787,48 @@ function renderSummary(){
   $("#summaryCard").style.display = state.holdings.length?"block":"none";
   if(!state.holdings.length) return;
   const tot=totalILS(); const r=fx();
-  let totCost=0,haveCost=false,totVal=0,haveVal=false,missing=0;
+  let totVal=0,haveVal=false,missing=0;
+  // Cost-basis P/L uses only holdings that have BOTH a value and a cost basis,
+  // so a full value total is never compared against a partial cost total.
+  let plVal=0,plCost=0,haveCost=false;
   state.holdings.forEach(h=>{ const v=valueILS(h),c=costILS(h);
     if(v!=null){totVal+=v;haveVal=true;} else missing++;
-    if(v!=null&&c!=null){totCost+=c;haveCost=true;} });
-  const pl=(haveVal&&haveCost)?totVal-totCost:null;
-  const plPct=(pl!=null&&totCost>0)?pl/totCost*100:null;
+    if(v!=null&&c!=null){plVal+=v;plCost+=c;haveCost=true;} });
+
+  // Basis for רווח/הפסד + תשואה: prefer per-holding purchase cost; otherwise fall
+  // back to the deposits log (money you put in), which the user may have instead.
+  const totalIn=contributions.reduce((s,c)=>s+c.amount,0);
+  const haveDeposits=contributions.length>0 && totalIn>0;
+  let pl=null,plPct=null,plBasis="";
+  if(haveCost){ pl=plVal-plCost; plPct=plCost>0?pl/plCost*100:null; plBasis="מול עלות הקנייה"; }
+  else if(haveVal && haveDeposits){ pl=totVal-totalIn; plPct=totalIn>0?pl/totalIn*100:null; plBasis="מול ההפקדות שרשמת"; }
+
   let html='<div class="stat"><b>'+(haveVal?fmtILS(totVal):'—')+'</b>שווי כולל ₪</div>';
   html+='<div class="stat"><b>'+(haveVal&&r?fmtUSD(totVal/r):'—')+'</b>שווי כולל $</div>';
-  html+='<div class="stat"><b class="'+(pl==null?'':(pl>=0?'gain':'loss'))+'">'+
-    (pl==null?'—':(pl>=0?'+':'')+fmtILS(pl))+'</b>רווח/הפסד</div>';
-  html+='<div class="stat"><b class="'+(plPct==null?'':(plPct>=0?'gain':'loss'))+'">'+
-    (plPct==null?'—':(plPct>=0?'+':'')+plPct.toFixed(1)+'%')+'</b>תשואה</div>';
+  if(pl!=null){
+    html+='<div class="stat"><b class="'+(pl>=0?'gain':'loss')+'">'+
+      ((pl>=0?'+':'')+fmtILS(pl))+'</b>רווח/הפסד</div>';
+    html+='<div class="stat"><b class="'+(plPct==null?'':(plPct>=0?'gain':'loss'))+'">'+
+      (plPct==null?'—':(plPct>=0?'+':'')+plPct.toFixed(1)+'%')+'</b>תשואה</div>';
+  } else if(haveVal){
+    // No cost basis and no deposits → nothing to measure against yet.
+    // Offer a clear way to fix it instead of two bare "—" tiles.
+    html+='<button type="button" id="addCostCta" class="stat stat-cta">'+
+      '＋ רשום הפקדות או מחיר קנייה כדי לראות רווח/הפסד ותשואה</button>';
+  } else {
+    html+='<div class="stat"><b>—</b>רווח/הפסד</div><div class="stat"><b>—</b>תשואה</div>';
+  }
   $("#summaryStrip").innerHTML=html;
+  const cta=$("#addCostCta");
+  if(cta) cta.addEventListener("click",()=>{
+    const target=$("#contribCard").style.display!=="none" ? $("#contribCard") : $("#holdList");
+    if(target) target.scrollIntoView({behavior:"smooth",block:"start"});
+    showMsg("רשום כמה כסף הכנסת בכרטיס \"הפקדות מול שווי\", או הזן \"מחיר קנייה\" לכל נייר.","info");
+  });
   const notes=[];
   if(!r) notes.push("אין שער USD/ILS — הזן שער ידני או עדכן מחירים כדי לחשב שווי כולל ב-₪.");
   if(missing) notes.push(missing+" ניירות ללא מחיר (הזן מחיר ידני או עדכן מחירים).");
-  if(!haveCost) notes.push("הוסף מחיר קנייה לניירות כדי לראות רווח/הפסד.");
+  if(plBasis) notes.push("רווח/הפסד ותשואה מחושבים "+plBasis+".");
   $("#summaryNote").textContent=notes.join(" ");
 }
 
@@ -905,11 +936,11 @@ function addContrib(){
   contributions.sort((a,b)=> a.date<b.date?-1 : a.date>b.date?1 : 0);
   saveContrib();
   $("#cAmount").value=""; $("#cNote").value="";
-  renderContrib(); showMsg("ההפקדה נרשמה ✓","ok");
+  renderSummary(); renderContrib(); showMsg("ההפקדה נרשמה ✓","ok");
 }
 function delContrib(id){
   contributions=contributions.filter(c=>c.id!==id);
-  saveContrib(); renderContrib(); showMsg("נמחק ✓","ok");
+  saveContrib(); renderSummary(); renderContrib(); showMsg("נמחק ✓","ok");
 }
 function renderContrib(){
   const show = state.holdings.length>0 || contributions.length>0;
@@ -963,9 +994,9 @@ function buildShareText(){
   const tot=totalILS(); const r=fx();
   const lines=["📊 תיק השקעות · "+new Date().toLocaleDateString("he-IL"),""];
   lines.push("שווי כולל: "+fmtILS(tot)+(r?" (~"+fmtUSD(tot/r)+")":""));
-  let totCost=0,haveCost=false,totVal=0;
-  state.holdings.forEach(h=>{ const v=valueILS(h),c=costILS(h); if(v!=null){totVal+=v;} if(v!=null&&c!=null){totCost+=c;haveCost=true;} });
-  if(haveCost){ const pl=totVal-totCost; lines.push("רווח/הפסד: "+(pl>=0?"+":"")+fmtILS(pl)+(totCost>0?" ("+(pl>=0?"+":"")+(pl/totCost*100).toFixed(1)+"%)":"")); }
+  let plVal=0,plCost=0,haveCost=false;
+  state.holdings.forEach(h=>{ const v=valueILS(h),c=costILS(h); if(v!=null&&c!=null){plVal+=v;plCost+=c;haveCost=true;} });
+  if(haveCost){ const pl=plVal-plCost; lines.push("רווח/הפסד: "+(pl>=0?"+":"")+fmtILS(pl)+(plCost>0?" ("+(pl>=0?"+":"")+(pl/plCost*100).toFixed(1)+"%)":"")); }
   lines.push("");
   const {arr}=breakdownData("assetClass");
   arr.forEach(x=>lines.push("• "+x.label+": "+x.pct.toFixed(0)+"%"));
@@ -990,11 +1021,11 @@ function drawShareImage(){
   ctx.textAlign="left"; ctx.font="13px system-ui,Arial"; ctx.fillText(new Date().toLocaleDateString("he-IL"),16,27);
   ctx.fillStyle="#20241a"; ctx.textAlign="right";
   ctx.font="bold 22px system-ui,Arial"; ctx.fillText("שווי כולל: "+fmtILS(tot),W-16,86);
-  let totCost=0,haveCost=false,totVal=0;
-  state.holdings.forEach(h=>{ const v=valueILS(h),c=costILS(h); if(v!=null)totVal+=v; if(v!=null&&c!=null){totCost+=c;haveCost=true;} });
+  let plVal=0,plCost=0,haveCost=false;
+  state.holdings.forEach(h=>{ const v=valueILS(h),c=costILS(h); if(v!=null&&c!=null){plVal+=v;plCost+=c;haveCost=true;} });
   let y=118;
-  if(haveCost){ const pl=totVal-totCost; ctx.fillStyle=pl>=0?"#1c7a4a":"#b3261e";
-    ctx.font="bold 16px system-ui,Arial"; ctx.fillText("רווח/הפסד: "+(pl>=0?"+":"")+fmtILS(pl)+(totCost>0?" ("+(pl/totCost*100).toFixed(1)+"%)":""),W-16,y); y+=30; }
+  if(haveCost){ const pl=plVal-plCost; ctx.fillStyle=pl>=0?"#1c7a4a":"#b3261e";
+    ctx.font="bold 16px system-ui,Arial"; ctx.fillText("רווח/הפסד: "+(pl>=0?"+":"")+fmtILS(pl)+(plCost>0?" ("+(pl/plCost*100).toFixed(1)+"%)":""),W-16,y); y+=30; }
   ctx.fillStyle="#6b7160"; ctx.font="13px system-ui,Arial"; ctx.fillText("פילוח לפי סוג נכס:",W-16,y); y+=26;
   const cols=["#1e6f5c","#c1666b","#4d80b3","#d1a24a","#7a6cae","#5aa469","#c77b3c","#6b7160"];
   arr.forEach((x,i)=>{ ctx.fillStyle=cols[i%cols.length]; ctx.fillRect(W-32,y-9,16,16);
