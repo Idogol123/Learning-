@@ -55,7 +55,7 @@
 האפליקציה בכתובת:
 
 ```
-https://idogol123.github.io/learning-/
+https://idogol123.github.io/Learning-/
 ```
 
 (אפשר גם להריץ ידנית: Actions → "Deploy guard-duty-scheduler to Pages" → Run workflow.)

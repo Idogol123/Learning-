@@ -2,7 +2,12 @@
    Caches just the hub's own shell so it opens offline. Requests for the
    individual tools are left untouched — each tool has its own service
    worker and cache under its own path. */
-const CACHE = 'tools-hub-v2';
+const CACHE = 'tools-hub-v3';
+// The hub's own directory, as an absolute path derived from where this worker
+// actually lives (e.g. "/Learning-/" on Pages, "/" locally). We compare
+// against this known base instead of self.registration.scope so the guard
+// doesn't depend on how/where the worker was registered.
+const BASE = new URL('./', self.location).pathname;
 const SHELL = [
   './',
   './index.html',
@@ -30,11 +35,12 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET' || url.origin !== self.location.origin) return;
 
-  // Scope guard: only serve the hub's own directory. Anything deeper
-  // (a tool sub-path) is left to the network / that tool's own worker.
-  const base = self.registration.scope.replace(self.location.origin, '');
-  const rel = url.pathname;
-  const deeperPath = rel.slice(base.length);
+  // Scope guard: only serve files that sit directly in the hub's own
+  // directory. Anything outside BASE, or one level deeper (a tool sub-path
+  // like "guard-duty-scheduler/…"), is left to the network / that tool's own
+  // worker, so this worker can never hijack a sub-tool.
+  if (!url.pathname.startsWith(BASE)) return;
+  const deeperPath = url.pathname.slice(BASE.length);
   if (deeperPath.includes('/')) return; // e.g. "guard-duty-scheduler/…"
 
   // The HTML document (a navigation, or the hub's index) is served

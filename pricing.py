@@ -13,8 +13,16 @@ Design goals:
   * All fetches are wrapped in try/except and cached on disk for a few minutes
     so we don't hammer yfinance (which is scraping-based and rate-limited).
   * TASE gotcha: yfinance quotes Tel-Aviv stocks in agorot (ILA = 1/100 ILS).
-    We detect that and divide by 100, and we surface the fact via
-    `agorot_adjusted` so the user can eyeball-verify against their broker.
+    We divide by 100 ONLY when we're reasonably sure it's agorot -- never
+    blindly -- so we don't quietly show a portfolio 100x too small:
+      - reported currency "ILA"  -> agorot, divide by 100.
+      - reported currency "ILS"  -> already shekels, do NOT divide.
+      - not tagged / anything else -> price-threshold heuristic (see
+        AGOROT_THRESHOLD): a genuine TASE share priced in shekels is almost
+        never four digits, so a raw quote above the threshold is treated as
+        agorot and divided, otherwise left as-is.
+    We surface the decision via `agorot_adjusted` so the user can
+    eyeball-verify against their broker.
 
 # TODO: fallback provider (e.g. Stooq, no API key) for when yfinance breaks.
 """
@@ -42,6 +50,13 @@ except Exception:  # pragma: no cover - import guard so the app degrades, not cr
 CACHE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".price_cache.json")
 CACHE_TTL_SECONDS = 15 * 60  # cache prices for 15 minutes
 FX_TICKER = "ILS=X"          # USD/ILS on yfinance (1 USD -> X ILS)
+
+# Fallback heuristic for un-tagged TASE quotes: agorot (1/100 ILS) means the
+# raw number is ~100x the shekel price, so real shares in shekels sit well
+# below this, while agorot quotes sit above it. Assumption: a TASE share priced
+# at 1000+ *shekels* is vanishingly rare, so >1000 almost certainly means the
+# quote is in agorot. Only used when yfinance gives us no currency tag at all.
+AGOROT_THRESHOLD = 1000.0
 
 
 # --------------------------------------------------------------------------- #
@@ -197,6 +212,40 @@ def _raw_quote(ticker: str):
     return price, prev, currency
 
 
+def _normalize_tase(raw_price, raw_prev, raw_currency):
+    """
+    Decide whether a Tel-Aviv quote is in agorot and, if so, convert to shekels.
+
+    Returns (agorot_adjusted, price_native, prev_native) where the prices are in
+    ILS. We divide by 100 ONLY when we're confident it's agorot, so we never
+    quietly shrink a portfolio by 100x:
+
+      * "ILA"                      -> agorot, divide by 100.
+      * "ILS"                      -> already shekels, leave as-is.
+      * blank / unknown / anything -> price-threshold heuristic: a raw quote
+        above AGOROT_THRESHOLD is treated as agorot (divided); at or below it
+        is treated as already-shekels (left as-is).
+    """
+    reported = (raw_currency or "").upper()
+
+    if reported == "ILS":
+        agorot = False
+    elif reported == "ILA":
+        agorot = True
+    else:
+        # No trustworthy tag: fall back to the documented price threshold.
+        agorot = raw_price is not None and raw_price > AGOROT_THRESHOLD
+
+    if agorot:
+        price_native = raw_price / 100.0 if raw_price is not None else None
+        prev_native = raw_prev / 100.0 if raw_prev is not None else None
+    else:
+        price_native = raw_price
+        prev_native = raw_prev
+
+    return agorot, price_native, prev_native
+
+
 # --------------------------------------------------------------------------- #
 # Public: prices
 # --------------------------------------------------------------------------- #
@@ -235,22 +284,20 @@ def get_price(ticker: str, use_cache: bool = True) -> PriceResult:
                            fetched_at=_now_iso())
 
     # ----- Agorot / currency normalisation ------------------------------- #
-    # yfinance quotes Tel-Aviv stocks in agorot (ILA = 1/100 ILS). It usually
-    # reports currency "ILA", but sometimes leaves it blank. We treat a TASE
-    # quote as agorot unless it is explicitly tagged "ILS", and divide by 100.
+    # yfinance quotes Tel-Aviv stocks in agorot (ILA = 1/100 ILS). We only
+    # divide by 100 when confident it's agorot (see _normalize_tase), so an
+    # untagged shekel quote is never silently shrunk 100x.
     reported = (raw_currency or "").upper()
-    price_native = raw_price
-    prev_native = raw_prev
 
     if is_tase:
         currency = "ILS"
-        agorot_adjusted = reported != "ILS"  # default-assume agorot for TASE
-        if agorot_adjusted:
-            price_native = raw_price / 100.0
-            prev_native = (raw_prev / 100.0) if raw_prev is not None else None
+        agorot_adjusted, price_native, prev_native = _normalize_tase(
+            raw_price, raw_prev, raw_currency)
     else:
         currency = reported or "USD"
         agorot_adjusted = False
+        price_native = raw_price
+        prev_native = raw_prev
 
     result = PriceResult(
         ticker=ticker,
