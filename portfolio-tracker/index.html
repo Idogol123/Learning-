@@ -265,26 +265,6 @@
   <p class="hint" id="pricesStatus"></p>
 </section>
 
-<!-- ===== פילוח וריכוזיות ===== -->
-<section class="card" id="breakdownCard" style="display:none">
-  <h2>🥧 פילוח וריכוזיות</h2>
-  <div class="seg" id="breakdownSeg">
-    <span class="chip on" data-by="ticker">לפי נייר</span>
-    <span class="chip" data-by="assetClass">לפי סוג נכס</span>
-    <span class="chip" data-by="currency">לפי מטבע</span>
-    <span class="chip" data-by="account">לפי חשבון</span>
-  </div>
-  <canvas class="chart" id="pieChart" width="600" height="300"></canvas>
-  <div class="legend" id="pieLegend"></div>
-  <div class="row" style="margin-top:12px; align-items:flex-end">
-    <div style="flex:2">
-      <label>סף ריכוזיות להתראה (%)</label>
-      <input id="concInput" type="number" inputmode="numeric" min="1" max="100" step="1" value="20">
-    </div>
-  </div>
-  <div id="concFlags"></div>
-</section>
-
 <!-- ===== רווח/הפסד + טבלה ===== -->
 <section class="card" id="tableCard" style="display:none">
   <h2>📈 החזקות ורווח/הפסד</h2>
@@ -301,6 +281,9 @@
 <!-- ===== מגמה ===== -->
 <section class="card" id="trendCard" style="display:none">
   <h2>📉 מגמה לאורך זמן</h2>
+  <div class="btn-wrap" style="margin-top:2px">
+    <button class="btn sec sm" type="button" id="snapBtn">📸 שמור תמונת מצב עכשיו</button>
+  </div>
   <div class="seg" id="rangeSeg">
     <span class="chip" data-range="7">שבוע</span>
     <span class="chip on" data-range="30">חודש</span>
@@ -316,6 +299,38 @@
   </div>
   <canvas class="chart" id="lineChart" width="600" height="280"></canvas>
   <p class="hint" id="trendNote"></p>
+</section>
+
+<!-- ===== הפקדות ותשואה אמיתית ===== -->
+<section class="card" id="contribCard" style="display:none">
+  <h2>💵 הפקדות ותשואה אמיתית</h2>
+  <p class="hint">רשום הפקדות (תאריך + סכום ₪) כדי להפריד <b>כמה מהגידול הוא תשואה אמיתית</b>
+    לעומת כמה פשוט הפקדת. התבוננות אחורה — לא תחזית.</p>
+
+  <div id="contribBreakdown"></div>
+
+  <div class="row" style="margin-top:12px; align-items:flex-end">
+    <div>
+      <label>תאריך ההפקדה</label>
+      <input id="cDate" type="date">
+    </div>
+    <div>
+      <label>סכום (₪)</label>
+      <input id="cAmount" type="number" inputmode="decimal" step="any" placeholder="2000">
+    </div>
+  </div>
+  <div class="row">
+    <div>
+      <label>הערה <span style="font-weight:400">(אופציונלי)</span></label>
+      <input id="cNote" type="text" autocomplete="off" placeholder="חופשי">
+    </div>
+  </div>
+  <div class="btn-wrap">
+    <button class="btn" type="button" id="addContrib">➕ הוסף הפקדה</button>
+  </div>
+  <div id="contribList" style="margin-top:10px"></div>
+  <p class="note">נקודת הבסיס לחישוב היא תמונת המצב הראשונה שלך — המעקב מתחיל משם,
+    בלי להמציא היסטוריה. הפקדות שנרשמו לפני נקודת הבסיס כבר משוקללות בשווי ההתחלתי.</p>
 </section>
 
 <!-- ===== תכנון תרומה ===== -->
@@ -360,6 +375,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
 const LS_STATE = "pt_state_v1";
 const LS_SNAPS = "pt_snapshots_v1";
+const LS_CONTRIB = "pt_contrib_v1";
 
 /* ============================================================
    Provider abstraction (the heart of the live layer).
@@ -488,7 +504,7 @@ let state = {
   settings: { provider:"twelvedata", apiKey:"", fxManual:null, fxLive:null, fxAt:null, concentrationPct:20 }
 };
 let snapshots = [];
-let breakdownBy = "ticker";
+let contributions = [];
 let trendRange = 30;
 let trendPick = "__portfolio__";
 let seriesCache = {}; // ticker -> [{date,close}] fetched this session
@@ -497,12 +513,15 @@ let sortKey = "value", sortDir = -1;
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
 function saveState(){ try{ localStorage.setItem(LS_STATE, JSON.stringify(state)); }catch(e){} }
 function saveSnaps(){ try{ localStorage.setItem(LS_SNAPS, JSON.stringify(snapshots)); }catch(e){} }
+function saveContrib(){ try{ localStorage.setItem(LS_CONTRIB, JSON.stringify(contributions)); }catch(e){} }
 function loadState(){
   try{ const o=JSON.parse(localStorage.getItem(LS_STATE)||"null");
     if(o){ if(Array.isArray(o.holdings)) state.holdings=o.holdings.map(normHolding);
       if(o.settings) Object.assign(state.settings, o.settings); } }catch(e){}
   try{ const s=JSON.parse(localStorage.getItem(LS_SNAPS)||"null"); if(Array.isArray(s)) snapshots=s; }catch(e){}
+  try{ const c=JSON.parse(localStorage.getItem(LS_CONTRIB)||"null"); if(Array.isArray(c)) contributions=c.map(normContrib); }catch(e){}
 }
+function normContrib(c){ return { id:c.id||uid(), date:String(c.date||"").slice(0,10), amount:num(c.amount), note:c.note||"" }; }
 function normHolding(h){
   return { id:h.id||uid(), ticker:String(h.ticker||"").trim(), quantity:num(h.quantity),
     assetClass:h.assetClass||"other", costBasis:h.costBasis==null?null:num(h.costBasis),
@@ -718,27 +737,6 @@ function breakdownData(by){
   arr.forEach(x=>x.pct=total?x.value/total*100:0);
   return {arr,total};
 }
-function renderBreakdown(){
-  const anyValued=state.holdings.some(h=>valueILS(h)!=null);
-  $("#breakdownCard").style.display = anyValued?"block":"none";
-  if(!anyValued) return;
-  const {arr,total}=breakdownData(breakdownBy);
-  drawPie($("#pieChart"), arr);
-  const cols=palette();
-  $("#pieLegend").innerHTML=arr.map((x,i)=>'<span><i style="background:'+cols[i%cols.length]+'"></i>'+
-    escapeHtml(x.label)+' · '+x.pct.toFixed(1)+'%</span>').join("");
-  // concentration flags (per-ticker weight of whole portfolio)
-  const th=num(state.settings.concentrationPct)||20;
-  const tot=totalILS();
-  const flagged=state.holdings.map(h=>({h,v:valueILS(h)})).filter(x=>x.v!=null&&tot>0&&(x.v/tot*100)>=th)
-    .sort((a,b)=>b.v-a.v);
-  if(flagged.length){
-    $("#concFlags").innerHTML='<div class="note" style="border-color:var(--warn);color:var(--warn)">⚠️ ריכוזיות מעל '+th+'%: '+
-      flagged.map(x=>escapeHtml(x.h.ticker)+' ('+(x.v/tot*100).toFixed(1)+'%)').join(" · ")+'</div>';
-  } else {
-    $("#concFlags").innerHTML='<p class="hint">אין נייר בודד מעל סף '+th+'% ✓</p>';
-  }
-}
 
 /* ---------- Holdings table + P/L ---------- */
 function renderTable(){
@@ -839,22 +837,6 @@ function prepCanvas(cv, cssH){
   const ctx=cv.getContext("2d"); ctx.setTransform(dpr,0,0,dpr,0,0);
   return {ctx,w,h:cssH};
 }
-function drawPie(cv, arr){
-  const {ctx,w,h}=prepCanvas(cv,260);
-  ctx.clearRect(0,0,w,h);
-  const cx=w/2, cy=h/2, R=Math.min(w,h)/2-10, r0=R*0.55;
-  const cols=palette(); const total=arr.reduce((s,x)=>s+x.value,0)||1;
-  let a=-Math.PI/2;
-  arr.forEach((x,i)=>{ const ang=x.value/total*Math.PI*2;
-    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.arc(cx,cy,R,a,a+ang); ctx.closePath();
-    ctx.fillStyle=cols[i%cols.length]; ctx.fill(); a+=ang; });
-  // donut hole
-  ctx.beginPath(); ctx.arc(cx,cy,r0,0,Math.PI*2); ctx.fillStyle=cssVar("--card"); ctx.fill();
-  ctx.fillStyle=cssVar("--ink"); ctx.textAlign="center"; ctx.textBaseline="middle";
-  ctx.font="700 15px system-ui,Arial"; ctx.fillText(arr.length+" קטגוריות", cx, cy-8);
-  ctx.font="12px system-ui,Arial"; ctx.fillStyle=cssVar("--muted");
-  ctx.fillText(fmtILS(total), cx, cy+12);
-}
 function drawLine(cv, series, note){
   const {ctx,w,h}=prepCanvas(cv,240);
   ctx.clearRect(0,0,w,h);
@@ -901,10 +883,10 @@ function renderTrend(){
   const now=Date.now(), from=now-trendRange*86400000;
   if(trendPick==="__portfolio__"){
     const pts=snapshots.filter(s=>s.at>=from && s.totalILS!=null).map(s=>({x:s.at,y:s.totalILS}));
-    drawLine($("#lineChart"), pts, "עדיין אין מספיק תמונות מצב. כל עדכון מחירים שומר נקודה.");
+    drawLine($("#lineChart"), pts, "עדיין אין מספיק תמונות מצב. לחץ 📸 כדי לשמור נקודה.");
     $("#trendNote").textContent = pts.length>=2
       ? "גרף מקומי מ-"+pts.length+" תמונות מצב (עובד אופליין)."
-      : "תמונות מצב נשמרות בכל 'עדכן מחירים'. אחרי כמה עדכונים תופיע מגמה — גם בלי רשת.";
+      : "תמונות מצב נשמרות ב-📸 ובכל 'עדכן מחירים'. אחרי כמה נקודות תופיע מגמה — גם בלי רשת.";
   } else {
     const cached=seriesCache[trendPick];
     if(cached){
@@ -934,6 +916,82 @@ async function fetchSeries(ticker){
     else if(e.code==="RATE") showMsg("הספק הגביל בקשות. נסה מאוחר יותר.","err");
     else if(e.code==="NOTFOUND") showMsg("אין היסטוריה לנייר "+ticker+" אצל הספק.","err");
     else showMsg("משיכת היסטוריה נכשלה: "+(e.message||e.code),"err");
+  }
+}
+
+/* ---------- Contributions log + real-return decomposition ----------
+   Backward-looking only. Baseline = the first snapshot ever saved, so
+   tracking starts when the user first presses 📸 — no fabricated history.
+   Real return = (current total − first-snapshot total) − deposits since. */
+function dayStart(ts){ const d=new Date(ts); d.setHours(0,0,0,0); return d.getTime(); }
+function contribSince(ts){
+  return contributions.reduce((s,c)=>{ const t=new Date((c.date||"")+"T00:00:00").getTime();
+    return (isFinite(t)&&t>=ts)?s+c.amount:s; }, 0);
+}
+function addContrib(){
+  const date=$("#cDate").value;
+  const amount=parseFloat($("#cAmount").value);
+  if(!date){ showMsg("בחר תאריך להפקדה.","err"); return; }
+  if(!isFinite(amount)||amount===0){ showMsg("הזן סכום הפקדה (חיובי להפקדה, שלילי למשיכה).","err"); return; }
+  contributions.push(normContrib({date, amount, note:$("#cNote").value.trim()}));
+  contributions.sort((a,b)=> a.date<b.date?-1 : a.date>b.date?1 : 0);
+  saveContrib();
+  $("#cAmount").value=""; $("#cNote").value="";
+  renderContrib(); showMsg("ההפקדה נרשמה ✓","ok");
+}
+function delContrib(id){
+  contributions=contributions.filter(c=>c.id!==id);
+  saveContrib(); renderContrib(); showMsg("נמחק ✓","ok");
+}
+function renderContrib(){
+  const show = state.holdings.length>0;
+  $("#contribCard").style.display = show ? "block" : "none";
+  if(!show) return;
+
+  // --- Decomposition: growth = deposits + real return ---
+  const bd=$("#contribBreakdown");
+  const cur=totalILS();
+  if(!snapshots.length || !(cur>0)){
+    bd.innerHTML='<div class="note">כדי לחשב <b>תשואה אמיתית מול הפקדות</b>, שמור קודם '+
+      '<b>תמונת מצב</b> (📸 בכרטיס המגמה) — היא נקודת הבסיס. המעקב מתחיל מאותו רגע.</div>';
+  } else {
+    const base=snapshots[0];
+    const baseVal=base.totalILS;
+    const growth=cur-baseVal;
+    const deposited=contribSince(dayStart(base.at));
+    const real=growth-deposited;
+    const invested=baseVal+deposited;
+    const realPct=invested>0 ? real/invested*100 : null;
+    let html='<div class="stat-strip">'+
+      '<div class="stat"><b class="'+(growth>=0?'gain':'loss')+'">'+(growth>=0?'+':'')+fmtILS(growth)+'</b>גידול כולל</div>'+
+      '<div class="stat"><b>'+fmtILS(deposited)+'</b>מזה: הפקדת</div>'+
+      '<div class="stat"><b class="'+(real>=0?'gain':'loss')+'">'+(real>=0?'+':'')+fmtILS(real)+'</b>מזה: תשואה אמיתית</div>'+
+      '</div>';
+    let sentence;
+    if(deposited!==0){
+      sentence='מאז '+new Date(base.at).toLocaleDateString("he-IL")+' התיק השתנה ב-<b>'+(growth>=0?'+':'')+fmtILS(growth)+
+        '</b>: <b>'+fmtILS(deposited)+'</b> הפקדת בעצמך, ו-<b>'+(real>=0?'+':'')+fmtILS(real)+'</b> תשואה אמיתית'+
+        (realPct!=null?' (~'+(realPct>=0?'+':'')+realPct.toFixed(1)+'% על ההון שהיה מושקע)':'')+'. התבוננות אחורה, לא תחזית.';
+    } else {
+      sentence='מאז '+new Date(base.at).toLocaleDateString("he-IL")+' התיק השתנה ב-<b>'+(growth>=0?'+':'')+fmtILS(growth)+
+        '</b> — כולו תשואה (לא נרשמו הפקדות בתקופה). התבוננות אחורה, לא תחזית.';
+    }
+    bd.innerHTML=html+'<p class="hint">'+sentence+'</p>';
+  }
+
+  // --- Logged deposits list ---
+  const list=$("#contribList");
+  if(!contributions.length){
+    list.innerHTML='<p class="hint">עדיין לא נרשמו הפקדות.</p>';
+  } else {
+    const totC=contributions.reduce((s,c)=>s+c.amount,0);
+    list.innerHTML=contributions.map(c=>
+      '<div class="hold-item"><div style="min-width:0">'+
+        '<div class="nm">'+(c.amount>=0?'+':'')+fmtILS(c.amount)+'</div>'+
+        '<div class="meta">'+escapeHtml(c.date)+(c.note?' · '+escapeHtml(c.note):'')+'</div></div>'+
+      '<div class="acts"><button class="iconbtn del" data-delc="'+c.id+'" aria-label="מחק">🗑️</button></div></div>'
+    ).join('')+'<p class="hint">סה״כ הפקדות שנרשמו: <b>'+fmtILS(totC)+'</b></p>';
+    $$("#contribList [data-delc]").forEach(b=>b.addEventListener("click",()=>delContrib(b.dataset.delc)));
   }
 }
 
@@ -1046,8 +1104,8 @@ function loadDemo(){
 
 /* ---------- Render orchestration ---------- */
 function renderAll(){
-  renderHoldings(); renderSummary(); renderBreakdown(); renderTable();
-  renderTrend(); renderPlanOptions(); renderPlan();
+  renderHoldings(); renderSummary(); renderTable();
+  renderTrend(); renderContrib(); renderPlanOptions(); renderPlan();
 }
 
 /* ---------- PWA ---------- */
@@ -1074,7 +1132,6 @@ function init(){
   psel.value=state.settings.provider;
   $("#apiKey").value=state.settings.apiKey||"";
   $("#fxManual").value=state.settings.fxManual==null?"":state.settings.fxManual;
-  $("#concInput").value=state.settings.concentrationPct||20;
   providerHelp();
 
   renderAll();
@@ -1095,17 +1152,20 @@ function init(){
   $("#updatePrices").addEventListener("click",updatePrices);
   $("#clearKey").addEventListener("click",()=>{ state.settings.apiKey=""; $("#apiKey").value=""; saveState(); showMsg("המפתח נמחק ✓","ok"); });
 
-  // breakdown
-  $$("#breakdownSeg .chip").forEach(c=>c.addEventListener("click",()=>{
-    breakdownBy=c.dataset.by; $$("#breakdownSeg .chip").forEach(x=>x.classList.toggle("on",x===c)); renderBreakdown();
-  }));
-  $("#concInput").addEventListener("input",e=>{ state.settings.concentrationPct=num(e.target.value)||20; saveState(); renderBreakdown(); renderTable(); renderPlan(); });
-
   // trend
   $$("#rangeSeg .chip").forEach(c=>c.addEventListener("click",()=>{
     trendRange=+c.dataset.range; $$("#rangeSeg .chip").forEach(x=>x.classList.toggle("on",x===c)); renderTrend();
   }));
   $("#trendPick").addEventListener("change",e=>{ trendPick=e.target.value; renderTrend(); });
+  $("#snapBtn").addEventListener("click",()=>{
+    if(state.holdings.every(h=>valueILS(h)==null)){ showMsg("אין שווי לשמור — הזן מחיר ידני/חי לנייר קודם.","err"); return; }
+    const before=snapshots.length; pushSnapshot(); renderTrend(); renderContrib();
+    showMsg(snapshots.length>before?"תמונת המצב נשמרה 📸":"תמונת המצב עודכנה 📸","ok");
+  });
+
+  // contributions
+  $("#cDate").value = new Date().toISOString().slice(0,10);
+  $("#addContrib").addEventListener("click",addContrib);
 
   // plan
   $("#planAmount").addEventListener("input",renderPlan);
@@ -1118,16 +1178,16 @@ function init(){
 
   // reset
   $("#resetAll").addEventListener("click",()=>{
-    if(!confirm("לאפס הכל? יימחקו כל ההחזקות, ההגדרות ותמונות המצב.")) return;
+    if(!confirm("לאפס הכל? יימחקו כל ההחזקות, ההגדרות, ההפקדות ותמונות המצב.")) return;
     state={holdings:[],settings:{provider:"twelvedata",apiKey:"",fxManual:null,fxLive:null,fxAt:null,concentrationPct:20}};
-    snapshots=[]; seriesCache={}; saveState(); saveSnaps();
-    $("#apiKey").value=""; $("#fxManual").value=""; $("#concInput").value=20; $("#provider").value="twelvedata";
+    snapshots=[]; contributions=[]; seriesCache={}; saveState(); saveSnaps(); saveContrib();
+    $("#apiKey").value=""; $("#fxManual").value=""; $("#provider").value="twelvedata";
     providerHelp(); renderAll(); showMsg("אופס ✓","ok");
   });
 
   // redraw charts on theme change / resize
   const mq=window.matchMedia("(prefers-color-scheme: dark)");
-  const redraw=()=>{ renderBreakdown(); renderTrend(); };
+  const redraw=()=>{ renderTrend(); };
   if(mq.addEventListener) mq.addEventListener("change",redraw);
   let rt; window.addEventListener("resize",()=>{ clearTimeout(rt); rt=setTimeout(redraw,150); });
 
