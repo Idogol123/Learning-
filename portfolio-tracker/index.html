@@ -330,29 +330,6 @@
     בלי להמציא היסטוריה. הפקדות שנרשמו לפני נקודת הבסיס כבר משוקללות בשווי ההתחלתי.</p>
 </section>
 
-<!-- ===== תכנון תרומה ===== -->
-<section class="card" id="planCard" style="display:none">
-  <h2>💰 תכנון תרומה</h2>
-  <p class="hint">מתאר בלבד איך הפקדה משנה את המשקלים והריכוזיות — <b>ללא המלצת קנייה/מכירה</b>.</p>
-  <div class="row" style="margin-top:6px">
-    <div>
-      <label>סכום הפקדה (₪)</label>
-      <input id="planAmount" type="number" inputmode="decimal" step="any" placeholder="2000">
-    </div>
-    <div>
-      <label>נייר יעד</label>
-      <select id="planTicker"></select>
-    </div>
-  </div>
-  <div id="planCandidateWrap" class="hide">
-    <label>סימול מועמד חדש</label>
-    <input id="planCandidate" type="text" autocomplete="off" placeholder="למשל QQQ">
-  </div>
-  <div id="planResult"></div>
-  <p class="note">אין כאן ייעוץ פיננסי. הכלי לא מדרג ולא ממליץ מה לקנות או למכור —
-    הוא מתאר את השפעת ההפקדה על ההרכב בלבד.</p>
-</section>
-
 <section class="card">
   <details>
     <summary>⚙️ ניהול נתונים</summary>
@@ -991,41 +968,6 @@ function renderContrib(){
   }
 }
 
-/* ---------- Contribution planner ---------- */
-function renderPlanOptions(){
-  const sel=$("#planTicker"); const prev=sel.value;
-  sel.innerHTML=state.holdings.map(h=>'<option value="'+escapeHtml(h.ticker)+'">'+escapeHtml(h.ticker)+'</option>').join("")+
-    '<option value="__new__">➕ נייר מועמד חדש…</option>';
-  if([...sel.options].some(o=>o.value===prev)) sel.value=prev;
-  $("#planCard").style.display = state.holdings.length?"block":"none";
-  togglePlanCandidate();
-}
-function togglePlanCandidate(){ $("#planCandidateWrap").classList.toggle("hide", $("#planTicker").value!=="__new__"); }
-function renderPlan(){
-  const amount=parseFloat($("#planAmount").value);
-  const res=$("#planResult");
-  if(!isFinite(amount)||amount<=0){ res.innerHTML='<p class="hint">הזן סכום הפקדה כדי לראות את ההשפעה.</p>'; return; }
-  const tot=totalILS();
-  if(!(tot>0)){ res.innerHTML='<p class="hint">צריך שווי לתיק (מחירים ידניים/חיים) כדי לחשב משקלים.</p>'; return; }
-  let target=$("#planTicker").value;
-  if(target==="__new__"){ target=$("#planCandidate").value.trim()||"מועמד"; }
-  const newTot=tot+amount;
-  // build before/after weights per ticker
-  const before={}, after={};
-  state.holdings.forEach(h=>{ const v=valueILS(h)||0; before[h.ticker]=(before[h.ticker]||0)+v; after[h.ticker]=(after[h.ticker]||0)+v; });
-  after[target]=(after[target]||0)+amount; if(before[target]===undefined) before[target]=0;
-  const keys=Object.keys(after).sort((a,b)=>after[b]-after[a]);
-  let html='<div class="table-wrap"><table><thead><tr><th>נייר</th><th>לפני</th><th>אחרי</th><th>שינוי</th></tr></thead><tbody>';
-  keys.forEach(k=>{ const bp=(before[k]||0)/tot*100, ap=(after[k]||0)/newTot*100; const dp=ap-bp;
-    html+='<tr'+(k===target?' style="font-weight:700"':'')+'><td>'+escapeHtml(k)+'</td>'+
-      '<td>'+bp.toFixed(1)+'%</td><td>'+ap.toFixed(1)+'%</td>'+
-      '<td class="'+(dp>=0?'gain':'loss')+'">'+(dp>=0?'+':'')+dp.toFixed(1)+'pp</td></tr>'; });
-  html+='</tbody></table></div>';
-  const tp=(after[target]||0)/newTot*100;
-  html+='<p class="hint">אחרי ההפקדה, המשקל של <b>'+escapeHtml(target)+'</b> יהיה '+tp.toFixed(1)+'% מהתיק.</p>';
-  res.innerHTML=html;
-}
-
 /* ---------- Sharing ---------- */
 function buildShareText(){
   const tot=totalILS(); const r=fx();
@@ -1098,7 +1040,7 @@ function loadDemo(){
 /* ---------- Render orchestration ---------- */
 function renderAll(){
   renderHoldings(); renderSummary(); renderTable();
-  renderTrend(); renderContrib(); renderPlanOptions(); renderPlan();
+  renderTrend(); renderContrib();
 }
 
 /* ---------- PWA ---------- */
@@ -1159,11 +1101,6 @@ function init(){
   // contributions
   $("#cDate").value = new Date().toISOString().slice(0,10);
   $("#addContrib").addEventListener("click",addContrib);
-
-  // plan
-  $("#planAmount").addEventListener("input",renderPlan);
-  $("#planTicker").addEventListener("change",()=>{ togglePlanCandidate(); renderPlan(); });
-  $("#planCandidate").addEventListener("input",renderPlan);
 
   // sharing
   $("#shareWa").addEventListener("click",shareWa);
