@@ -101,9 +101,6 @@
   tfoot td{background:var(--chip); font-weight:700}
   .gain{color:var(--gain); font-weight:700}
   .loss{color:var(--loss); font-weight:700}
-  .flagrow td{background:#fbf3df}
-  @media (prefers-color-scheme: dark){ .flagrow td{background:#2c2716} }
-  .warnbadge{color:var(--warn); font-weight:800; margin-inline-start:3px}
   .manualtag{font-size:10px; color:var(--warn); font-weight:700}
   .staletag{font-size:10px; color:var(--muted)}
 
@@ -501,7 +498,7 @@ const PROVIDER_ORDER = ["twelvedata","alphavantage"];
 /* ---------- State ---------- */
 let state = {
   holdings: [],
-  settings: { provider:"twelvedata", apiKey:"", fxManual:null, fxLive:null, fxAt:null, concentrationPct:20 }
+  settings: { provider:"twelvedata", apiKey:"", fxManual:null, fxLive:null, fxAt:null }
 };
 let snapshots = [];
 let contributions = [];
@@ -765,7 +762,6 @@ function renderTable(){
     else { av=0; bv=0; }
     return dir*(av-bv);
   });
-  const th=num(state.settings.concentrationPct)||20;
   const arr=s=>' <span class="sortarr">'+(sortKey===s?(sortDir<0?"▼":"▲"):"")+'</span>';
   let html='<table><thead><tr>'+
     '<th data-sort="ticker">נייר'+arr("ticker")+'</th>'+
@@ -776,11 +772,11 @@ function renderTable(){
     '<th data-sort="plPct">%'+arr("plPct")+'</th>'+
     '<th data-sort="day">יומי %'+arr("day")+'</th></tr></thead><tbody>';
   rows.forEach(r=>{
-    const h=r.h; const flag=(r.pct!=null&&r.pct>=th);
+    const h=r.h;
     const kind=priceKind(h);
     const priceCell = effPrice(h)==null?'—':(fmtNum(effPrice(h))+' '+(h.currency==="ILS"?"₪":"$")+
       (kind==="manual"?' <span class="manualtag">ידני</span>':''));
-    html+='<tr class="'+(flag?"flagrow":"")+'"><td>'+escapeHtml(h.ticker)+(flag?'<span class="warnbadge" title="מעל סף ריכוזיות">⚠️</span>':'')+'</td>'+
+    html+='<tr><td>'+escapeHtml(h.ticker)+'</td>'+
       '<td>'+priceCell+'</td><td>'+fmtNum(h.quantity)+'</td>'+
       '<td>'+(r.vILS==null?'—':fmtILS(r.vILS))+'</td>'+
       '<td>'+(r.pct==null?'—':r.pct.toFixed(1)+'%')+'</td>'+
@@ -1019,17 +1015,14 @@ function renderPlan(){
   state.holdings.forEach(h=>{ const v=valueILS(h)||0; before[h.ticker]=(before[h.ticker]||0)+v; after[h.ticker]=(after[h.ticker]||0)+v; });
   after[target]=(after[target]||0)+amount; if(before[target]===undefined) before[target]=0;
   const keys=Object.keys(after).sort((a,b)=>after[b]-after[a]);
-  const th=num(state.settings.concentrationPct)||20;
   let html='<div class="table-wrap"><table><thead><tr><th>נייר</th><th>לפני</th><th>אחרי</th><th>שינוי</th></tr></thead><tbody>';
   keys.forEach(k=>{ const bp=(before[k]||0)/tot*100, ap=(after[k]||0)/newTot*100; const dp=ap-bp;
-    const flagAfter=ap>=th;
-    html+='<tr'+(k===target?' style="font-weight:700"':'')+'><td>'+escapeHtml(k)+(flagAfter?' <span class="warnbadge">⚠️</span>':'')+'</td>'+
+    html+='<tr'+(k===target?' style="font-weight:700"':'')+'><td>'+escapeHtml(k)+'</td>'+
       '<td>'+bp.toFixed(1)+'%</td><td>'+ap.toFixed(1)+'%</td>'+
       '<td class="'+(dp>=0?'gain':'loss')+'">'+(dp>=0?'+':'')+dp.toFixed(1)+'pp</td></tr>'; });
   html+='</tbody></table></div>';
   const tp=(after[target]||0)/newTot*100;
-  html+='<p class="hint">אחרי ההפקדה, המשקל של <b>'+escapeHtml(target)+'</b> יהיה '+tp.toFixed(1)+'% מהתיק'+
-    (tp>=th?' — מעל סף הריכוזיות ('+th+'%).':'.')+'</p>';
+  html+='<p class="hint">אחרי ההפקדה, המשקל של <b>'+escapeHtml(target)+'</b> יהיה '+tp.toFixed(1)+'% מהתיק.</p>';
   res.innerHTML=html;
 }
 
@@ -1179,7 +1172,7 @@ function init(){
   // reset
   $("#resetAll").addEventListener("click",()=>{
     if(!confirm("לאפס הכל? יימחקו כל ההחזקות, ההגדרות, ההפקדות ותמונות המצב.")) return;
-    state={holdings:[],settings:{provider:"twelvedata",apiKey:"",fxManual:null,fxLive:null,fxAt:null,concentrationPct:20}};
+    state={holdings:[],settings:{provider:"twelvedata",apiKey:"",fxManual:null,fxLive:null,fxAt:null}};
     snapshots=[]; contributions=[]; seriesCache={}; saveState(); saveSnaps(); saveContrib();
     $("#apiKey").value=""; $("#fxManual").value=""; $("#provider").value="twelvedata";
     providerHelp(); renderAll(); showMsg("אופס ✓","ok");
