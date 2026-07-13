@@ -300,9 +300,9 @@
 
 <!-- ===== הפקדות ותשואה אמיתית ===== -->
 <section class="card" id="contribCard" style="display:none">
-  <h2>💵 הפקדות ותשואה אמיתית</h2>
-  <p class="hint">רשום הפקדות (תאריך + סכום ₪) כדי להפריד <b>כמה מהגידול הוא תשואה אמיתית</b>
-    לעומת כמה פשוט הפקדת. התבוננות אחורה — לא תחזית.</p>
+  <h2>💵 הפקדות מול שווי התיק</h2>
+  <p class="hint">רשום כמה כסף הכנסת מהכיס (תאריך + סכום ₪). הכלי משווה את <b>סך ההפקדות</b>
+    לשווי התיק היום, ומראה כמה אתה ברווח/הפסד על הכסף שהכנסת. התבוננות אחורה — לא תחזית.</p>
 
   <div id="contribBreakdown"></div>
 
@@ -326,8 +326,8 @@
     <button class="btn" type="button" id="addContrib">➕ הוסף הפקדה</button>
   </div>
   <div id="contribList" style="margin-top:10px"></div>
-  <p class="note">נקודת הבסיס לחישוב היא תמונת המצב הראשונה שלך — המעקב מתחיל משם,
-    בלי להמציא היסטוריה. הפקדות שנרשמו לפני נקודת הבסיס כבר משוקללות בשווי ההתחלתי.</p>
+  <p class="note">ההשוואה מניחה שכל הכסף בתיק הגיע מההפקדות שרשמת. אם היו לך החזקות עוד
+    לפני שהתחלת לרשום — הוסף אותן כהפקדה בתאריך ההתחלה, כדי שההשוואה תהיה מדויקת.</p>
 </section>
 
 <section class="card">
@@ -892,15 +892,10 @@ async function fetchSeries(ticker){
   }
 }
 
-/* ---------- Contributions log + real-return decomposition ----------
-   Backward-looking only. Baseline = the first snapshot ever saved, so
-   tracking starts when the user first presses 📸 — no fabricated history.
-   Real return = (current total − first-snapshot total) − deposits since. */
-function dayStart(ts){ const d=new Date(ts); d.setHours(0,0,0,0); return d.getTime(); }
-function contribSince(ts){
-  return contributions.reduce((s,c)=>{ const t=new Date((c.date||"")+"T00:00:00").getTime();
-    return (isFinite(t)&&t>=ts)?s+c.amount:s; }, 0);
-}
+/* ---------- Deposits log: cash you put in vs. what the portfolio is worth ----------
+   Simple and intuitive, backward-looking: total of every deposit you logged
+   (all of them, no snapshot baseline) compared to the portfolio's value now.
+   Gain/loss = current value − total deposited. No jargon, one clear number. */
 function addContrib(){
   const date=$("#cDate").value;
   const amount=parseFloat($("#cAmount").value);
@@ -917,39 +912,34 @@ function delContrib(id){
   saveContrib(); renderContrib(); showMsg("נמחק ✓","ok");
 }
 function renderContrib(){
-  const show = state.holdings.length>0;
+  const show = state.holdings.length>0 || contributions.length>0;
   $("#contribCard").style.display = show ? "block" : "none";
   if(!show) return;
 
-  // --- Decomposition: growth = deposits + real return ---
+  // --- Cash you put in vs. what the portfolio is worth now ---
   const bd=$("#contribBreakdown");
-  const cur=totalILS();
-  if(!snapshots.length || !(cur>0)){
-    bd.innerHTML='<div class="note">כדי לחשב <b>תשואה אמיתית מול הפקדות</b>, שמור קודם '+
-      '<b>תמונת מצב</b> (📸 בכרטיס המגמה) — היא נקודת הבסיס. המעקב מתחיל מאותו רגע.</div>';
+  const totalIn=contributions.reduce((s,c)=>s+c.amount,0);
+  const value=totalILS();
+
+  if(!(value>0)){
+    bd.innerHTML='<div class="note">הוסף החזקות ומחירים (ידני/חי) כדי להשוות את שווי התיק '+
+      'למה שהכנסת מהכיס.</div>';
+  } else if(!contributions.length){
+    bd.innerHTML='<div class="stat-strip">'+
+        '<div class="stat"><b>'+fmtILS(value)+'</b>שווי התיק היום</div></div>'+
+      '<p class="hint">רשום למטה כמה כסף הכנסת מהכיס — ואז נראה כמה אתה ברווח/הפסד מול מה שהשקעת.</p>';
   } else {
-    const base=snapshots[0];
-    const baseVal=base.totalILS;
-    const growth=cur-baseVal;
-    const deposited=contribSince(dayStart(base.at));
-    const real=growth-deposited;
-    const invested=baseVal+deposited;
-    const realPct=invested>0 ? real/invested*100 : null;
-    let html='<div class="stat-strip">'+
-      '<div class="stat"><b class="'+(growth>=0?'gain':'loss')+'">'+(growth>=0?'+':'')+fmtILS(growth)+'</b>גידול כולל</div>'+
-      '<div class="stat"><b>'+fmtILS(deposited)+'</b>מזה: הפקדת</div>'+
-      '<div class="stat"><b class="'+(real>=0?'gain':'loss')+'">'+(real>=0?'+':'')+fmtILS(real)+'</b>מזה: תשואה אמיתית</div>'+
-      '</div>';
-    let sentence;
-    if(deposited!==0){
-      sentence='מאז '+new Date(base.at).toLocaleDateString("he-IL")+' התיק השתנה ב-<b>'+(growth>=0?'+':'')+fmtILS(growth)+
-        '</b>: <b>'+fmtILS(deposited)+'</b> הפקדת בעצמך, ו-<b>'+(real>=0?'+':'')+fmtILS(real)+'</b> תשואה אמיתית'+
-        (realPct!=null?' (~'+(realPct>=0?'+':'')+realPct.toFixed(1)+'% על ההון שהיה מושקע)':'')+'. התבוננות אחורה, לא תחזית.';
-    } else {
-      sentence='מאז '+new Date(base.at).toLocaleDateString("he-IL")+' התיק השתנה ב-<b>'+(growth>=0?'+':'')+fmtILS(growth)+
-        '</b> — כולו תשואה (לא נרשמו הפקדות בתקופה). התבוננות אחורה, לא תחזית.';
-    }
-    bd.innerHTML=html+'<p class="hint">'+sentence+'</p>';
+    const gain=value-totalIn;
+    const pct=totalIn>0 ? gain/totalIn*100 : null;
+    const dir=gain>=0 ? 'ברווח' : 'בהפסד';
+    bd.innerHTML='<div class="stat-strip">'+
+      '<div class="stat"><b>'+fmtILS(totalIn)+'</b>הכנסת מהכיס</div>'+
+      '<div class="stat"><b>'+fmtILS(value)+'</b>שווי התיק היום</div>'+
+      '<div class="stat"><b class="'+(gain>=0?'gain':'loss')+'">'+(gain>=0?'+':'')+fmtILS(gain)+'</b>רווח/הפסד מול ההפקדות</div>'+
+      '</div>'+
+      '<p class="hint">הכנסת סה״כ <b>'+fmtILS(totalIn)+'</b>, והתיק שווה היום <b>'+fmtILS(value)+'</b> — '+
+      'כלומר אתה '+dir+' של <b>'+fmtILS(Math.abs(gain))+'</b>'+
+      (pct!=null?' (~'+(pct>=0?'+':'')+pct.toFixed(1)+'%)':'')+' על הכסף שהכנסת. התבוננות אחורה, לא תחזית.</p>';
   }
 
   // --- Logged deposits list ---
