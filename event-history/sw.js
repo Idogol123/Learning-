@@ -2,7 +2,7 @@
    loaded results are also cached in localStorage, see index.html). Live price
    and news lookups still require network — this only makes the UI itself
    load without a connection. */
-const CACHE = "eh-v1";
+const CACHE = "eh-v2";
 const ASSETS = [
   "./",
   "./index.html",

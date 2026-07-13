@@ -163,8 +163,7 @@
       <label>טווח היסטוריה</label>
       <select id="lookback">
         <option value="90">3 חודשים אחרונים</option>
-        <option value="180" selected>6 חודשים אחרונים</option>
-        <option value="365">שנה אחרונה</option>
+        <option value="140" selected>~5 חודשים (מקסימום חינם)</option>
       </select>
     </div>
   </div>
@@ -266,7 +265,7 @@ async function fetchDaily(ticker, apiKey){
   const cached = getCache(cacheKey);
   if(cached) return { data: cached, fromCache: true };
 
-  const url = "https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&outputsize=full&symbol="
+  const url = "https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&outputsize=compact&symbol="
     + encodeURIComponent(ticker) + "&apikey=" + encodeURIComponent(apiKey);
   const res = await fetch(url);
   if(!res.ok) throw new Error("שגיאת רשת (" + res.status + ")");
