@@ -1,6 +1,10 @@
 # Real holdings — NEVER commit. Holds your actual positions.
 holdings.csv
 
+# Performance tracking — local, personal, accumulated over time. NEVER commit.
+snapshots.csv
+contributions.csv
+
 # Price cache
 .price_cache.json
 .price_cache.json.tmp

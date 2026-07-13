@@ -17,6 +17,7 @@ bad tickers, or no network still load the app and flag what's unavailable.
 from __future__ import annotations
 
 import os
+from datetime import date
 
 import pandas as pd
 import streamlit as st
@@ -27,6 +28,11 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 HOLDINGS_CSV = os.path.join(_HERE, "holdings.csv")              # gitignored; local persistence
 HOLDINGS_EXAMPLE = os.path.join(_HERE, "holdings.example.csv")  # committed template
 HOLDINGS_COLUMNS = ["ticker", "quantity", "asset_class", "cost_basis", "account", "note"]
+
+SNAPSHOTS_CSV = os.path.join(_HERE, "snapshots.csv")           # gitignored; accrues over time
+SNAPSHOT_CORE_COLUMNS = ["date", "total_ils", "total_usd"]     # asset-class breakdown adds ac_* columns
+CONTRIBUTIONS_CSV = os.path.join(_HERE, "contributions.csv")  # gitignored; deposits you log
+CONTRIBUTIONS_COLUMNS = ["date", "amount_ils", "note"]
 
 # Placeholder assumption anchors — NOT advice. You change these on the Projection
 # screen. Neutral, widely-cited long-run nominal anchors only.
@@ -159,6 +165,157 @@ def holdings_to_toml(df: pd.DataFrame) -> str:
 
 
 # --------------------------------------------------------------------------- #
+# Performance snapshots persistence
+#
+# A snapshot is the total portfolio value (ILS + USD) plus a per-asset-class
+# breakdown, stamped with a date. Snapshots accrue over time so the Performance
+# tab can plot value-over-time and separate "grew because you deposited" from
+# "grew because it returned".
+#
+# We DELIBERATELY never backfill history: tracking starts the day you first
+# press "save snapshot". Same load/normalise/save shape as holdings, same
+# secrets support for Streamlit Cloud, same graceful degradation.
+# --------------------------------------------------------------------------- #
+
+def _normalize_snapshots(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.copy()
+    for col in SNAPSHOT_CORE_COLUMNS:
+        if col not in df.columns:
+            df[col] = pd.NA
+    # Asset-class breakdown columns are dynamic (ac_equity, ac_bond, ...).
+    ac_cols = [c for c in df.columns if str(c).startswith("ac_")]
+    df = df[SNAPSHOT_CORE_COLUMNS + ac_cols].copy()
+    df["date"] = df["date"].astype(str).str.strip()
+    df["total_ils"] = pd.to_numeric(df["total_ils"], errors="coerce")
+    df["total_usd"] = pd.to_numeric(df["total_usd"], errors="coerce")
+    for c in ac_cols:
+        df[c] = pd.to_numeric(df[c], errors="coerce")
+    df = df[df["date"].notna() & (df["date"] != "") & (df["date"] != "NAN")]
+    # One row per date; last write wins if somehow duplicated.
+    df = df.drop_duplicates(subset="date", keep="last")
+    return df.sort_values("date").reset_index(drop=True)
+
+
+def _snapshots_from_secrets() -> pd.DataFrame | None:
+    try:
+        if "snapshots" not in st.secrets:
+            return None
+        rows = [dict(r) for r in st.secrets["snapshots"]]
+    except Exception:
+        return None
+    if not rows:
+        return None
+    return _normalize_snapshots(pd.DataFrame(rows))
+
+
+def load_snapshots() -> pd.DataFrame:
+    secret_df = _snapshots_from_secrets()
+    if secret_df is not None:
+        return secret_df
+    if not os.path.exists(SNAPSHOTS_CSV):
+        return pd.DataFrame(columns=SNAPSHOT_CORE_COLUMNS)
+    try:
+        df = pd.read_csv(SNAPSHOTS_CSV, dtype={"date": str})
+    except Exception as exc:
+        st.error(f"Could not read {os.path.basename(SNAPSHOTS_CSV)}: {exc}")
+        return pd.DataFrame(columns=SNAPSHOT_CORE_COLUMNS)
+    return _normalize_snapshots(df)
+
+
+def save_snapshots(df: pd.DataFrame) -> None:
+    """Persist to the local CSV. Ephemeral on Streamlit Cloud (mirror to secrets)."""
+    _normalize_snapshots(df).to_csv(SNAPSHOTS_CSV, index=False)
+
+
+def upsert_snapshot(date_str: str, total_ils: float, total_usd,
+                    class_breakdown: dict) -> pd.DataFrame:
+    """
+    Insert (or overwrite) today's snapshot, then persist. If a row already
+    exists for `date_str` it is updated in place rather than duplicated.
+    Returns the saved frame.
+    """
+    df = load_snapshots()
+    row = {"date": date_str, "total_ils": total_ils, "total_usd": total_usd}
+    for cls, val in class_breakdown.items():
+        row[f"ac_{cls}"] = val
+
+    # Rebuild from records (drop any existing row for this date, then add the
+    # new one). Avoids pandas' empty/all-NA concat dtype warning when a fresh
+    # snapshot lacks an asset class that earlier ones had.
+    kept = [r for r in df.to_dict("records") if r.get("date") != date_str] if not df.empty else []
+    df = _normalize_snapshots(pd.DataFrame(kept + [row]))
+    save_snapshots(df)
+    return df
+
+
+# --------------------------------------------------------------------------- #
+# Contributions persistence (deposits you log, to separate return from deposits)
+# --------------------------------------------------------------------------- #
+
+def _normalize_contributions(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.copy()
+    for col in CONTRIBUTIONS_COLUMNS:
+        if col not in df.columns:
+            df[col] = pd.NA
+    df = df[CONTRIBUTIONS_COLUMNS].copy()
+    df["date"] = df["date"].astype(str).str.strip()
+    df["amount_ils"] = pd.to_numeric(df["amount_ils"], errors="coerce")
+    df = df[df["date"].notna() & (df["date"] != "") & (df["date"] != "NAN")]
+    df = df[df["amount_ils"].notna()]
+    return df.sort_values("date").reset_index(drop=True)
+
+
+def _contributions_from_secrets() -> pd.DataFrame | None:
+    try:
+        if "contributions" not in st.secrets:
+            return None
+        rows = [dict(r) for r in st.secrets["contributions"]]
+    except Exception:
+        return None
+    if not rows:
+        return None
+    return _normalize_contributions(pd.DataFrame(rows))
+
+
+def load_contributions() -> pd.DataFrame:
+    secret_df = _contributions_from_secrets()
+    if secret_df is not None:
+        return secret_df
+    if not os.path.exists(CONTRIBUTIONS_CSV):
+        return pd.DataFrame(columns=CONTRIBUTIONS_COLUMNS)
+    try:
+        df = pd.read_csv(CONTRIBUTIONS_CSV, dtype={"date": str})
+    except Exception as exc:
+        st.error(f"Could not read {os.path.basename(CONTRIBUTIONS_CSV)}: {exc}")
+        return pd.DataFrame(columns=CONTRIBUTIONS_COLUMNS)
+    return _normalize_contributions(df)
+
+
+def contributions_are_from_secrets() -> bool:
+    return _contributions_from_secrets() is not None
+
+
+def save_contributions(df: pd.DataFrame) -> None:
+    """Persist to the local CSV. Ephemeral on Streamlit Cloud (use TOML export)."""
+    _normalize_contributions(df).to_csv(CONTRIBUTIONS_CSV, index=False)
+
+
+def contributions_to_toml(df: pd.DataFrame) -> str:
+    """Render contributions as a secrets.toml block for Streamlit Cloud persistence."""
+    out = _normalize_contributions(df)
+    lines = []
+    for _, r in out.iterrows():
+        lines.append("[[contributions]]")
+        lines.append(f'date = "{r["date"]}"')
+        lines.append(f"amount_ils = {r['amount_ils']}")
+        note = r["note"]
+        if pd.notna(note) and str(note) != "":
+            lines.append(f'note = "{str(note).replace(chr(34), "")}"')
+        lines.append("")
+    return "\n".join(lines).strip()
+
+
+# --------------------------------------------------------------------------- #
 # Pricing -> enriched holdings frame
 # --------------------------------------------------------------------------- #
 
@@ -280,8 +437,9 @@ else:
 # Tabs
 # --------------------------------------------------------------------------- #
 
-tab_overview, tab_alloc, tab_proj, tab_contrib, tab_edit = st.tabs(
-    ["Overview", "Allocation", "Projection", "Contribution planner", "✏️ Edit holdings"]
+tab_overview, tab_alloc, tab_perf, tab_proj, tab_contrib, tab_edit = st.tabs(
+    ["Overview", "Allocation", "📈 ביצועים", "Projection",
+     "Contribution planner", "✏️ Edit holdings"]
 )
 
 holdings = load_holdings()
@@ -290,6 +448,17 @@ portfolio, warnings = build_portfolio(holdings, fx)
 priced = portfolio[portfolio["mv_ils"].notna()].copy() if not portfolio.empty else portfolio
 total_ils = priced["mv_ils"].sum() if not priced.empty else 0.0
 total_usd = (total_ils / fx.usd_to_ils) if (fx.available and fx.usd_to_ils) else None
+
+# Per-asset-class value (ILS) — reused by snapshots and the Performance tab.
+class_breakdown_ils = (
+    priced.groupby("asset_class")["mv_ils"].sum().to_dict() if not priced.empty else {}
+)
+
+# Human-friendly account label for the "By account" allocation breakdown.
+if not priced.empty:
+    priced["account_label"] = priced["account"].apply(
+        lambda a: str(a).strip() if (pd.notna(a) and str(a).strip() != "") else "(unspecified)"
+    )
 
 
 # ----------------------------- Overview ------------------------------------ #
@@ -317,6 +486,24 @@ with tab_overview:
             c3.metric("Today's change (ILS)", fmt_money(day_delta_ils, " ₪"), f"{pct:+.2f}%")
         else:
             c3.metric("Today's change (ILS)", "—")
+
+        # Daily snapshot capture — feeds the 📈 ביצועים tab.
+        snap_col, snap_msg = st.columns([1, 3])
+        if snap_col.button("📸 שמור snapshot היום", help="לוכד את שווי התיק הנוכחי לתאריך היום"):
+            if priced.empty or not total_ils:
+                st.warning("אין שווי מתומחר לשמור עדיין.")
+            else:
+                today = date.today().isoformat()
+                snaps = load_snapshots()
+                existed = (not snaps.empty) and (today in snaps["date"].values)
+                upsert_snapshot(today, float(total_ils), total_usd, class_breakdown_ils)
+                if existed:
+                    st.success(f"✅ ה-snapshot של {today} עודכן (לא נוצר כפול).")
+                else:
+                    st.success(f"✅ נשמר snapshot ל-{today}.")
+                st.rerun()
+        snap_msg.caption("המעקב מתחיל מהיום שתשמור לראשונה — לא ממציאים היסטוריה. "
+                         "נשמר ל-snapshots.csv (מקומי, gitignored).")
 
         if warnings:
             with st.expander(f"⚠️ {len(warnings)} item(s) need attention", expanded=True):
@@ -394,6 +581,127 @@ with tab_alloc:
             st.subheader("By market (TASE vs US)")
             _, t = breakdown("market", "Market")
             st.dataframe(t, use_container_width=True, hide_index=True)
+
+        st.subheader("By account / broker")
+        g, t = breakdown("account_label", "Account")
+        st.bar_chart(g)
+        st.dataframe(t, use_container_width=True, hide_index=True)
+        st.caption("Set the **account** field per holding on the Edit tab to split value by broker.")
+
+
+# ----------------------------- Performance --------------------------------- #
+with tab_perf:
+    st.header("📈 ביצועים — מעקב שווי לאורך זמן")
+    st.caption("התבוננות אחורה על מה שקרה בפועל — **לא תחזית**. הנתונים מגיעים "
+               "מ-snapshots ששמרת ב-Overview.")
+
+    snaps = load_snapshots()
+    contribs = load_contributions()
+
+    if snaps.empty:
+        st.info("עדיין אין snapshots. עבור ל-**Overview** ולחץ **📸 שמור snapshot היום** "
+                "כדי להתחיל לצבור נתונים.\n\nהמעקב מתחיל מהיום שתשמור לראשונה — "
+                "אנחנו לא ממציאים היסטוריה שלא קיימת.")
+    elif len(snaps) < 2:
+        only = snaps.iloc[0]
+        st.info(f"יש כרגע snapshot אחד בלבד (מ-**{only['date']}**, שווי "
+                f"**{float(only['total_ils']):,.0f} ₪**).\n\nצריך לפחות **2** snapshots "
+                "כדי לצייר גרף ולחשב מגמה — שמור עוד snapshot ביום אחר וחזור לכאן.")
+        st.caption("טיפ: שמור snapshot בערך פעם בשבוע או בחודש כדי לראות מגמה משמעותית.")
+    else:
+        first = snaps.iloc[0]
+        last = snaps.iloc[-1]
+        first_val = float(first["total_ils"])
+        last_val = float(last["total_ils"])
+        abs_change = last_val - first_val
+        pct_change = (abs_change / first_val * 100.0) if first_val else 0.0
+
+        st.subheader("שווי התיק לאורך זמן (₪)")
+        chart = snaps.set_index("date")[["total_ils"]].rename(columns={"total_ils": "שווי (₪)"})
+        st.line_chart(chart)
+
+        c1, c2, c3 = st.columns(3)
+        c1.metric("שווי ראשון", f"{first_val:,.0f} ₪", help=f"מ-{first['date']}")
+        c2.metric("שווי אחרון", f"{last_val:,.0f} ₪", help=f"מ-{last['date']}")
+        c3.metric("שינוי מאז ה-snapshot הראשון", f"{abs_change:,.0f} ₪", f"{pct_change:+.1f}%")
+
+        # ---- Real return vs. deposits (money-weighted, backward-looking) ---- #
+        st.subheader("כמה מהגידול הוא תשואה אמיתית — ומה סתם הפקדת?")
+        if contribs.empty:
+            deposited = 0.0
+            st.info("לא רשמת הפקדות. אם הפקדת כסף בתקופה הזו, רשום אותן למטה בפאנל "
+                    "**הפקדות** — אחרת כל הגידול מוצג כתשואה (בהנחת אפס הפקדות).")
+        else:
+            in_window = contribs[(contribs["date"] >= first["date"]) &
+                                 (contribs["date"] <= last["date"])]
+            deposited = float(in_window["amount_ils"].sum())
+
+        real_return = abs_change - deposited
+        d1, d2, d3 = st.columns(3)
+        d1.metric("גידול כולל", f"{abs_change:,.0f} ₪")
+        d2.metric("מתוכו: הפקדות שלך", f"{deposited:,.0f} ₪")
+        d3.metric("מתוכו: תשואה אמיתית", f"{real_return:,.0f} ₪")
+
+        invested_base = first_val + deposited
+        real_pct = (real_return / invested_base * 100.0) if invested_base else 0.0
+        if deposited:
+            st.info(f"בין **{first['date']}** ל-**{last['date']}** התיק גדל ב-"
+                    f"**{abs_change:,.0f} ₪**. מתוכם **{deposited:,.0f} ₪** הפקדת בעצמך, "
+                    f"ו-**{real_return:,.0f} ₪** הם תשואה אמיתית "
+                    f"(~{real_pct:+.1f}% על ההון שהיה מושקע). התבוננות אחורה, לא תחזית.")
+        else:
+            st.info(f"בין **{first['date']}** ל-**{last['date']}** התיק גדל ב-"
+                    f"**{abs_change:,.0f} ₪** (~{pct_change:+.1f}%) — כולו תשואה בהנחת "
+                    "אפס הפקדות. התבוננות אחורה, לא תחזית.")
+
+        # ---- Optional: per-asset-class value over time --------------------- #
+        ac_cols = [c for c in snaps.columns if str(c).startswith("ac_")]
+        if ac_cols:
+            with st.expander("פירוט שווי לפי asset class לאורך זמן"):
+                ac_chart = snaps.set_index("date")[ac_cols].rename(
+                    columns={c: str(c)[3:] for c in ac_cols})
+                st.line_chart(ac_chart)
+
+        with st.expander("כל ה-snapshots (טבלה גולמית)"):
+            st.dataframe(snaps, use_container_width=True, hide_index=True)
+
+    # ---- Deposits log editor (always available) --------------------------- #
+    st.markdown("---")
+    st.subheader("💰 הפקדות (contributions)")
+    if contributions_are_from_secrets():
+        st.info("ההפקדות נטענות מ-**st.secrets**. עריכה כאן **לא** תישמר בענן — ערוך, "
+                "ואז השתמש ב-**Copy as secrets TOML** למטה והדבק ל-Settings → Secrets.")
+    else:
+        st.caption("רשום תאריך + סכום ₪ לכל הפקדה. נשמר ל-**contributions.csv** "
+                   "(מקומי, gitignored). זה מה שמאפשר להפריד תשואה אמיתית מהפקדות.")
+
+    edited_contribs = st.data_editor(
+        load_contributions(),
+        num_rows="dynamic",
+        use_container_width=True,
+        column_config={
+            "date": st.column_config.TextColumn(
+                "date", required=True, help="תאריך ההפקדה, פורמט YYYY-MM-DD"),
+            "amount_ils": st.column_config.NumberColumn(
+                "amount_ils", help="סכום ההפקדה בש\"ח", step=100.0),
+            "note": st.column_config.TextColumn("note", help="אופציונלי"),
+        },
+        key="contributions_editor",
+    )
+
+    cc1, cc2 = st.columns([1, 4])
+    if cc1.button("💾 שמור הפקדות"):
+        save_contributions(edited_contribs)
+        st.success("ההפקדות נשמרו ל-contributions.csv.")
+        st.rerun()
+    cc2.caption("שמירה מקומית בלבד — contributions.csv הוא gitignored ואפמרי ב-Streamlit Cloud. "
+                "לענן, השתמש בייצוא ה-TOML למטה.")
+
+    with st.expander("📋 Copy as secrets TOML (for Streamlit Cloud persistence)"):
+        st.caption("הדבק את זה ב-Streamlit Cloud → **Settings → Secrets**. שורד restart-ים "
+                   "ולא נשמר ל-repo.")
+        st.code(contributions_to_toml(edited_contribs) or "# (no contributions yet)",
+                language="toml")
 
 
 # ----------------------------- Projection ---------------------------------- #
