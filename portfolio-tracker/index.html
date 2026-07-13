@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1e6f5c">
+<title>מעקב תיק השקעות</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="תיק השקעות">
+<style>
+  :root{
+    --bg:#f4f5f0; --card:#ffffff; --ink:#20241a; --muted:#6b7160;
+    --accent:#1e6f5c; --accent-2:#155546; --line:#dcded2;
+    --gain:#1c7a4a; --loss:#b3261e; --warn:#b8860b; --wa:#25D366;
+    --chip:#eaf1ee; --shadow:0 1px 3px rgba(0,0,0,.08),0 6px 18px rgba(0,0,0,.06);
+    --r:14px;
+    /* categorical palette for charts — kept in sync between CSS and JS via getComputedStyle */
+    --c1:#1e6f5c; --c2:#c1666b; --c3:#4d80b3; --c4:#d1a24a; --c5:#7a6cae;
+    --c6:#5aa469; --c7:#c77b3c; --c8:#6b7160;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0f1613; --card:#18201c; --ink:#eef0e4; --muted:#9aa89f; --accent:#3fae90;
+      --accent-2:#2f8a72; --line:#2a332e; --gain:#4bbd7c; --loss:#e0685f; --warn:#e0b64a;
+      --chip:#213029; --shadow:none;
+      --c1:#3fae90; --c2:#d98a8f; --c3:#6fa0d0; --c4:#e0bd6a; --c5:#a294cf;
+      --c6:#7cc48b; --c7:#e0a066; --c8:#9aa89f;
+    }
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Hebrew",Arial,sans-serif;
+    background:var(--bg); color:var(--ink); direction:rtl; line-height:1.5;
+    -webkit-text-size-adjust:100%;
+    padding:0 12px calc(40px + env(safe-area-inset-bottom)); max-width:820px; margin:0 auto;
+  }
+  header{
+    position:sticky; top:0; z-index:20; margin:0 -12px 12px; padding:12px 16px;
+    background:var(--accent); color:#fff; box-shadow:0 2px 10px rgba(0,0,0,.15);
+    padding-top:calc(12px + env(safe-area-inset-top));
+    display:flex; align-items:center; gap:10px;
+  }
+  header h1{margin:0; font-size:19px; display:flex; align-items:center; gap:8px}
+  header .home-link{ margin-inline-start:auto; display:inline-flex; align-items:center; gap:5px;
+    color:#fff; text-decoration:none; font-size:13px; font-weight:600; white-space:nowrap;
+    background:rgba(255,255,255,.16); padding:7px 11px; border-radius:10px; }
+  header .home-link:active{ background:rgba(255,255,255,.28); }
+  .card{background:var(--card); border:1px solid var(--line); border-radius:var(--r); padding:14px; margin:12px 0; box-shadow:var(--shadow)}
+  .card h2{margin:0 0 4px; font-size:16px; display:flex; align-items:center; gap:8px}
+  .card h2 .sub{font-size:12px; font-weight:400; color:var(--muted); margin-inline-start:auto}
+  input,select,button,textarea{font:inherit; color:inherit}
+  input[type=text],input[type=number],input[type=date],select,textarea{
+    width:100%; padding:12px; border:1.5px solid var(--line); border-radius:11px; background:var(--bg); color:var(--ink);
+  }
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--accent); outline-offset:1px; border-color:var(--accent)}
+  textarea{line-height:1.6; resize:vertical; min-height:90px}
+  select{-webkit-appearance:none; appearance:none; background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path fill='%236b7160' d='M6 8 0 0h12z'/></svg>"); background-repeat:no-repeat; background-position:left 14px center; padding-inline-start:34px}
+  .hint{font-size:12px; color:var(--muted); margin:6px 0 0}
+  label{display:block; font-size:13px; color:var(--muted); margin:10px 0 4px; font-weight:600}
+
+  .btn{display:inline-flex; align-items:center; justify-content:center; gap:7px; cursor:pointer;
+    border:none; border-radius:12px; padding:12px 15px; font-weight:700; font-size:15px;
+    background:var(--accent); color:#fff; min-height:46px; touch-action:manipulation}
+  .btn:active{transform:translateY(1px)}
+  .btn.sec{background:var(--chip); color:var(--ink); border:1.5px solid var(--line)}
+  .btn.ghost{background:transparent; color:var(--accent); border:1.5px solid var(--accent)}
+  .btn.sm{padding:9px 12px; font-size:13px; min-height:auto; border-radius:10px}
+  .btn.big{font-size:16px; padding:15px; min-height:54px; width:100%}
+  .btn.wa{background:var(--wa); color:#083d1f}
+  .btn-wrap{display:flex; gap:9px; flex-wrap:wrap; margin-top:10px}
+  .btn-wrap .btn{flex:1; min-width:120px}
+  .row{display:flex; gap:10px; flex-wrap:wrap}
+  .row>*{flex:1; min-width:130px}
+
+  .chips{display:flex; flex-wrap:wrap; gap:8px; margin:10px 0 4px}
+  .chip{display:inline-flex; align-items:center; gap:6px; background:var(--chip); border:1.5px solid var(--line);
+    border-radius:999px; padding:8px 13px; font-size:14px; font-weight:600; cursor:pointer; user-select:none}
+  .chip.on{background:var(--accent); border-color:var(--accent); color:#fff}
+
+  .msg{padding:11px 13px; border-radius:11px; font-size:13.5px; margin:10px 0; display:none}
+  .msg.show{display:block}
+  .msg.err{background:#f6e0dd; color:var(--loss); border:1px solid var(--loss)}
+  .msg.info{background:var(--chip); color:var(--ink); border:1px solid var(--line)}
+  .msg.ok{background:#e3f0e3; color:var(--gain); border:1px solid var(--gain)}
+  @media (prefers-color-scheme: dark){ .msg.ok{background:#16281e} .msg.err{background:#2e1d1b} }
+  .note{font-size:12px; color:var(--muted); background:var(--chip); border:1px dashed var(--line);
+    border-radius:10px; padding:9px 11px; margin:8px 0}
+
+  .table-wrap{overflow-x:auto; -webkit-overflow-scrolling:touch; border:1px solid var(--line); border-radius:12px; margin-top:8px}
+  table{border-collapse:collapse; width:100%; min-width:max-content; font-size:13.5px}
+  th,td{border:1px solid var(--line); padding:8px 10px; text-align:center; white-space:nowrap}
+  thead th{background:var(--accent); color:#fff; position:sticky; top:0; cursor:pointer}
+  thead th .sortarr{font-size:10px; opacity:.8}
+  tbody td:first-child, tbody th:first-child{position:sticky; right:0; background:var(--card); font-weight:700; z-index:1; text-align:right}
+  tfoot td{background:var(--chip); font-weight:700}
+  .gain{color:var(--gain); font-weight:700}
+  .loss{color:var(--loss); font-weight:700}
+  .flagrow td{background:#fbf3df}
+  @media (prefers-color-scheme: dark){ .flagrow td{background:#2c2716} }
+  .warnbadge{color:var(--warn); font-weight:800; margin-inline-start:3px}
+  .manualtag{font-size:10px; color:var(--warn); font-weight:700}
+  .staletag{font-size:10px; color:var(--muted)}
+
+  .stat-strip{display:flex; gap:8px; flex-wrap:wrap; margin-top:10px}
+  .stat{background:var(--chip); border-radius:10px; padding:9px 12px; font-size:12.5px; flex:1; min-width:96px; text-align:center; color:var(--muted)}
+  .stat b{display:block; font-size:17px; color:var(--ink); margin-bottom:1px}
+  .stat b.gain{color:var(--gain)} .stat b.loss{color:var(--loss)}
+
+  .hold-item{display:flex; gap:8px; align-items:center; justify-content:space-between; padding:9px 2px; border-bottom:1px solid var(--line)}
+  .hold-item:last-child{border-bottom:none}
+  .hold-item .nm{font-weight:700}
+  .hold-item .meta{font-size:12px; color:var(--muted)}
+  .hold-item .acts{display:flex; gap:6px; flex:0 0 auto}
+  .iconbtn{width:38px; height:38px; border-radius:10px; border:1.5px solid var(--line); background:var(--chip);
+    cursor:pointer; font-size:16px; display:flex; align-items:center; justify-content:center}
+  .iconbtn.del{color:var(--loss)}
+
+  canvas.chart{display:block; width:100%; max-width:100%; height:auto; margin-top:6px}
+  .legend{display:flex; flex-wrap:wrap; gap:6px 12px; margin-top:8px; font-size:12px}
+  .legend span{display:inline-flex; align-items:center; gap:5px; color:var(--muted)}
+  .legend i{width:11px; height:11px; border-radius:3px; display:inline-block}
+
+  details{margin-top:8px; border-top:1px dashed var(--line); padding-top:8px}
+  details summary{cursor:pointer; font-size:13px; font-weight:700; color:var(--accent)}
+  .seg{display:flex; gap:6px; flex-wrap:wrap; margin:8px 0}
+  .seg .chip{padding:7px 12px; font-size:13px}
+  .hide{display:none!important}
+  footer{text-align:center; font-size:11.5px; color:var(--muted); margin:16px 0 4px}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📊 מעקב תיק השקעות</h1>
+  <a class="home-link" href="../" aria-label="חזרה לכל הכלים">🏠 כל הכלים</a>
+</header>
+
+<div id="installBar" class="card" style="display:none; background:var(--chip)">
+  <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:space-between">
+    <span style="font-size:14px; font-weight:600">📲 להתקין למסך הבית?</span>
+    <span style="display:flex; gap:8px">
+      <button class="btn sm" type="button" id="installBtn">התקן</button>
+      <button class="btn sec sm" type="button" id="installDismiss">לא עכשיו</button>
+    </span>
+  </div>
+</div>
+<div id="iosHelp" class="msg info" style="display:none">
+  להתקנה ב-iPhone: <b>שיתוף</b> ⬆️ ← <b>"הוסף למסך הבית"</b>.
+</div>
+
+<div id="msg" class="msg"></div>
+
+<!-- ===== סיכום ===== -->
+<section class="card" id="summaryCard" style="display:none">
+  <h2>💼 סיכום התיק</h2>
+  <div class="stat-strip" id="summaryStrip"></div>
+  <p class="hint" id="summaryNote"></p>
+</section>
+
+<!-- ===== החזקות ===== -->
+<section class="card">
+  <h2>📇 החזקות <span class="sub" id="holdCount"></span></h2>
+  <div id="holdList"></div>
+  <p class="hint" id="holdEmpty">עדיין אין החזקות. הוסף נייר ראשון למטה 👇</p>
+
+  <details id="holdFormDetails" style="margin-top:12px">
+    <summary id="holdFormSummary">➕ הוסף / ערוך החזקה</summary>
+    <input type="hidden" id="editId">
+    <div class="row" style="margin-top:8px">
+      <div>
+        <label>נייר / סימול</label>
+        <input id="fTicker" type="text" autocomplete="off" placeholder="VOO, AAPL, ESLT.TA…">
+      </div>
+      <div>
+        <label>כמות</label>
+        <input id="fQty" type="number" inputmode="decimal" step="any" placeholder="10">
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label>סוג נכס</label>
+        <select id="fClass">
+          <option value="equity">מניה</option>
+          <option value="bond">אג״ח</option>
+          <option value="reit">REIT</option>
+          <option value="commodity">סחורה</option>
+          <option value="cash">מזומן</option>
+          <option value="crypto">קריפטו</option>
+          <option value="other">אחר</option>
+        </select>
+      </div>
+      <div>
+        <label>מטבע</label>
+        <select id="fCurrency">
+          <option value="USD">USD $</option>
+          <option value="ILS">ILS ₪</option>
+        </select>
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label>מחיר קנייה ליחידה <span style="font-weight:400">(אופציונלי → מפעיל רווח/הפסד)</span></label>
+        <input id="fCost" type="number" inputmode="decimal" step="any" placeholder="למשל 380">
+      </div>
+      <div>
+        <label>מחיר נוכחי ידני <span style="font-weight:400">(אופציונלי)</span></label>
+        <input id="fManual" type="number" inputmode="decimal" step="any" placeholder="אם אין מחיר חי">
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label>חשבון</label>
+        <input id="fAccount" type="text" autocomplete="off" placeholder="למשל: IB / בנק">
+      </div>
+      <div>
+        <label>הערה</label>
+        <input id="fNote" type="text" autocomplete="off" placeholder="חופשי">
+      </div>
+    </div>
+    <div id="agorotWrap" class="hide">
+      <label style="margin-top:10px"><input type="checkbox" id="fAgorot" style="width:auto;margin-inline-end:6px">מחיר חי מהספק לנייר ת״א מגיע באגורות (חלק ב-100)</label>
+    </div>
+    <div class="btn-wrap">
+      <button class="btn" type="button" id="saveHold">💾 שמור החזקה</button>
+      <button class="btn sec" type="button" id="cancelHold">בטל</button>
+    </div>
+  </details>
+
+  <div class="btn-wrap">
+    <button class="btn sec sm" type="button" id="importCsvBtn">📥 ייבוא CSV</button>
+    <button class="btn sec sm" type="button" id="exportCsvBtn">📤 ייצוא CSV</button>
+    <button class="btn sec sm" type="button" id="loadDemo">🧪 נתוני דוגמה</button>
+  </div>
+  <input id="csvFile" type="file" accept=".csv,text/csv" class="hide">
+</section>
+
+<!-- ===== מחירים חיים (אופציונלי) ===== -->
+<section class="card">
+  <h2>🌐 מחירים חיים <span class="sub">אופציונלי · דורש רשת</span></h2>
+  <p class="hint">הכלי עובד במלואו בלי זה. כדי למשוך מחירים חיים, הזן מפתח API חינמי
+    (נשמר במכשיר בלבד, לא נשלח לשום מקום מלבד ספק המחירים).</p>
+  <div class="row" style="margin-top:6px">
+    <div>
+      <label>ספק</label>
+      <select id="provider"></select>
+    </div>
+    <div>
+      <label>שער USD/ILS ידני <span style="font-weight:400">(גיבוי)</span></label>
+      <input id="fxManual" type="number" inputmode="decimal" step="any" placeholder="למשל 3.7">
+    </div>
+  </div>
+  <label>מפתח API</label>
+  <input id="apiKey" type="text" autocomplete="off" spellcheck="false" placeholder="הדבק מפתח…">
+  <p class="hint" id="providerHelp"></p>
+  <div class="btn-wrap">
+    <button class="btn" type="button" id="updatePrices">🔄 עדכן מחירים</button>
+    <button class="btn sec" type="button" id="clearKey">מחק מפתח</button>
+  </div>
+  <p class="hint" id="pricesStatus"></p>
+</section>
+
+<!-- ===== פילוח וריכוזיות ===== -->
+<section class="card" id="breakdownCard" style="display:none">
+  <h2>🥧 פילוח וריכוזיות</h2>
+  <div class="seg" id="breakdownSeg">
+    <span class="chip on" data-by="ticker">לפי נייר</span>
+    <span class="chip" data-by="assetClass">לפי סוג נכס</span>
+    <span class="chip" data-by="currency">לפי מטבע</span>
+    <span class="chip" data-by="account">לפי חשבון</span>
+  </div>
+  <canvas class="chart" id="pieChart" width="600" height="300"></canvas>
+  <div class="legend" id="pieLegend"></div>
+  <div class="row" style="margin-top:12px; align-items:flex-end">
+    <div style="flex:2">
+      <label>סף ריכוזיות להתראה (%)</label>
+      <input id="concInput" type="number" inputmode="numeric" min="1" max="100" step="1" value="20">
+    </div>
+  </div>
+  <div id="concFlags"></div>
+</section>
+
+<!-- ===== רווח/הפסד + טבלה ===== -->
+<section class="card" id="tableCard" style="display:none">
+  <h2>📈 החזקות ורווח/הפסד</h2>
+  <p class="hint">הקש על כותרת עמודה למיון. שווי מומר ל-₪ לפי שער USD/ILS.</p>
+  <div class="table-wrap" id="holdingsTableWrap"></div>
+  <div class="btn-wrap">
+    <button class="btn big wa" type="button" id="shareWa">💬 שתף תמונת מצב לוואטסאפ</button>
+  </div>
+  <div class="btn-wrap">
+    <button class="btn sec" type="button" id="shareImg">🖼️ תמונה</button>
+  </div>
+</section>
+
+<!-- ===== מגמה ===== -->
+<section class="card" id="trendCard" style="display:none">
+  <h2>📉 מגמה לאורך זמן</h2>
+  <div class="seg" id="rangeSeg">
+    <span class="chip" data-range="7">שבוע</span>
+    <span class="chip on" data-range="30">חודש</span>
+    <span class="chip" data-range="365">שנה</span>
+  </div>
+  <div class="row" style="margin-top:2px">
+    <div>
+      <label>הצג</label>
+      <select id="trendPick">
+        <option value="__portfolio__">סך התיק (תמונות מקומיות)</option>
+      </select>
+    </div>
+  </div>
+  <canvas class="chart" id="lineChart" width="600" height="280"></canvas>
+  <p class="hint" id="trendNote"></p>
+</section>
+
+<!-- ===== תכנון תרומה ===== -->
+<section class="card" id="planCard" style="display:none">
+  <h2>💰 תכנון תרומה</h2>
+  <p class="hint">מתאר בלבד איך הפקדה משנה את המשקלים והריכוזיות — <b>ללא המלצת קנייה/מכירה</b>.</p>
+  <div class="row" style="margin-top:6px">
+    <div>
+      <label>סכום הפקדה (₪)</label>
+      <input id="planAmount" type="number" inputmode="decimal" step="any" placeholder="2000">
+    </div>
+    <div>
+      <label>נייר יעד</label>
+      <select id="planTicker"></select>
+    </div>
+  </div>
+  <div id="planCandidateWrap" class="hide">
+    <label>סימול מועמד חדש</label>
+    <input id="planCandidate" type="text" autocomplete="off" placeholder="למשל QQQ">
+  </div>
+  <div id="planResult"></div>
+  <p class="note">אין כאן ייעוץ פיננסי. הכלי לא מדרג ולא ממליץ מה לקנות או למכור —
+    הוא מתאר את השפעת ההפקדה על ההרכב בלבד.</p>
+</section>
+
+<section class="card">
+  <details>
+    <summary>⚙️ ניהול נתונים</summary>
+    <p class="hint" style="margin-top:8px">כל הנתונים נשמרים במכשיר בלבד (localStorage).</p>
+    <div class="btn-wrap">
+      <button class="btn sec sm" type="button" id="resetAll">🗑️ אפס הכל</button>
+    </div>
+  </details>
+</section>
+
+<footer>הליבה עובדת אופליין · הנתונים נשמרים במכשיר בלבד · לא ייעוץ השקעות</footer>
+
+<script>
+"use strict";
+(function(){
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const LS_STATE = "pt_state_v1";
+const LS_SNAPS = "pt_snapshots_v1";
+
+/* ============================================================
+   Provider abstraction (the heart of the live layer).
+   Each provider exposes getQuote / getDailySeries / getFx that
+   return normalised shapes, or throw an Error whose .code is one
+   of: "CORS" | "RATE" | "NOTFOUND" | "KEY" | "NET".
+
+   IMPORTANT: the exact endpoints, field names and rate limits
+   below are best-effort and MUST be verified against each API's
+   live documentation — do not trust them blindly. They are kept
+   in one place per provider so a format fix is a one-line change.
+     Twelve Data: https://twelvedata.com/docs
+     Alpha Vantage: https://www.alphavantage.co/documentation/
+   ============================================================ */
+class ApiError extends Error{ constructor(code,msg){ super(msg||code); this.code=code; } }
+
+async function jsonFetch(url){
+  let resp;
+  try{
+    resp = await fetch(url, {mode:"cors"});
+  }catch(e){
+    // A network-level throw in the browser is most often CORS (opaque) or offline.
+    throw new ApiError(navigator.onLine===false ? "NET" : "CORS", e.message);
+  }
+  if(resp.status===429) throw new ApiError("RATE","הספק החזיר יותר מדי בקשות (rate limit).");
+  if(!resp.ok) throw new ApiError("NET","שגיאת רשת "+resp.status);
+  let data;
+  try{ data = await resp.json(); }catch(e){ throw new ApiError("NET","תשובה לא תקינה מהספק."); }
+  return data;
+}
+
+const PROVIDERS = {
+  twelvedata: {
+    label: "Twelve Data",
+    help: "מפתח חינמי: twelvedata.com → Sign up → API key. ~8 בקשות לדקה בתוכנית החינמית. ידידותי ל-CORS.",
+    // --- verify field names against https://twelvedata.com/docs ---
+    async getQuote(ticker,key){
+      const url = "https://api.twelvedata.com/quote?symbol="+encodeURIComponent(ticker)+"&apikey="+encodeURIComponent(key);
+      const d = await jsonFetch(url);
+      if(d && d.status==="error"){
+        if(/api key|apikey/i.test(d.message||"")) throw new ApiError("KEY", d.message);
+        if(/not found|symbol|no data/i.test(d.message||"")) throw new ApiError("NOTFOUND", d.message);
+        if(/limit|credits/i.test(d.message||"")) throw new ApiError("RATE", d.message);
+        throw new ApiError("NET", d.message||"שגיאת ספק");
+      }
+      const price = parseFloat(d.close);
+      if(!isFinite(price)) throw new ApiError("NOTFOUND","אין מחיר לנייר זה.");
+      return { price, currency:(d.currency||"").toUpperCase(),
+        prevClose: isFinite(parseFloat(d.previous_close))?parseFloat(d.previous_close):undefined,
+        at: Date.now() };
+    },
+    async getFx(key){
+      // USD -> ILS
+      const url = "https://api.twelvedata.com/exchange_rate?symbol=USD/ILS&apikey="+encodeURIComponent(key);
+      const d = await jsonFetch(url);
+      if(d && d.status==="error"){
+        if(/api key|apikey/i.test(d.message||"")) throw new ApiError("KEY", d.message);
+        if(/limit|credits/i.test(d.message||"")) throw new ApiError("RATE", d.message);
+        throw new ApiError("NET", d.message||"שגיאת ספק");
+      }
+      const r = parseFloat(d.rate);
+      if(!isFinite(r)) throw new ApiError("NOTFOUND","שער חליפין לא זמין.");
+      return r;
+    },
+    async getDailySeries(ticker,key,days){
+      const size = Math.min(Math.max(days+5,30),5000);
+      const url = "https://api.twelvedata.com/time_series?symbol="+encodeURIComponent(ticker)+"&interval=1day&outputsize="+size+"&apikey="+encodeURIComponent(key);
+      const d = await jsonFetch(url);
+      if(d && d.status==="error"){
+        if(/api key/i.test(d.message||"")) throw new ApiError("KEY", d.message);
+        if(/not found|symbol|no data/i.test(d.message||"")) throw new ApiError("NOTFOUND", d.message);
+        if(/limit|credits/i.test(d.message||"")) throw new ApiError("RATE", d.message);
+        throw new ApiError("NET", d.message||"שגיאת ספק");
+      }
+      const vals = (d.values||[]).map(v=>({date:v.datetime, close:parseFloat(v.close)}))
+        .filter(v=>isFinite(v.close));
+      vals.reverse(); // API returns newest-first; we want oldest-first
+      if(!vals.length) throw new ApiError("NOTFOUND","אין סדרה היסטורית לנייר זה.");
+      return vals;
+    }
+  },
+  alphavantage: {
+    label: "Alpha Vantage",
+    help: "מפתח חינמי: alphavantage.co → Get free API key. מגבלה ~25 בקשות ליום. לעיתים חוסם CORS מדפדפן.",
+    // --- verify field names against https://www.alphavantage.co/documentation/ ---
+    async getQuote(ticker,key){
+      const url = "https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol="+encodeURIComponent(ticker)+"&apikey="+encodeURIComponent(key);
+      const d = await jsonFetch(url);
+      if(d && (d.Note||d.Information)) throw new ApiError("RATE", d.Note||d.Information);
+      if(d && d["Error Message"]) throw new ApiError("NOTFOUND", d["Error Message"]);
+      const q = d && d["Global Quote"];
+      const price = q && parseFloat(q["05. price"]);
+      if(!isFinite(price)) throw new ApiError("NOTFOUND","אין מחיר לנייר זה.");
+      return { price, currency:"", // Alpha Vantage GLOBAL_QUOTE doesn't return currency
+        prevClose: q["08. previous close"]?parseFloat(q["08. previous close"]):undefined,
+        at: Date.now() };
+    },
+    async getFx(key){
+      const url = "https://www.alphavantage.co/query?function=CURRENCY_EXCHANGE_RATE&from_currency=USD&to_currency=ILS&apikey="+encodeURIComponent(key);
+      const d = await jsonFetch(url);
+      if(d && (d.Note||d.Information)) throw new ApiError("RATE", d.Note||d.Information);
+      const r = d && d["Realtime Currency Exchange Rate"] && parseFloat(d["Realtime Currency Exchange Rate"]["5. Exchange Rate"]);
+      if(!isFinite(r)) throw new ApiError("NOTFOUND","שער חליפין לא זמין.");
+      return r;
+    },
+    async getDailySeries(ticker,key,days){
+      const full = days>100 ? "full" : "compact";
+      const url = "https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol="+encodeURIComponent(ticker)+"&outputsize="+full+"&apikey="+encodeURIComponent(key);
+      const d = await jsonFetch(url);
+      if(d && (d.Note||d.Information)) throw new ApiError("RATE", d.Note||d.Information);
+      if(d && d["Error Message"]) throw new ApiError("NOTFOUND", d["Error Message"]);
+      const ts = d && d["Time Series (Daily)"];
+      if(!ts) throw new ApiError("NOTFOUND","אין סדרה היסטורית לנייר זה.");
+      const vals = Object.keys(ts).sort().map(date=>({date, close:parseFloat(ts[date]["4. close"])}))
+        .filter(v=>isFinite(v.close));
+      if(!vals.length) throw new ApiError("NOTFOUND","אין סדרה היסטורית לנייר זה.");
+      return vals;
+    }
+  }
+};
+const PROVIDER_ORDER = ["twelvedata","alphavantage"];
+
+/* ---------- State ---------- */
+let state = {
+  holdings: [],
+  settings: { provider:"twelvedata", apiKey:"", fxManual:null, fxLive:null, fxAt:null, concentrationPct:20 }
+};
+let snapshots = [];
+let breakdownBy = "ticker";
+let trendRange = 30;
+let trendPick = "__portfolio__";
+let seriesCache = {}; // ticker -> [{date,close}] fetched this session
+let sortKey = "value", sortDir = -1;
+
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+function saveState(){ try{ localStorage.setItem(LS_STATE, JSON.stringify(state)); }catch(e){} }
+function saveSnaps(){ try{ localStorage.setItem(LS_SNAPS, JSON.stringify(snapshots)); }catch(e){} }
+function loadState(){
+  try{ const o=JSON.parse(localStorage.getItem(LS_STATE)||"null");
+    if(o){ if(Array.isArray(o.holdings)) state.holdings=o.holdings.map(normHolding);
+      if(o.settings) Object.assign(state.settings, o.settings); } }catch(e){}
+  try{ const s=JSON.parse(localStorage.getItem(LS_SNAPS)||"null"); if(Array.isArray(s)) snapshots=s; }catch(e){}
+}
+function normHolding(h){
+  return { id:h.id||uid(), ticker:String(h.ticker||"").trim(), quantity:num(h.quantity),
+    assetClass:h.assetClass||"other", costBasis:h.costBasis==null?null:num(h.costBasis),
+    currency:(h.currency==="ILS"?"ILS":"USD"), account:h.account||"", note:h.note||"",
+    manualPrice:h.manualPrice==null?null:num(h.manualPrice), agorot:!!h.agorot,
+    lastPrice:h.lastPrice==null?null:num(h.lastPrice), lastPriceAt:h.lastPriceAt||null,
+    prevClose:h.prevClose==null?null:num(h.prevClose),
+    priceSource:h.priceSource||"manual" };
+}
+function num(x){ const n=parseFloat(x); return isFinite(n)?n:0; }
+function isTase(t){ return /\.TA$/i.test((t||"").trim()); }
+
+/* ---------- Utilities ---------- */
+function showMsg(text,type){ const m=$("#msg"); m.textContent=text; m.className="msg show "+(type||"info");
+  if(type!=="err") setTimeout(()=>m.classList.remove("show"),3800); }
+function escapeHtml(s){ return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function fx(){ const s=state.settings; return (s.fxLive&&isFinite(s.fxLive))?s.fxLive : (s.fxManual&&isFinite(s.fxManual)?s.fxManual : null); }
+function fmtILS(v){ if(!isFinite(v)) return "—"; return "₪"+Math.round(v).toLocaleString("he-IL"); }
+function fmtUSD(v){ if(!isFinite(v)) return "—"; return "$"+Math.round(v).toLocaleString("en-US"); }
+function fmtPct(v){ if(!isFinite(v)) return "—"; return (v>=0?"":"")+v.toFixed(1)+"%"; }
+function fmtNum(v){ if(!isFinite(v)) return "—"; return v.toLocaleString("he-IL",{maximumFractionDigits:2}); }
+function cssVar(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+function palette(){ return ["--c1","--c2","--c3","--c4","--c5","--c6","--c7","--c8"].map(cssVar); }
+const CLASS_HE = {equity:"מניה",bond:"אג״ח",reit:"REIT",commodity:"סחורה",cash:"מזומן",crypto:"קריפטו",other:"אחר"};
+
+/* ---------- Valuation (fully offline on stored/manual prices) ---------- */
+// Effective per-unit price in the holding's native currency.
+function effPrice(h){
+  if(h.priceSource==="live" && h.lastPrice!=null && isFinite(h.lastPrice)) return h.lastPrice;
+  if(h.manualPrice!=null && isFinite(h.manualPrice) && h.manualPrice>0) return h.manualPrice;
+  if(h.lastPrice!=null && isFinite(h.lastPrice)) return h.lastPrice;
+  return null;
+}
+function priceKind(h){
+  if(h.priceSource==="live" && h.lastPrice!=null) return "live";
+  if(h.manualPrice!=null && h.manualPrice>0) return "manual";
+  if(h.lastPrice!=null) return "live";
+  return "none";
+}
+function toILS(v,currency){ if(currency==="ILS") return v; const r=fx(); return r?v*r:null; }
+// Native-currency market value; null if we have no price at all.
+function valueNative(h){ const p=effPrice(h); return p==null?null:p*h.quantity; }
+function valueILS(h){ const vn=valueNative(h); if(vn==null) return null; return toILS(vn, h.currency); }
+function costILS(h){ if(h.costBasis==null) return null; return toILS(h.costBasis*h.quantity, h.currency); }
+function totalILS(){ let t=0,any=false; state.holdings.forEach(h=>{ const v=valueILS(h); if(v!=null){t+=v;any=true;} }); return any?t:0; }
+function hasFullValuation(){ return state.holdings.length>0 && state.holdings.every(h=>valueILS(h)!=null); }
+
+/* ---------- Holdings list ---------- */
+function renderHoldings(){
+  const wrap=$("#holdList");
+  $("#holdCount").textContent = state.holdings.length ? state.holdings.length+" ניירות" : "";
+  $("#holdEmpty").style.display = state.holdings.length ? "none" : "block";
+  wrap.innerHTML="";
+  state.holdings.forEach(h=>{
+    const div=document.createElement("div"); div.className="hold-item";
+    const kind=priceKind(h);
+    const vILS=valueILS(h);
+    const priceTag = kind==="manual" ? '<span class="manualtag">· ידני</span>' : (kind==="none" ? '<span class="staletag">· אין מחיר</span>' : '');
+    div.innerHTML =
+      '<div style="min-width:0"><div class="nm">'+escapeHtml(h.ticker||"—")+' '+priceTag+'</div>'+
+      '<div class="meta">'+fmtNum(h.quantity)+' × '+(CLASS_HE[h.assetClass]||h.assetClass)+' · '+h.currency+
+        (h.account?' · '+escapeHtml(h.account):'')+(vILS!=null?' · '+fmtILS(vILS):'')+'</div></div>'+
+      '<div class="acts"><button class="iconbtn" data-edit="'+h.id+'" aria-label="ערוך">✏️</button>'+
+      '<button class="iconbtn del" data-del="'+h.id+'" aria-label="מחק">🗑️</button></div>';
+    wrap.appendChild(div);
+  });
+  $$("#holdList [data-edit]").forEach(b=>b.addEventListener("click",()=>editHolding(b.dataset.edit)));
+  $$("#holdList [data-del]").forEach(b=>b.addEventListener("click",()=>delHolding(b.dataset.del)));
+}
+function delHolding(id){
+  const h=state.holdings.find(x=>x.id===id); if(!h) return;
+  if(!confirm('למחוק את "'+(h.ticker||"נייר")+'"?')) return;
+  state.holdings=state.holdings.filter(x=>x.id!==id); saveState(); renderAll(); showMsg("נמחק ✓","ok");
+}
+function editHolding(id){
+  const h=state.holdings.find(x=>x.id===id); if(!h) return;
+  $("#editId").value=h.id; $("#fTicker").value=h.ticker; $("#fQty").value=h.quantity;
+  $("#fClass").value=h.assetClass; $("#fCurrency").value=h.currency;
+  $("#fCost").value=h.costBasis==null?"":h.costBasis; $("#fManual").value=h.manualPrice==null?"":h.manualPrice;
+  $("#fAccount").value=h.account; $("#fNote").value=h.note; $("#fAgorot").checked=!!h.agorot;
+  updateAgorotVis(); $("#holdFormSummary").textContent="✏️ עריכת "+(h.ticker||"החזקה");
+  $("#holdFormDetails").open=true; $("#holdFormDetails").scrollIntoView({behavior:"smooth",block:"center"});
+}
+function clearForm(){
+  ["editId","fTicker","fQty","fCost","fManual","fAccount","fNote"].forEach(id=>$("#"+id).value="");
+  $("#fClass").value="equity"; $("#fCurrency").value="USD"; $("#fAgorot").checked=false;
+  updateAgorotVis(); $("#holdFormSummary").textContent="➕ הוסף / ערוך החזקה";
+}
+function updateAgorotVis(){ $("#agorotWrap").classList.toggle("hide", !isTase($("#fTicker").value)); }
+function saveHold(){
+  const ticker=$("#fTicker").value.trim();
+  const qty=parseFloat($("#fQty").value);
+  if(!ticker){ showMsg("הזן סימול נייר.","err"); return; }
+  if(!isFinite(qty)||qty<=0){ showMsg("הזן כמות חיובית.","err"); return; }
+  const id=$("#editId").value;
+  const data={ ticker, quantity:qty, assetClass:$("#fClass").value, currency:$("#fCurrency").value,
+    costBasis: $("#fCost").value===""?null:parseFloat($("#fCost").value),
+    manualPrice: $("#fManual").value===""?null:parseFloat($("#fManual").value),
+    account:$("#fAccount").value.trim(), note:$("#fNote").value.trim(), agorot:$("#fAgorot").checked };
+  if(id){ const h=state.holdings.find(x=>x.id===id); if(h){ Object.assign(h, normHolding(Object.assign({}, h, data, {id}))); } }
+  else { state.holdings.push(normHolding(data)); }
+  saveState(); clearForm(); $("#holdFormDetails").open=false; renderAll(); showMsg("נשמר ✓","ok");
+}
+
+/* ---------- CSV ---------- */
+const CSV_COLS=["ticker","quantity","assetClass","currency","costBasis","manualPrice","account","note","agorot"];
+function exportCsv(){
+  const rows=[CSV_COLS];
+  state.holdings.forEach(h=>rows.push(CSV_COLS.map(c=>{
+    const v=h[c]; if(c==="agorot") return v?"1":"0"; return v==null?"":v;
+  })));
+  const csv="﻿"+rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(",")).join("\r\n");
+  const blob=new Blob([csv],{type:"text/csv"}), url=URL.createObjectURL(blob), a=document.createElement("a");
+  a.href=url; a.download="portfolio.csv"; a.click(); setTimeout(()=>URL.revokeObjectURL(url),1000);
+  showMsg("יוצא ל-CSV ✓","ok");
+}
+function parseCsvText(text){
+  const lines=text.replace(/^﻿/,"").split(/\r?\n/).filter(l=>l.trim()); if(!lines.length) return [];
+  const split=l=>{ const out=[]; let cur="",q=false;
+    for(let i=0;i<l.length;i++){ const c=l[i];
+      if(q){ if(c==='"'){ if(l[i+1]==='"'){cur+='"';i++;} else q=false; } else cur+=c; }
+      else { if(c==='"') q=true; else if(c===",") {out.push(cur);cur="";} else cur+=c; } }
+    out.push(cur); return out; };
+  const header=split(lines[0]).map(h=>h.trim());
+  const idx={}; CSV_COLS.forEach(c=>{ idx[c]=header.findIndex(h=>h.toLowerCase()===c.toLowerCase()); });
+  const out=[];
+  for(let i=1;i<lines.length;i++){ const cells=split(lines[i]);
+    const get=c=>idx[c]>=0?(cells[idx[c]]||"").trim():"";
+    const t=get("ticker"); if(!t) continue;
+    out.push({ ticker:t, quantity:get("quantity"), assetClass:get("assetClass")||"other",
+      currency:get("currency")||"USD", costBasis:get("costBasis")||null, manualPrice:get("manualPrice")||null,
+      account:get("account"), note:get("note"), agorot:/^(1|true|yes)$/i.test(get("agorot")) });
+  }
+  return out;
+}
+function importCsv(file){
+  const rd=new FileReader();
+  rd.onload=()=>{ try{
+    const parsed=parseCsvText(rd.result);
+    if(!parsed.length){ showMsg("לא נמצאו החזקות תקינות ב-CSV.","err"); return; }
+    parsed.forEach(p=>state.holdings.push(normHolding(p)));
+    saveState(); renderAll(); showMsg("יובאו "+parsed.length+" החזקות ✓","ok");
+  }catch(e){ showMsg("שגיאה בקריאת ה-CSV.","err"); } };
+  rd.readAsText(file,"utf-8");
+}
+
+/* ---------- Live prices ---------- */
+function providerHelp(){ const p=PROVIDERS[state.settings.provider]; $("#providerHelp").textContent=p?p.help:""; }
+async function updatePrices(){
+  const key=state.settings.apiKey.trim();
+  const prov=PROVIDERS[state.settings.provider];
+  if(!key){ showMsg("הזן מפתח API כדי למשוך מחירים חיים (או המשך במחירים ידניים).","err"); return; }
+  if(!state.holdings.length){ showMsg("אין החזקות לעדכן.","err"); return; }
+  $("#updatePrices").disabled=true; $("#pricesStatus").textContent="מעדכן…";
+  let ok=0, fail=0, lastErr=null, corsHit=false;
+  // FX first (best-effort; manual fallback stays if this fails)
+  try{ const r=await prov.getFx(key); if(isFinite(r)){ state.settings.fxLive=r; state.settings.fxAt=Date.now(); } }
+  catch(e){ if(e.code==="CORS") corsHit=true; lastErr=e; }
+  // Quotes: skip .TA unless the user explicitly relies on the provider (most free providers don't cover TASE).
+  for(const h of state.holdings){
+    if(isTase(h.ticker) && h.manualPrice!=null){ continue; } // honour manual TASE price, don't overwrite
+    try{
+      const q=await prov.getQuote(h.ticker,key);
+      let price=q.price, prev=q.prevClose;
+      // Agorot handling for TASE: divide by 100 when the user flagged it (or currency says ILA).
+      if(isTase(h.ticker) && (h.agorot || /^ILA$/i.test(q.currency))){ price/=100; if(prev!=null) prev/=100; }
+      h.lastPrice=price; h.lastPriceAt=q.at; h.prevClose=prev==null?null:prev; h.priceSource="live";
+      ok++;
+    }catch(e){ fail++; lastErr=e; if(e.code==="CORS") corsHit=true;
+      if(e.code==="RATE"){ break; } // stop hammering a rate-limited provider
+    }
+  }
+  saveState();
+  if(ok>0){ pushSnapshot(); }
+  renderAll();
+  $("#updatePrices").disabled=false;
+  let status = "עודכנו "+ok+" ניירות" + (fail?(" · "+fail+" נכשלו"):"") + " · "+new Date().toLocaleTimeString("he-IL");
+  $("#pricesStatus").textContent=status;
+  if(corsHit){ showMsg("הספק חסם קריאה מהדפדפן (CORS). עבור לספק אחר, או הזן מחיר ידני לכל נייר.","err"); }
+  else if(fail && lastErr && lastErr.code==="RATE"){ showMsg("הספק הגביל בקשות (rate limit). נסה שוב מאוחר יותר או פחות ניירות בבת אחת.","err"); }
+  else if(fail && lastErr && lastErr.code==="KEY"){ showMsg("מפתח ה-API נדחה. בדוק שהעתקת אותו נכון.","err"); }
+  else if(fail && !ok){ showMsg("לא הצלחנו למשוך אף מחיר. בדוק סימולים/מפתח, או השתמש במחירים ידניים.","err"); }
+  else if(ok){ showMsg("המחירים עודכנו ✓","ok"); }
+}
+
+/* ---------- Snapshots ---------- */
+function pushSnapshot(){
+  if(!hasFullValuation()) { // still record whatever we can value, but only if we have a total
+    if(state.holdings.every(h=>valueILS(h)==null)) return;
+  }
+  const tILS=totalILS(); const r=fx();
+  const snap={ at:Date.now(), totalILS:tILS, totalUSD: r?tILS/r:null };
+  const last=snapshots[snapshots.length-1];
+  // De-dupe: replace if within the same hour, else append.
+  if(last && (snap.at-last.at)<3600000){ snapshots[snapshots.length-1]=snap; }
+  else snapshots.push(snap);
+  if(snapshots.length>2000) snapshots=snapshots.slice(-2000);
+  saveSnaps();
+}
+
+/* ---------- Breakdown + concentration ---------- */
+function breakdownData(by){
+  const map={};
+  state.holdings.forEach(h=>{ const v=valueILS(h); if(v==null||v<=0) return;
+    let k;
+    if(by==="ticker") k=h.ticker||"—";
+    else if(by==="assetClass") k=CLASS_HE[h.assetClass]||h.assetClass;
+    else if(by==="currency") k=h.currency;
+    else k=h.account||"ללא חשבון";
+    map[k]=(map[k]||0)+v; });
+  const arr=Object.keys(map).map(k=>({label:k,value:map[k]})).sort((a,b)=>b.value-a.value);
+  const total=arr.reduce((s,x)=>s+x.value,0);
+  arr.forEach(x=>x.pct=total?x.value/total*100:0);
+  return {arr,total};
+}
+function renderBreakdown(){
+  const anyValued=state.holdings.some(h=>valueILS(h)!=null);
+  $("#breakdownCard").style.display = anyValued?"block":"none";
+  if(!anyValued) return;
+  const {arr,total}=breakdownData(breakdownBy);
+  drawPie($("#pieChart"), arr);
+  const cols=palette();
+  $("#pieLegend").innerHTML=arr.map((x,i)=>'<span><i style="background:'+cols[i%cols.length]+'"></i>'+
+    escapeHtml(x.label)+' · '+x.pct.toFixed(1)+'%</span>').join("");
+  // concentration flags (per-ticker weight of whole portfolio)
+  const th=num(state.settings.concentrationPct)||20;
+  const tot=totalILS();
+  const flagged=state.holdings.map(h=>({h,v:valueILS(h)})).filter(x=>x.v!=null&&tot>0&&(x.v/tot*100)>=th)
+    .sort((a,b)=>b.v-a.v);
+  if(flagged.length){
+    $("#concFlags").innerHTML='<div class="note" style="border-color:var(--warn);color:var(--warn)">⚠️ ריכוזיות מעל '+th+'%: '+
+      flagged.map(x=>escapeHtml(x.h.ticker)+' ('+(x.v/tot*100).toFixed(1)+'%)').join(" · ")+'</div>';
+  } else {
+    $("#concFlags").innerHTML='<p class="hint">אין נייר בודד מעל סף '+th+'% ✓</p>';
+  }
+}
+
+/* ---------- Holdings table + P/L ---------- */
+function renderTable(){
+  const anyValued=state.holdings.some(h=>valueILS(h)!=null);
+  $("#tableCard").style.display = state.holdings.length?"block":"none";
+  if(!state.holdings.length) return;
+  const tot=totalILS();
+  const rows=state.holdings.map(h=>{
+    const vN=valueNative(h), vILS=valueILS(h);
+    const cILS=costILS(h);
+    const pl = (vILS!=null&&cILS!=null)? vILS-cILS : null;
+    const plPct = (pl!=null&&cILS>0)? pl/cILS*100 : null;
+    const dayChg = (h.prevClose!=null && effPrice(h)!=null && h.priceSource==="live")
+      ? (effPrice(h)-h.prevClose)/h.prevClose*100 : null;
+    return {h, vN, vILS, cILS, pl, plPct, dayChg, pct: (vILS!=null&&tot>0)?vILS/tot*100:null};
+  });
+  const dir=sortDir, k=sortKey;
+  rows.sort((a,b)=>{
+    let av,bv;
+    if(k==="ticker"){ return dir*String(a.h.ticker).localeCompare(String(b.h.ticker),"he"); }
+    else if(k==="value") { av=a.vILS??-Infinity; bv=b.vILS??-Infinity; }
+    else if(k==="pct") { av=a.pct??-Infinity; bv=b.pct??-Infinity; }
+    else if(k==="pl") { av=a.pl??-Infinity; bv=b.pl??-Infinity; }
+    else if(k==="plPct") { av=a.plPct??-Infinity; bv=b.plPct??-Infinity; }
+    else if(k==="day") { av=a.dayChg??-Infinity; bv=b.dayChg??-Infinity; }
+    else { av=0; bv=0; }
+    return dir*(av-bv);
+  });
+  const th=num(state.settings.concentrationPct)||20;
+  const arr=s=>' <span class="sortarr">'+(sortKey===s?(sortDir<0?"▼":"▲"):"")+'</span>';
+  let html='<table><thead><tr>'+
+    '<th data-sort="ticker">נייר'+arr("ticker")+'</th>'+
+    '<th>מחיר</th><th>כמות</th>'+
+    '<th data-sort="value">שווי ₪'+arr("value")+'</th>'+
+    '<th data-sort="pct">% מהתיק'+arr("pct")+'</th>'+
+    '<th data-sort="pl">רווח/הפסד ₪'+arr("pl")+'</th>'+
+    '<th data-sort="plPct">%'+arr("plPct")+'</th>'+
+    '<th data-sort="day">יומי %'+arr("day")+'</th></tr></thead><tbody>';
+  rows.forEach(r=>{
+    const h=r.h; const flag=(r.pct!=null&&r.pct>=th);
+    const kind=priceKind(h);
+    const priceCell = effPrice(h)==null?'—':(fmtNum(effPrice(h))+' '+(h.currency==="ILS"?"₪":"$")+
+      (kind==="manual"?' <span class="manualtag">ידני</span>':''));
+    html+='<tr class="'+(flag?"flagrow":"")+'"><td>'+escapeHtml(h.ticker)+(flag?'<span class="warnbadge" title="מעל סף ריכוזיות">⚠️</span>':'')+'</td>'+
+      '<td>'+priceCell+'</td><td>'+fmtNum(h.quantity)+'</td>'+
+      '<td>'+(r.vILS==null?'—':fmtILS(r.vILS))+'</td>'+
+      '<td>'+(r.pct==null?'—':r.pct.toFixed(1)+'%')+'</td>'+
+      '<td class="'+(r.pl==null?'':(r.pl>=0?'gain':'loss'))+'">'+(r.pl==null?'—':(r.pl>=0?'+':'')+fmtILS(r.pl))+'</td>'+
+      '<td class="'+(r.plPct==null?'':(r.plPct>=0?'gain':'loss'))+'">'+(r.plPct==null?'—':(r.plPct>=0?'+':'')+r.plPct.toFixed(1)+'%')+'</td>'+
+      '<td class="'+(r.dayChg==null?'':(r.dayChg>=0?'gain':'loss'))+'">'+(r.dayChg==null?'—':(r.dayChg>=0?'+':'')+r.dayChg.toFixed(2)+'%')+'</td></tr>';
+  });
+  // totals
+  let totCost=0,totVal=0,haveCost=false,haveVal=false;
+  rows.forEach(r=>{ if(r.vILS!=null){totVal+=r.vILS;haveVal=true;} if(r.cILS!=null){totCost+=r.cILS;haveCost=true;} });
+  const totPl=(haveVal&&haveCost)?totVal-totCost:null;
+  const totPlPct=(totPl!=null&&totCost>0)?totPl/totCost*100:null;
+  html+='</tbody><tfoot><tr><td>סה״כ</td><td>—</td><td>—</td>'+
+    '<td>'+(haveVal?fmtILS(totVal):'—')+'</td><td>'+(haveVal?'100%':'—')+'</td>'+
+    '<td class="'+(totPl==null?'':(totPl>=0?'gain':'loss'))+'">'+(totPl==null?'—':(totPl>=0?'+':'')+fmtILS(totPl))+'</td>'+
+    '<td class="'+(totPlPct==null?'':(totPlPct>=0?'gain':'loss'))+'">'+(totPlPct==null?'—':(totPlPct>=0?'+':'')+totPlPct.toFixed(1)+'%')+'</td><td>—</td></tr></tfoot></table>';
+  $("#holdingsTableWrap").innerHTML=html;
+  $$("#holdingsTableWrap thead th[data-sort]").forEach(t=>t.addEventListener("click",()=>{
+    const s=t.dataset.sort; if(sortKey===s) sortDir*=-1; else {sortKey=s; sortDir=(s==="ticker")?1:-1;} renderTable();
+  }));
+}
+
+/* ---------- Summary ---------- */
+function renderSummary(){
+  $("#summaryCard").style.display = state.holdings.length?"block":"none";
+  if(!state.holdings.length) return;
+  const tot=totalILS(); const r=fx();
+  let totCost=0,haveCost=false,totVal=0,haveVal=false,missing=0;
+  state.holdings.forEach(h=>{ const v=valueILS(h),c=costILS(h);
+    if(v!=null){totVal+=v;haveVal=true;} else missing++;
+    if(v!=null&&c!=null){totCost+=c;haveCost=true;} });
+  const pl=(haveVal&&haveCost)?totVal-totCost:null;
+  const plPct=(pl!=null&&totCost>0)?pl/totCost*100:null;
+  let html='<div class="stat"><b>'+(haveVal?fmtILS(totVal):'—')+'</b>שווי כולל ₪</div>';
+  html+='<div class="stat"><b>'+(haveVal&&r?fmtUSD(totVal/r):'—')+'</b>שווי כולל $</div>';
+  html+='<div class="stat"><b class="'+(pl==null?'':(pl>=0?'gain':'loss'))+'">'+
+    (pl==null?'—':(pl>=0?'+':'')+fmtILS(pl))+'</b>רווח/הפסד</div>';
+  html+='<div class="stat"><b class="'+(plPct==null?'':(plPct>=0?'gain':'loss'))+'">'+
+    (plPct==null?'—':(plPct>=0?'+':'')+plPct.toFixed(1)+'%')+'</b>תשואה</div>';
+  $("#summaryStrip").innerHTML=html;
+  const notes=[];
+  if(!r) notes.push("אין שער USD/ILS — הזן שער ידני או עדכן מחירים כדי לחשב שווי כולל ב-₪.");
+  if(missing) notes.push(missing+" ניירות ללא מחיר (הזן מחיר ידני או עדכן מחירים).");
+  if(!haveCost) notes.push("הוסף מחיר קנייה לניירות כדי לראות רווח/הפסד.");
+  $("#summaryNote").textContent=notes.join(" ");
+}
+
+/* ---------- Charts (Canvas, no libs) ---------- */
+function prepCanvas(cv, cssH){
+  const dpr=window.devicePixelRatio||1;
+  const w=cv.clientWidth||cv.width;
+  cv.width=Math.round(w*dpr); cv.height=Math.round(cssH*dpr);
+  cv.style.height=cssH+"px";
+  const ctx=cv.getContext("2d"); ctx.setTransform(dpr,0,0,dpr,0,0);
+  return {ctx,w,h:cssH};
+}
+function drawPie(cv, arr){
+  const {ctx,w,h}=prepCanvas(cv,260);
+  ctx.clearRect(0,0,w,h);
+  const cx=w/2, cy=h/2, R=Math.min(w,h)/2-10, r0=R*0.55;
+  const cols=palette(); const total=arr.reduce((s,x)=>s+x.value,0)||1;
+  let a=-Math.PI/2;
+  arr.forEach((x,i)=>{ const ang=x.value/total*Math.PI*2;
+    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.arc(cx,cy,R,a,a+ang); ctx.closePath();
+    ctx.fillStyle=cols[i%cols.length]; ctx.fill(); a+=ang; });
+  // donut hole
+  ctx.beginPath(); ctx.arc(cx,cy,r0,0,Math.PI*2); ctx.fillStyle=cssVar("--card"); ctx.fill();
+  ctx.fillStyle=cssVar("--ink"); ctx.textAlign="center"; ctx.textBaseline="middle";
+  ctx.font="700 15px system-ui,Arial"; ctx.fillText(arr.length+" קטגוריות", cx, cy-8);
+  ctx.font="12px system-ui,Arial"; ctx.fillStyle=cssVar("--muted");
+  ctx.fillText(fmtILS(total), cx, cy+12);
+}
+function drawLine(cv, series, note){
+  const {ctx,w,h}=prepCanvas(cv,240);
+  ctx.clearRect(0,0,w,h);
+  const padL=54, padR=12, padT=14, padB=24;
+  if(!series || series.length<2){
+    ctx.fillStyle=cssVar("--muted"); ctx.textAlign="center"; ctx.font="13px system-ui,Arial";
+    ctx.fillText(note||"אין מספיק נתונים לגרף.", w/2, h/2); return;
+  }
+  const xs=series.map(p=>p.x), ys=series.map(p=>p.y);
+  let ymin=Math.min(...ys), ymax=Math.max(...ys); if(ymin===ymax){ymin*=0.98;ymax*=1.02;}
+  const xmin=Math.min(...xs), xmax=Math.max(...xs);
+  const X=x=>padL+(x-xmin)/((xmax-xmin)||1)*(w-padL-padR);
+  const Y=y=>padT+(1-(y-ymin)/((ymax-ymin)||1))*(h-padT-padB);
+  // grid + y labels
+  ctx.strokeStyle=cssVar("--line"); ctx.fillStyle=cssVar("--muted"); ctx.lineWidth=1;
+  ctx.textAlign="right"; ctx.textBaseline="middle"; ctx.font="10px system-ui,Arial";
+  for(let i=0;i<=3;i++){ const yy=ymin+(ymax-ymin)*i/3; const py=Y(yy);
+    ctx.beginPath(); ctx.moveTo(padL,py); ctx.lineTo(w-padR,py); ctx.stroke();
+    ctx.fillText(fmtILS(yy), padL-6, py); }
+  // area + line
+  const up = ys[ys.length-1]>=ys[0];
+  const col = up?cssVar("--gain"):cssVar("--loss");
+  ctx.beginPath(); series.forEach((p,i)=>{ const px=X(p.x),py=Y(p.y); i?ctx.lineTo(px,py):ctx.moveTo(px,py); });
+  ctx.lineTo(X(xmax),Y(ymin)); ctx.lineTo(X(xmin),Y(ymin)); ctx.closePath();
+  ctx.fillStyle=col+"22"; ctx.fill();
+  ctx.beginPath(); series.forEach((p,i)=>{ const px=X(p.x),py=Y(p.y); i?ctx.lineTo(px,py):ctx.moveTo(px,py); });
+  ctx.strokeStyle=col; ctx.lineWidth=2; ctx.stroke();
+  // x labels (first/last)
+  ctx.fillStyle=cssVar("--muted"); ctx.textAlign="center"; ctx.textBaseline="top";
+  const d0=new Date(xmin), d1=new Date(xmax);
+  const f=d=>d.getDate()+"/"+(d.getMonth()+1);
+  ctx.fillText(f(d0), X(xmin)+14, h-padB+6); ctx.fillText(f(d1), X(xmax)-14, h-padB+6);
+}
+
+/* ---------- Trend ---------- */
+function renderTrend(){
+  $("#trendCard").style.display = (snapshots.length>=2 || state.holdings.length)?"block":"none";
+  // populate ticker picker
+  const pick=$("#trendPick"); const prev=pick.value;
+  pick.innerHTML='<option value="__portfolio__">סך התיק (תמונות מקומיות)</option>'+
+    state.holdings.map(h=>'<option value="'+escapeHtml(h.ticker)+'">'+escapeHtml(h.ticker)+'</option>').join("");
+  if([...pick.options].some(o=>o.value===trendPick)) pick.value=trendPick; else { trendPick="__portfolio__"; pick.value=trendPick; }
+
+  const now=Date.now(), from=now-trendRange*86400000;
+  if(trendPick==="__portfolio__"){
+    const pts=snapshots.filter(s=>s.at>=from && s.totalILS!=null).map(s=>({x:s.at,y:s.totalILS}));
+    drawLine($("#lineChart"), pts, "עדיין אין מספיק תמונות מצב. כל עדכון מחירים שומר נקודה.");
+    $("#trendNote").textContent = pts.length>=2
+      ? "גרף מקומי מ-"+pts.length+" תמונות מצב (עובד אופליין)."
+      : "תמונות מצב נשמרות בכל 'עדכן מחירים'. אחרי כמה עדכונים תופיע מגמה — גם בלי רשת.";
+  } else {
+    const cached=seriesCache[trendPick];
+    if(cached){
+      const pts=cached.filter(p=>new Date(p.date).getTime()>=from).map(p=>({x:new Date(p.date).getTime(),y:p.close}));
+      drawLine($("#lineChart"), pts, "אין נתונים בטווח זה.");
+      $("#trendNote").textContent="מגמת מחיר ל-"+trendPick+" (מחיר נייר, לא ₪).";
+    } else {
+      drawLine($("#lineChart"), null, "לחץ 'משוך היסטוריה' כדי למשוך סדרה מהספק (דורש רשת + מפתח).");
+      $("#trendNote").innerHTML="";
+      const b=document.createElement("button"); b.className="btn sec sm"; b.textContent="⬇️ משוך היסטוריה ל-"+trendPick;
+      b.addEventListener("click",()=>fetchSeries(trendPick));
+      $("#trendNote").appendChild(b);
+    }
+  }
+}
+async function fetchSeries(ticker){
+  const key=state.settings.apiKey.trim(); const prov=PROVIDERS[state.settings.provider];
+  if(!key){ showMsg("צריך מפתח API כדי למשוך היסטוריה. הגרף המקומי של סך התיק עובד בלי מפתח.","err"); return; }
+  showMsg("מושך היסטוריה…","info");
+  try{
+    let vals=await prov.getDailySeries(ticker,key,trendRange);
+    if(isTase(ticker)){ const h=state.holdings.find(x=>x.ticker===ticker);
+      if(h&&h.agorot) vals=vals.map(v=>({date:v.date,close:v.close/100})); }
+    seriesCache[ticker]=vals; renderTrend(); showMsg("היסטוריה נטענה ✓","ok");
+  }catch(e){
+    if(e.code==="CORS") showMsg("הספק חסם קריאה מהדפדפן (CORS). נסה ספק אחר.","err");
+    else if(e.code==="RATE") showMsg("הספק הגביל בקשות. נסה מאוחר יותר.","err");
+    else if(e.code==="NOTFOUND") showMsg("אין היסטוריה לנייר "+ticker+" אצל הספק.","err");
+    else showMsg("משיכת היסטוריה נכשלה: "+(e.message||e.code),"err");
+  }
+}
+
+/* ---------- Contribution planner ---------- */
+function renderPlanOptions(){
+  const sel=$("#planTicker"); const prev=sel.value;
+  sel.innerHTML=state.holdings.map(h=>'<option value="'+escapeHtml(h.ticker)+'">'+escapeHtml(h.ticker)+'</option>').join("")+
+    '<option value="__new__">➕ נייר מועמד חדש…</option>';
+  if([...sel.options].some(o=>o.value===prev)) sel.value=prev;
+  $("#planCard").style.display = state.holdings.length?"block":"none";
+  togglePlanCandidate();
+}
+function togglePlanCandidate(){ $("#planCandidateWrap").classList.toggle("hide", $("#planTicker").value!=="__new__"); }
+function renderPlan(){
+  const amount=parseFloat($("#planAmount").value);
+  const res=$("#planResult");
+  if(!isFinite(amount)||amount<=0){ res.innerHTML='<p class="hint">הזן סכום הפקדה כדי לראות את ההשפעה.</p>'; return; }
+  const tot=totalILS();
+  if(!(tot>0)){ res.innerHTML='<p class="hint">צריך שווי לתיק (מחירים ידניים/חיים) כדי לחשב משקלים.</p>'; return; }
+  let target=$("#planTicker").value;
+  if(target==="__new__"){ target=$("#planCandidate").value.trim()||"מועמד"; }
+  const newTot=tot+amount;
+  // build before/after weights per ticker
+  const before={}, after={};
+  state.holdings.forEach(h=>{ const v=valueILS(h)||0; before[h.ticker]=(before[h.ticker]||0)+v; after[h.ticker]=(after[h.ticker]||0)+v; });
+  after[target]=(after[target]||0)+amount; if(before[target]===undefined) before[target]=0;
+  const keys=Object.keys(after).sort((a,b)=>after[b]-after[a]);
+  const th=num(state.settings.concentrationPct)||20;
+  let html='<div class="table-wrap"><table><thead><tr><th>נייר</th><th>לפני</th><th>אחרי</th><th>שינוי</th></tr></thead><tbody>';
+  keys.forEach(k=>{ const bp=(before[k]||0)/tot*100, ap=(after[k]||0)/newTot*100; const dp=ap-bp;
+    const flagAfter=ap>=th;
+    html+='<tr'+(k===target?' style="font-weight:700"':'')+'><td>'+escapeHtml(k)+(flagAfter?' <span class="warnbadge">⚠️</span>':'')+'</td>'+
+      '<td>'+bp.toFixed(1)+'%</td><td>'+ap.toFixed(1)+'%</td>'+
+      '<td class="'+(dp>=0?'gain':'loss')+'">'+(dp>=0?'+':'')+dp.toFixed(1)+'pp</td></tr>'; });
+  html+='</tbody></table></div>';
+  const tp=(after[target]||0)/newTot*100;
+  html+='<p class="hint">אחרי ההפקדה, המשקל של <b>'+escapeHtml(target)+'</b> יהיה '+tp.toFixed(1)+'% מהתיק'+
+    (tp>=th?' — מעל סף הריכוזיות ('+th+'%).':'.')+'</p>';
+  res.innerHTML=html;
+}
+
+/* ---------- Sharing ---------- */
+function buildShareText(){
+  const tot=totalILS(); const r=fx();
+  const lines=["📊 תיק השקעות · "+new Date().toLocaleDateString("he-IL"),""];
+  lines.push("שווי כולל: "+fmtILS(tot)+(r?" (~"+fmtUSD(tot/r)+")":""));
+  let totCost=0,haveCost=false,totVal=0;
+  state.holdings.forEach(h=>{ const v=valueILS(h),c=costILS(h); if(v!=null){totVal+=v;} if(v!=null&&c!=null){totCost+=c;haveCost=true;} });
+  if(haveCost){ const pl=totVal-totCost; lines.push("רווח/הפסד: "+(pl>=0?"+":"")+fmtILS(pl)+(totCost>0?" ("+(pl>=0?"+":"")+(pl/totCost*100).toFixed(1)+"%)":"")); }
+  lines.push("");
+  const {arr}=breakdownData("assetClass");
+  arr.forEach(x=>lines.push("• "+x.label+": "+x.pct.toFixed(0)+"%"));
+  lines.push("","(לא ייעוץ השקעות)");
+  return lines.join("\n");
+}
+async function shareWa(){
+  const text=buildShareText();
+  if(navigator.share){ try{ await navigator.share({text}); return; }catch(e){ if(e.name==="AbortError") return; } }
+  try{ await navigator.clipboard.writeText(text); showMsg("הועתק ללוח — הדבק בוואטסאפ ✓","ok"); }
+  catch(e){ window.prompt("העתק:", text); }
+}
+function drawShareImage(){
+  const scale=2; const {arr}=breakdownData("assetClass"); const tot=totalILS(); const r=fx();
+  const cv=document.createElement("canvas"); const W=560, rows=arr.length;
+  const H=150+rows*30+40; cv.width=W*scale; cv.height=H*scale;
+  const ctx=cv.getContext("2d"); ctx.scale(scale,scale);
+  ctx.fillStyle="#ffffff"; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle="#1e6f5c"; ctx.fillRect(0,0,W,54);
+  ctx.fillStyle="#fff"; ctx.direction="rtl"; ctx.textAlign="right"; ctx.textBaseline="middle";
+  ctx.font="bold 20px system-ui,Arial"; ctx.fillText("📊 תיק השקעות",W-16,27);
+  ctx.textAlign="left"; ctx.font="13px system-ui,Arial"; ctx.fillText(new Date().toLocaleDateString("he-IL"),16,27);
+  ctx.fillStyle="#20241a"; ctx.textAlign="right";
+  ctx.font="bold 22px system-ui,Arial"; ctx.fillText("שווי כולל: "+fmtILS(tot),W-16,86);
+  let totCost=0,haveCost=false,totVal=0;
+  state.holdings.forEach(h=>{ const v=valueILS(h),c=costILS(h); if(v!=null)totVal+=v; if(v!=null&&c!=null){totCost+=c;haveCost=true;} });
+  let y=118;
+  if(haveCost){ const pl=totVal-totCost; ctx.fillStyle=pl>=0?"#1c7a4a":"#b3261e";
+    ctx.font="bold 16px system-ui,Arial"; ctx.fillText("רווח/הפסד: "+(pl>=0?"+":"")+fmtILS(pl)+(totCost>0?" ("+(pl/totCost*100).toFixed(1)+"%)":""),W-16,y); y+=30; }
+  ctx.fillStyle="#6b7160"; ctx.font="13px system-ui,Arial"; ctx.fillText("פילוח לפי סוג נכס:",W-16,y); y+=26;
+  const cols=["#1e6f5c","#c1666b","#4d80b3","#d1a24a","#7a6cae","#5aa469","#c77b3c","#6b7160"];
+  arr.forEach((x,i)=>{ ctx.fillStyle=cols[i%cols.length]; ctx.fillRect(W-32,y-9,16,16);
+    ctx.fillStyle="#20241a"; ctx.font="14px system-ui,Arial"; ctx.fillText(x.label+" · "+x.pct.toFixed(0)+"%",W-40,y); y+=30; });
+  ctx.fillStyle="#9aa89f"; ctx.textAlign="center"; ctx.font="11px system-ui,Arial";
+  ctx.fillText("נוצר במעקב תיק השקעות · לא ייעוץ השקעות", W/2, H-16);
+  return cv;
+}
+async function shareImage(){
+  try{ const cv=drawShareImage(); cv.toBlob(async blob=>{
+    const file=new File([blob],"portfolio.png",{type:"image/png"});
+    if(navigator.canShare && navigator.canShare({files:[file]})){ try{ await navigator.share({files:[file]}); return; }catch(e){ if(e.name==="AbortError") return; } }
+    const url=URL.createObjectURL(blob), a=document.createElement("a"); a.href=url; a.download="portfolio.png"; a.click();
+    setTimeout(()=>URL.revokeObjectURL(url),1000); showMsg("התמונה נשמרה ✓","ok");
+  },"image/png"); }catch(e){ showMsg("שמירת תמונה נכשלה: "+e.message,"err"); }
+}
+
+/* ---------- Demo data ---------- */
+function loadDemo(){
+  if(state.holdings.length && !confirm("להוסיף נתוני דוגמה לתיק הקיים?")) return;
+  const demo=[
+    {ticker:"VOO",quantity:12,assetClass:"equity",currency:"USD",costBasis:380,manualPrice:520,account:"IB"},
+    {ticker:"QQQ",quantity:5,assetClass:"equity",currency:"USD",costBasis:350,manualPrice:480,account:"IB"},
+    {ticker:"BND",quantity:20,assetClass:"bond",currency:"USD",costBasis:75,manualPrice:72,account:"IB"},
+    {ticker:"ESLT.TA",quantity:8,assetClass:"equity",currency:"ILS",costBasis:900,manualPrice:1250,account:"בנק",agorot:false},
+    {ticker:"מזומן",quantity:5000,assetClass:"cash",currency:"ILS",costBasis:1,manualPrice:1,account:"בנק"}
+  ];
+  demo.forEach(d=>state.holdings.push(normHolding(d)));
+  if(state.settings.fxManual==null){ state.settings.fxManual=3.7; $("#fxManual").value="3.7"; }
+  saveState(); renderAll(); showMsg("נטענו נתוני דוגמה ✓","ok");
+}
+
+/* ---------- Render orchestration ---------- */
+function renderAll(){
+  renderHoldings(); renderSummary(); renderBreakdown(); renderTable();
+  renderTrend(); renderPlanOptions(); renderPlan();
+}
+
+/* ---------- PWA ---------- */
+let deferredPrompt=null;
+function setupPwa(){
+  if("serviceWorker" in navigator && location.protocol.startsWith("http")) navigator.serviceWorker.register("sw.js").catch(()=>{});
+  const bar=$("#installBar"), btn=$("#installBtn"), dismiss=$("#installDismiss");
+  const dismissed=()=>{ try{ return localStorage.getItem("pt_install_dismissed")==="1"; }catch(e){ return false; } };
+  const standalone=window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone===true;
+  window.addEventListener("beforeinstallprompt",e=>{ e.preventDefault(); deferredPrompt=e; if(!dismissed()&&!standalone) bar.style.display="block"; });
+  btn.addEventListener("click",async()=>{ if(!deferredPrompt) return; deferredPrompt.prompt(); try{ await deferredPrompt.userChoice; }catch(e){} deferredPrompt=null; bar.style.display="none"; });
+  dismiss.addEventListener("click",()=>{ bar.style.display="none"; try{ localStorage.setItem("pt_install_dismissed","1"); }catch(e){} });
+  window.addEventListener("appinstalled",()=>{ bar.style.display="none"; });
+  if(/iphone|ipad|ipod/i.test(navigator.userAgent) && !standalone && !dismissed() && location.protocol.startsWith("http")) $("#iosHelp").style.display="block";
+}
+
+/* ---------- Init / wire-up ---------- */
+function init(){
+  loadState();
+
+  // provider select
+  const psel=$("#provider");
+  psel.innerHTML=PROVIDER_ORDER.map(k=>'<option value="'+k+'">'+PROVIDERS[k].label+'</option>').join("");
+  psel.value=state.settings.provider;
+  $("#apiKey").value=state.settings.apiKey||"";
+  $("#fxManual").value=state.settings.fxManual==null?"":state.settings.fxManual;
+  $("#concInput").value=state.settings.concentrationPct||20;
+  providerHelp();
+
+  renderAll();
+
+  // holdings form
+  $("#saveHold").addEventListener("click",saveHold);
+  $("#cancelHold").addEventListener("click",()=>{ clearForm(); $("#holdFormDetails").open=false; });
+  $("#fTicker").addEventListener("input",updateAgorotVis);
+  $("#loadDemo").addEventListener("click",loadDemo);
+  $("#importCsvBtn").addEventListener("click",()=>$("#csvFile").click());
+  $("#exportCsvBtn").addEventListener("click",()=>{ if(!state.holdings.length){ showMsg("אין החזקות לייצוא.","err"); return;} exportCsv(); });
+  $("#csvFile").addEventListener("change",e=>{ const f=e.target.files[0]; if(f) importCsv(f); e.target.value=""; });
+
+  // prices
+  psel.addEventListener("change",e=>{ state.settings.provider=e.target.value; providerHelp(); saveState(); });
+  $("#apiKey").addEventListener("input",e=>{ state.settings.apiKey=e.target.value; saveState(); });
+  $("#fxManual").addEventListener("input",e=>{ state.settings.fxManual=e.target.value===""?null:parseFloat(e.target.value); saveState(); renderAll(); });
+  $("#updatePrices").addEventListener("click",updatePrices);
+  $("#clearKey").addEventListener("click",()=>{ state.settings.apiKey=""; $("#apiKey").value=""; saveState(); showMsg("המפתח נמחק ✓","ok"); });
+
+  // breakdown
+  $$("#breakdownSeg .chip").forEach(c=>c.addEventListener("click",()=>{
+    breakdownBy=c.dataset.by; $$("#breakdownSeg .chip").forEach(x=>x.classList.toggle("on",x===c)); renderBreakdown();
+  }));
+  $("#concInput").addEventListener("input",e=>{ state.settings.concentrationPct=num(e.target.value)||20; saveState(); renderBreakdown(); renderTable(); renderPlan(); });
+
+  // trend
+  $$("#rangeSeg .chip").forEach(c=>c.addEventListener("click",()=>{
+    trendRange=+c.dataset.range; $$("#rangeSeg .chip").forEach(x=>x.classList.toggle("on",x===c)); renderTrend();
+  }));
+  $("#trendPick").addEventListener("change",e=>{ trendPick=e.target.value; renderTrend(); });
+
+  // plan
+  $("#planAmount").addEventListener("input",renderPlan);
+  $("#planTicker").addEventListener("change",()=>{ togglePlanCandidate(); renderPlan(); });
+  $("#planCandidate").addEventListener("input",renderPlan);
+
+  // sharing
+  $("#shareWa").addEventListener("click",shareWa);
+  $("#shareImg").addEventListener("click",shareImage);
+
+  // reset
+  $("#resetAll").addEventListener("click",()=>{
+    if(!confirm("לאפס הכל? יימחקו כל ההחזקות, ההגדרות ותמונות המצב.")) return;
+    state={holdings:[],settings:{provider:"twelvedata",apiKey:"",fxManual:null,fxLive:null,fxAt:null,concentrationPct:20}};
+    snapshots=[]; seriesCache={}; saveState(); saveSnaps();
+    $("#apiKey").value=""; $("#fxManual").value=""; $("#concInput").value=20; $("#provider").value="twelvedata";
+    providerHelp(); renderAll(); showMsg("אופס ✓","ok");
+  });
+
+  // redraw charts on theme change / resize
+  const mq=window.matchMedia("(prefers-color-scheme: dark)");
+  const redraw=()=>{ renderBreakdown(); renderTrend(); };
+  if(mq.addEventListener) mq.addEventListener("change",redraw);
+  let rt; window.addEventListener("resize",()=>{ clearTimeout(rt); rt=setTimeout(redraw,150); });
+
+  setupPwa();
+}
+document.addEventListener("DOMContentLoaded",init);
+})();
+</script>
+</body>
+</html>

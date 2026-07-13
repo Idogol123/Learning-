@@ -1,0 +1,18 @@
+{
+  "name": "מעקב תיק השקעות",
+  "short_name": "תיק השקעות",
+  "description": "מעקב תיק השקעות אופליין: פילוח, ריכוזיות, רווח/הפסד ותכנון תרומה. מחירים חיים אופציונליים.",
+  "lang": "he",
+  "dir": "rtl",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1e6f5c",
+  "theme_color": "#1e6f5c",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
