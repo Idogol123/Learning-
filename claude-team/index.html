@@ -18,14 +18,18 @@
 <meta name="apple-mobile-web-app-title" content="צוות Claude">
 <style>
   :root{
-    --bg:#faf7f5; --card:#fff; --ink:#241d1a; --muted:#7a6f69; --soft:#9b8f89;
-    --accent:#c15f3c; --line:#e7ddd7; --pill:#f2ece8;
-    --shadow:0 1px 2px rgba(80,40,20,.06),0 8px 24px rgba(80,40,20,.06);
+    --bg:#faf7f5; --bg-2:#f3ece8; --card:#fffdfb; --ink:#241d1a; --muted:#7a6f69; --soft:#9b8f89;
+    --accent:#b0603a; --accent-ink:#9a5030; --line:#e9ded8; --line-strong:#dccdc4; --pill:#f2ece8;
+    --shadow:0 1px 2px rgba(80,40,20,.05),0 10px 26px -12px rgba(80,40,20,.14);
+    --shadow-hover:0 2px 4px rgba(80,40,20,.07),0 18px 40px -14px rgba(80,40,20,.24);
+    --radius:16px; --ease:cubic-bezier(.16,1,.3,1);
   }
   @media (prefers-color-scheme: dark){
     :root{
-      --bg:#1a1614; --card:#241f1c; --ink:#f0e9e5; --muted:#a89c96; --soft:#8a7d77;
-      --accent:#e07a52; --line:#3a322e; --pill:#2c2521; --shadow:none;
+      --bg:#1a1614; --bg-2:#211b18; --card:#241f1c; --ink:#f0e9e5; --muted:#a89c96; --soft:#8a7d77;
+      --accent:#e07a52; --accent-ink:#ec8a63; --line:#3a322e; --line-strong:#483e39; --pill:#2c2521;
+      --shadow:0 1px 2px rgba(0,0,0,.4),0 12px 30px -14px rgba(0,0,0,.55);
+      --shadow-hover:0 2px 4px rgba(0,0,0,.5),0 20px 44px -14px rgba(0,0,0,.7);
     }
   }
   *{box-sizing:border-box}
@@ -33,6 +37,7 @@
   body{
     margin:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Hebrew",Arial,sans-serif;
     background:var(--bg); color:var(--ink); direction:rtl; line-height:1.5;
+    -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
     padding:calc(20px + env(safe-area-inset-top)) 16px calc(28px + env(safe-area-inset-bottom));
     max-width:680px; margin:0 auto; -webkit-text-size-adjust:100%;
   }
@@ -40,8 +45,12 @@
 
   /* ---- header ---- */
   .top{display:flex; align-items:center; gap:10px; margin-bottom:4px}
-  .back{font-size:22px; text-decoration:none; color:var(--muted); line-height:1; padding:4px}
-  h1{font-size:23px; margin:0; letter-spacing:-.01em}
+  .back{display:flex; align-items:center; justify-content:center; width:38px; height:38px; flex:0 0 auto;
+    text-decoration:none; color:var(--muted); border:1px solid var(--line); border-radius:11px; background:var(--card);
+    box-shadow:var(--shadow); transition:border-color .15s var(--ease), color .15s var(--ease)}
+  .back:hover{border-color:var(--line-strong); color:var(--ink)}
+  .back svg{width:19px; height:19px}
+  h1{font-size:24px; margin:0; letter-spacing:-.02em; font-weight:800}
   .sub{color:var(--muted); font-size:14px; margin:6px 0 16px}
   .stats{display:flex; flex-wrap:wrap; gap:8px; margin:0 0 18px}
   .chip{background:var(--pill); color:var(--muted); font-size:12.5px; font-weight:600;
@@ -62,8 +71,9 @@
     box-shadow:var(--shadow); padding:14px 20px; display:flex; align-items:center; gap:12px;
     margin-top:6px; text-align:start}
   .ceo .crown{width:46px; height:46px; flex:0 0 auto; border-radius:13px;
-    background:linear-gradient(160deg,#c15f3c,#a84e30); color:#fff; font-size:24px;
+    background:linear-gradient(160deg,#b0603a,#8f4b2c); color:#fff;
     display:flex; align-items:center; justify-content:center}
+  .ceo .crown svg{width:24px; height:24px}
   .ceo .who{display:flex; flex-direction:column}
   .ceo .who .n{font-size:17px; font-weight:800; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:-.02em}
   .ceo .who .r{font-size:12px; color:var(--muted); font-weight:600}
@@ -77,8 +87,11 @@
     box-shadow:var(--shadow); overflow:hidden; border-inline-start:4px solid var(--c,var(--accent))}
   .sumr{display:flex; align-items:center; gap:13px; padding:15px 16px; cursor:pointer; user-select:none;
     -webkit-tap-highlight-color:transparent}
-  .sumr .ico{width:44px; height:44px; flex:0 0 auto; border-radius:12px; font-size:22px;
-    display:flex; align-items:center; justify-content:center; background:var(--c,var(--accent)); color:#fff}
+  .sumr .ico{width:44px; height:44px; flex:0 0 auto; border-radius:12px;
+    display:flex; align-items:center; justify-content:center; color:var(--c,var(--accent));
+    background:color-mix(in srgb, var(--c,var(--accent)) 12%, var(--card));
+    border:1px solid color-mix(in srgb, var(--c,var(--accent)) 24%, transparent)}
+  .sumr .ico svg{width:23px; height:23px}
   .sumr .tx{display:flex; flex-direction:column; min-width:0; flex:1}
   .sumr .tx .t{font-size:17px; font-weight:800}
   .sumr .tx .d{font-size:12.5px; color:var(--muted); margin-top:1px; overflow:hidden;
@@ -86,7 +99,8 @@
   .count{flex:0 0 auto; font-size:12px; font-weight:800; color:var(--c,var(--accent));
     background:color-mix(in srgb, var(--c,var(--accent)) 13%, transparent);
     padding:4px 9px; border-radius:999px; min-width:34px; text-align:center}
-  .chev{flex:0 0 auto; color:var(--soft); font-size:15px; transition:transform .25s ease; line-height:1}
+  .chev{flex:0 0 auto; color:var(--soft); display:flex; align-items:center; transition:transform .25s var(--ease)}
+  .chev svg{width:18px; height:18px}
   .card.open .chev{transform:rotate(-180deg)}
 
   /* animated body */
@@ -112,7 +126,8 @@
   .skill .stx .sn{font-size:14.5px; font-weight:700; line-height:1.25}
   .skill .stx .se{font-size:11.5px; color:var(--soft); font-weight:600; font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
   .skill .stx .sdesc{font-size:12px; color:var(--muted); margin-top:2px}
-  .skill .go{flex:0 0 auto; color:var(--soft); font-size:15px}
+  .skill .go{flex:0 0 auto; color:var(--soft); display:flex; align-items:center}
+  .skill .go svg{width:16px; height:16px}
 
   /* bundle row (a whole department as one installable pack) */
   .bundle{background:transparent; border:1.5px dashed var(--line)}
@@ -126,8 +141,8 @@
 </head>
 <body>
   <div class="top">
-    <a class="back" href="../" aria-label="חזרה לאוסף הכלים" title="חזרה לאוסף הכלים">›</a>
-    <h1>🏢 צוות שלם עם Claude</h1>
+    <a class="back" href="../" aria-label="חזרה לאוסף הכלים" title="חזרה לאוסף הכלים"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></a>
+    <h1>צוות שלם עם Claude</h1>
   </div>
   <p class="sub">הפכתי את Claude לחברה שלמה — מנכ"ל אחד, שבע מחלקות, וכישור אמיתי ומותקן מאחורי כל תפקיד. לחצו על מחלקה כדי לפתוח אותה.</p>
 
@@ -156,7 +171,7 @@
 const CEO = { name:"claude-code", role:'מנכ"ל — מריץ את כל המחלקות' };
 
 const DEPTS = [
-  { key:"dev", he:"מפתחים", en:"Developers", ico:"🛠️", c:"#2563eb",
+  { key:"dev", he:"מפתחים", en:"Developers", ico:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/></svg>', c:"#3f5e8c",
     desc:"בונים, בודקים וזוכרים — הליבה ההנדסית",
     skills:[
       { he:"כוחות-על", en:"Superpowers", d:"הרחבת יכולות הליבה של המפתח", url:"https://github.com/obra/superpowers" },
@@ -167,7 +182,7 @@ const DEPTS = [
       { he:"זיכרון ל-Claude", en:"Claude-Mem", d:"זיכרון מתמשך בין שיחות", url:"https://github.com/thedotmack/claude-mem" }
     ]
   },
-  { key:"design", he:"מעצבים", en:"Designers", ico:"🎨", c:"#db2777",
+  { key:"design", he:"מעצבים", en:"Designers", ico:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>', c:"#a24d6b",
     desc:"ממשק, טעם, מעברים וזהות מותג",
     skills:[
       { he:"עיצוב UI/UX פרו", en:"UI UX Pro Max", d:"ערכת עיצוב ממשק מקצה לקצה", url:"https://github.com/nextlevelbuilder/ui-ux-pro-max-skill" },
@@ -178,23 +193,23 @@ const DEPTS = [
       { he:"קווי מותג", en:"Brand Guidelines", d:"שמירה על זהות מותג עקבית", url:"https://github.com/anthropics/skills" }
     ]
   },
-  { key:"mkt", he:"שיווק", en:"Marketing", ico:"📣", c:"#ea580c",
+  { key:"mkt", he:"שיווק", en:"Marketing", ico:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>', c:"#b0603a",
     desc:"מקופירייטינג ועד SEO ומגנטי-לידים",
     bundle:{ count:45, en:"Marketing skills", d:"45 כישורים לניהול כל השיווק — במקבץ אחד", url:"https://github.com/coreyhaines31/marketingskills" }
   },
-  { key:"social", he:"מדיה חברתית", en:"Social Media", ico:"📱", c:"#0891b2",
+  { key:"social", he:"מדיה חברתית", en:"Social Media", ico:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>', c:"#3d6b6b",
     desc:"מכתיבת פוסטים ועד Reels ותמונות ממוזערות",
     bundle:{ count:17, en:"Social Media skills", d:"17 כישורים לניהול הרשתות החברתיות", url:"https://github.com/charlie947/social-media-skills" }
   },
-  { key:"fin", he:"פיננסים", en:"Finance", ico:"💰", c:"#16a34a",
+  { key:"fin", he:"פיננסים", en:"Finance", ico:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg>', c:"#2f7d4f",
     desc:"מדוחות ועד התאמות וביקורת",
     bundle:{ count:8, en:"Finance plugin", d:"8 כישורים לניהול הכספים", url:"https://claude.com/plugins/finance" }
   },
-  { key:"biz", he:"עסק קטן", en:"Small Business", ico:"🏪", c:"#7c3aed",
+  { key:"biz", he:"עסק קטן", en:"Small Business", ico:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7 4 4h16l2 3"/><path d="M4 7v12a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V7"/><path d="M2 7h20"/><path d="M9 20v-6a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v6"/></svg>', c:"#6b5b95",
     desc:"מתזרים מזומנים ועד שכר וחשבוניות",
     bundle:{ count:31, en:"Small Business plugin", d:"31 כישורים לניהול העסק היומיומי", url:"https://claude.com/plugins/small-business" }
   },
-  { key:"legal", he:"משפטים", en:"Legal", ico:"⚖️", c:"#b45309",
+  { key:"legal", he:"משפטים", en:"Legal", ico:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/></svg>', c:"#8a6a2e",
     desc:"מבדיקת חוזים ועד NDA וציות רגולטורי",
     bundle:{ count:9, en:"Legal plugin", d:"9 כישורים לעבודה המשפטית", url:"https://claude.com/plugins/legal" }
   }
@@ -219,7 +234,7 @@ const chart = document.getElementById("chart");
 // CEO node
 const ceo = el("div","ceo");
 ceo.innerHTML =
-  `<span class="crown">👑</span>
+  `<span class="crown"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z"/><path d="M5 21h14"/></svg></span>
    <span class="who"><span class="n">${esc(CEO.name)}</span><span class="r">${esc(CEO.role)}</span></span>`;
 chart.appendChild(ceo);
 
@@ -237,7 +252,7 @@ DEPTS.forEach(dep=>{
     `<span class="ico">${dep.ico}</span>
      <span class="tx"><span class="t">${esc(dep.he)}</span><span class="d">${esc(dep.en)} · ${esc(dep.desc)}</span></span>
      <span class="count">${skillCount(dep)}</span>
-     <span class="chev">▾</span>`;
+     <span class="chev" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span>`;
   card.appendChild(sumr);
 
   const kids = el("div","kids");
@@ -280,7 +295,7 @@ function skillRow(s, bundle){
        <span class="se">${esc(s.en)}</span>
        ${s.d ? `<span class="sdesc">${esc(s.d)}</span>` : ""}
      </span>
-     <span class="go" aria-hidden="true">↗</span>`;
+     <span class="go" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></span>`;
   return a;
 }
 

@@ -15,20 +15,23 @@
 <meta name="apple-mobile-web-app-title" content="ריבית דריבית">
 <style>
   :root{
-    --bg:#f4f5f0; --card:#ffffff; --ink:#20241a; --muted:#6b7160;
-    --accent:#15803d; --accent-2:#0f6330; --line:#dcded2;
+    --bg:#f2f1ea; --card:#fbfaf5; --ink:#1c1e16; --muted:#6b7061;
+    --accent:#2f7d4f; --accent-2:#256340; --line:#e0ded2; --line-strong:#d0cebf;
     --gain:#1c7a4a; --loss:#b3261e; --warn:#b8860b; --wa:#25D366;
-    --chip:#e8f1ea; --shadow:0 1px 3px rgba(0,0,0,.08),0 6px 18px rgba(0,0,0,.06);
-    --r:14px;
+    --chip:#e6efe8; --shadow:0 1px 2px rgba(20,50,30,.05),0 10px 26px -12px rgba(20,50,30,.16);
+    --shadow-hover:0 2px 4px rgba(20,50,30,.07),0 18px 40px -14px rgba(20,50,30,.26);
+    --ease:cubic-bezier(.16,1,.3,1); --r:14px;
     --dep:#4d80b3;   /* deposits series */
-    --prof:#15803d;  /* profit series  */
+    --prof:#2f7d4f;  /* profit series  */
     --track:#d7dccd; /* slider track   */
   }
   @media (prefers-color-scheme: dark){
     :root{
-      --bg:#0f1613; --card:#18201c; --ink:#eef0e4; --muted:#9aa89f; --accent:#3fae70;
-      --accent-2:#2f8a5a; --line:#2a332e; --gain:#4bbd7c; --loss:#e0685f; --warn:#e0b64a;
-      --chip:#1e2b23; --shadow:none;
+      --bg:#13140f; --card:#1c1e15; --ink:#edefe1; --muted:#9aa08c; --accent:#4bbd7c;
+      --accent-2:#3fae70; --line:#2c2f23; --line-strong:#3a3d2e; --gain:#4bbd7c; --loss:#e0685f; --warn:#e0b64a;
+      --chip:#1e2b23;
+      --shadow:0 1px 2px rgba(0,0,0,.4),0 12px 30px -14px rgba(0,0,0,.55);
+      --shadow-hover:0 2px 4px rgba(0,0,0,.5),0 20px 44px -14px rgba(0,0,0,.7);
       --dep:#6fa0d0; --prof:#4bbd7c; --track:#2a332e;
     }
   }
@@ -37,6 +40,7 @@
   body{
     font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Hebrew",Arial,sans-serif;
     background:var(--bg); color:var(--ink); direction:rtl; line-height:1.5;
+    -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
     -webkit-text-size-adjust:100%;
     padding:0 12px calc(40px + env(safe-area-inset-bottom)); max-width:820px; margin:0 auto;
   }
@@ -46,10 +50,12 @@
     padding-top:calc(12px + env(safe-area-inset-top));
     display:flex; align-items:center; gap:10px;
   }
-  header h1{margin:0; font-size:19px; display:flex; align-items:center; gap:8px}
-  header .home-link{ margin-inline-start:auto; display:inline-flex; align-items:center; gap:5px;
+  header h1{margin:0; font-size:19px; font-weight:800; letter-spacing:-.02em; display:flex; align-items:center; gap:9px}
+  header h1 svg{width:22px; height:22px}
+  header .home-link{ margin-inline-start:auto; display:inline-flex; align-items:center; gap:6px;
     color:#fff; text-decoration:none; font-size:13px; font-weight:600; white-space:nowrap;
     background:rgba(255,255,255,.16); padding:7px 11px; border-radius:10px; }
+  header .home-link svg{width:15px; height:15px}
   header .home-link:active{ background:rgba(255,255,255,.28); }
 
   .card{background:var(--card); border:1px solid var(--line); border-radius:var(--r); padding:14px; margin:12px 0; box-shadow:var(--shadow)}
@@ -169,15 +175,15 @@
 </head>
 <body>
   <header>
-    <h1>📈 ריבית דריבית</h1>
-    <a class="home-link" href="../" aria-label="חזרה לדף הבית">🏠 הכלים שלי</a>
+    <h1><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 7h6v6"/><path d="m22 7-8.5 8.5-5-5L2 17"/></svg> ריבית דריבית</h1>
+    <a class="home-link" href="../" aria-label="חזרה לדף הבית"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg> הכלים שלי</a>
   </header>
 
   <!-- Mode switch: forecast vs goal-seek -->
   <div class="card">
     <div class="seg" id="modeSeg">
-      <button data-mode="grow" class="on">🌱 כמה יצטבר?</button>
-      <button data-mode="goal">🎯 כמה להפקיד ליעד?</button>
+      <button data-mode="grow" class="on">כמה יצטבר?</button>
+      <button data-mode="goal">כמה להפקיד ליעד?</button>
     </div>
     <p class="note" id="modeNote" style="margin-bottom:0">
       הזינו את הנתונים והמספרים מתעדכנים מיד. ריבית דריבית = הרווח מתחיל להרוויח בעצמו.
@@ -188,7 +194,7 @@
   <div class="card">
     <div class="field">
       <div class="top">
-        <label for="p0">💰 סכום התחלתי</label>
+        <label for="p0">סכום התחלתי</label>
         <div class="val"><input id="p0" type="number" inputmode="numeric" min="0" step="1000" value="10000"><span class="unit">₪</span></div>
       </div>
       <input id="p0r" type="range" min="0" max="500000" step="1000" value="10000" aria-label="סכום התחלתי">
@@ -196,7 +202,7 @@
 
     <div class="field" id="pmtField">
       <div class="top">
-        <label for="pmt">📥 הפקדה חודשית</label>
+        <label for="pmt">הפקדה חודשית</label>
         <div class="val"><input id="pmt" type="number" inputmode="numeric" min="0" step="100" value="1000"><span class="unit">₪</span></div>
       </div>
       <input id="pmtr" type="range" min="0" max="20000" step="100" value="1000" aria-label="הפקדה חודשית">
@@ -204,7 +210,7 @@
 
     <div class="field" id="goalField" style="display:none">
       <div class="top">
-        <label for="goal">🎯 סכום היעד</label>
+        <label for="goal">סכום היעד</label>
         <div class="val"><input id="goal" type="number" inputmode="numeric" min="0" step="10000" value="1000000"><span class="unit">₪</span></div>
       </div>
       <input id="goalr" type="range" min="10000" max="10000000" step="10000" value="1000000" aria-label="סכום היעד">
@@ -212,7 +218,7 @@
 
     <div class="field">
       <div class="top">
-        <label for="yr">📅 מספר שנים</label>
+        <label for="yr">מספר שנים</label>
         <div class="val"><input id="yr" type="number" inputmode="numeric" min="1" max="60" step="1" value="20"><span class="unit">שנים</span></div>
       </div>
       <input id="yrr" type="range" min="1" max="50" step="1" value="20" aria-label="מספר שנים">
@@ -220,7 +226,7 @@
 
     <div class="field">
       <div class="top">
-        <label for="ret">📊 תשואה שנתית ממוצעת</label>
+        <label for="ret">תשואה שנתית ממוצעת</label>
         <div class="val"><input id="ret" type="number" inputmode="decimal" min="-5" max="30" step="0.1" value="8"><span class="unit">%</span></div>
       </div>
       <input id="retr" type="range" min="0" max="20" step="0.1" value="8" aria-label="תשואה שנתית">
@@ -236,7 +242,7 @@
 
       <div class="field" id="incField">
         <div class="top">
-          <label for="inc">📈 העלאת הפקדה שנתית</label>
+          <label for="inc">העלאת הפקדה שנתית</label>
           <div class="val"><input id="inc" type="number" inputmode="decimal" min="0" max="20" step="0.5" value="0"><span class="unit">%</span></div>
         </div>
         <input id="incr" type="range" min="0" max="15" step="0.5" value="0" aria-label="העלאת הפקדה שנתית">

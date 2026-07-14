@@ -17,49 +17,54 @@
   <link rel="icon" href="./icon-192.png">
   <style>
     :root {
-      /* Light is the default so the app matches the landing page and the
-         device theme; dark is applied below via prefers-color-scheme. */
-      --bg: #eef2f7;
-      --card: #ffffff;
-      --card-2: #f1f5f9;
-      --text: #0f172a;
-      --muted: #64748b;
-      --accent: #0284c7;
-      --accent-2: #0369a1;
-      --border: #cbd5e1;
-      --mark-bg: #fde047;
-      --mark-text: #1e293b;
-      --danger: #dc2626;
-      --ok: #059669;
-      --hover: #e2e8f0;
-      --line-soft: rgba(148,163,184,0.35);
+      /* Warm-paper palette shared across the tool collection; steel-teal is
+         this tool's own accent. Dark is applied below via prefers-color-scheme. */
+      --bg: #f2f1ea;
+      --card: #fbfaf5;
+      --card-2: #eef0e6;
+      --text: #1c1e16;
+      --muted: #6b7061;
+      --accent: #3d6b6b;
+      --accent-2: #2f5555;
+      --border: #e0ded2;
+      --mark-bg: #f2d98a;
+      --mark-text: #3a3320;
+      --danger: #b3261e;
+      --ok: #2e6b2e;
+      --hover: #e6e4d8;
+      --line-soft: rgba(120,120,100,0.30);
+      --shadow: 0 1px 2px rgba(30,45,45,.05), 0 10px 26px -12px rgba(30,45,45,.16);
+      --ease: cubic-bezier(.16,1,.3,1);
     }
     @media (prefers-color-scheme: dark) {
       :root {
-        --bg: #0f172a;
-        --card: #1e293b;
-        --card-2: #273449;
-        --text: #e2e8f0;
-        --muted: #94a3b8;
-        --accent: #38bdf8;
-        --accent-2: #0ea5e9;
-        --border: #334155;
-        --mark-bg: #fbbf24;
-        --mark-text: #1e293b;
-        --danger: #f87171;
-        --ok: #34d399;
-        --hover: #31425c;
-        --line-soft: rgba(51,65,85,0.5);
+        --bg: #13140f;
+        --card: #1c1e15;
+        --card-2: #26281d;
+        --text: #edefe1;
+        --muted: #9aa08c;
+        --accent: #5f9a9a;
+        --accent-2: #4d8080;
+        --border: #2c2f23;
+        --mark-bg: #c4a94e;
+        --mark-text: #1a1a10;
+        --danger: #e0685f;
+        --ok: #4bbd7c;
+        --hover: #31352a;
+        --line-soft: rgba(60,63,46,0.6);
+        --shadow: 0 1px 2px rgba(0,0,0,.4), 0 12px 30px -14px rgba(0,0,0,.55);
       }
     }
     * { box-sizing: border-box; }
     [hidden] { display: none !important; }
     body {
       margin: 0;
-      font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Hebrew", Arial, sans-serif;
       background: var(--bg);
       color: var(--text);
       line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
       padding: calc(16px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
       -webkit-text-size-adjust: 100%;
     }
@@ -78,11 +83,20 @@
       padding: 7px 12px;
       border-radius: 999px;
     }
+    .home-link { box-shadow: var(--shadow); transition: border-color .15s var(--ease); }
+    .home-link:hover { border-color: var(--muted); }
     .home-link:active { background: var(--card-2); }
+    .home-link svg { width: 15px; height: 15px; }
     header h1 {
-      font-size: 1.5rem;
+      font-size: 1.6rem;
+      font-weight: 800;
+      letter-spacing: -.02em;
       margin: 0 0 4px;
+      display: flex;
+      align-items: center;
+      gap: 9px;
     }
+    header h1 svg { width: 24px; height: 24px; color: var(--accent); }
     header p {
       margin: 0 0 20px;
       color: var(--muted);
@@ -91,9 +105,10 @@
     .card {
       background: var(--card);
       border: 1px solid var(--border);
-      border-radius: 14px;
+      border-radius: 16px;
       padding: 16px;
       margin-bottom: 16px;
+      box-shadow: var(--shadow);
     }
     label { display: block; font-weight: 600; margin-bottom: 8px; font-size: 0.95rem; }
     .hint { color: var(--muted); font-size: 0.8rem; font-weight: 400; }
@@ -310,16 +325,17 @@
 </head>
 <body>
   <div class="wrap">
-    <a class="home-link" href="../" aria-label="חזרה לכל הכלים">🏠 כל הכלים</a>
+    <a class="home-link" href="../" aria-label="חזרה לכל הכלים"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg> כל הכלים</a>
     <header>
-      <h1>🔎 חיפוש בקובץ</h1>
+      <h1><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg> חיפוש בקובץ</h1>
       <p>הקובץ נשאר במכשיר שלך — שום דבר לא נשלח לאינטרנט. עובד גם בלי חיבור.</p>
     </header>
 
     <div class="card">
       <label>1. בחירת קובץ <span class="hint">(טקסט, CSV, PDF, Word, Excel)</span></label>
       <label class="file-btn" for="fileInput">
-        <span>📄 בחר / צלם קובץ…</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:19px;height:19px;flex:0 0 auto"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M12 18v-6"/><path d="m9 15 3-3 3 3"/></svg>
+        <span>בחר / צלם קובץ…</span>
       </label>
       <input type="file" id="fileInput" accept=".txt,.csv,.log,.json,.md,.pdf,.docx,.xlsx">
       <div class="file-name" id="fileName">לא נבחר קובץ</div>
@@ -344,7 +360,7 @@
     </div>
 
     <div id="status"></div>
-    <button class="copy-btn" id="copyBtn" hidden>📋 העתק תוצאות</button>
+    <button class="copy-btn" id="copyBtn" hidden>העתק תוצאות</button>
     <div id="results"></div>
 
     <footer>הכול מתבצע במכשיר · ללא שרת · לשימוש פרטי</footer>
@@ -570,7 +586,7 @@ return i=this.parent.children.indexOf(this),removed=this.parent.children.splice(
       continueRow.innerHTML = '';
       const chip = document.createElement('button');
       chip.className = 'chip continue-chip';
-      chip.textContent = '📂 המשך עם: ' + name;
+      chip.textContent = 'המשך עם: ' + name;
       chip.addEventListener('click', continueLastFile);
       const clear = document.createElement('button');
       clear.className = 'chip clear';

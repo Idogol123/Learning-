@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="description" content="אוסף כלים קטנים שעובדים ישירות בדפדפן, גם בלי חיבור לאינטרנט. הנתונים נשמרים במכשיר בלבד.">
-<meta name="theme-color" content="#f4f5f0" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#15170f" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f2f1ea" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#13140f" media="(prefers-color-scheme: dark)">
 <title>הכלים שלי</title>
 
 <!-- Installable as an app (home screen) -->
@@ -17,84 +17,182 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="הכלים שלי">
 <style>
-  :root{ --bg:#f4f5f0; --card:#fff; --ink:#20241a; --muted:#6b7160; --accent:#4b5320; --line:#dcded2; --shadow:0 1px 3px rgba(0,0,0,.08),0 6px 18px rgba(0,0,0,.06); }
-  @media (prefers-color-scheme: dark){ :root{ --bg:#15170f; --card:#1e2018; --ink:#eef0e4; --muted:#a6ac98; --accent:#8a9a3a; --line:#33362a; --shadow:none; } }
+  :root{
+    --bg:#f2f1ea; --bg-2:#eae8de; --card:#fbfaf5; --ink:#1c1e16; --muted:#6b7061;
+    --accent:#4b5320; --accent-ink:#3c4319; --line:#e0ded2; --line-strong:#d0cebf;
+    --shadow:0 1px 2px rgba(35,38,22,.05), 0 10px 26px -12px rgba(35,38,22,.16);
+    --shadow-hover:0 2px 4px rgba(35,38,22,.06), 0 18px 40px -14px rgba(35,38,22,.26);
+    --radius:16px; --ease:cubic-bezier(.16,1,.3,1);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#13140f; --bg-2:#191b12; --card:#1c1e15; --ink:#edefe1; --muted:#9aa08c;
+      --accent:#b3c256; --accent-ink:#c4d268; --line:#2c2f23; --line-strong:#3a3d2e;
+      --shadow:0 1px 2px rgba(0,0,0,.4), 0 12px 30px -14px rgba(0,0,0,.6);
+      --shadow-hover:0 2px 4px rgba(0,0,0,.5), 0 20px 44px -14px rgba(0,0,0,.7);
+    }
+  }
   *{box-sizing:border-box}
-  body{ margin:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Hebrew",Arial,sans-serif;
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Hebrew",Arial,sans-serif;
     background:var(--bg); color:var(--ink); direction:rtl; line-height:1.5;
-    padding:calc(24px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom)); max-width:640px; margin:0 auto; }
-  h1{ font-size:24px; margin:8px 0 4px; }
-  .sub{ color:var(--muted); font-size:14px; margin:0 0 20px; }
-  a.card{ display:flex; align-items:center; gap:14px; text-decoration:none; color:inherit;
-    background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px; margin:12px 0; box-shadow:var(--shadow);
-    transition:transform .12s ease, box-shadow .12s ease, border-color .12s ease; }
-  a.card:hover{ border-color:var(--c, var(--accent)); }
-  a.card:active{ transform:translateY(1px); }
-  .ico{ font-size:30px; width:52px; height:52px; flex:0 0 auto; display:flex; align-items:center; justify-content:center;
-    background:var(--c, var(--accent)); color:#fff; border-radius:14px; }
-  .tx{ display:flex; flex-direction:column; min-width:0; }
-  .t{ display:block; font-size:18px; font-weight:700; }
-  .d{ display:block; font-size:13px; color:var(--muted); margin-top:2px; }
-  .arr{ margin-inline-start:auto; color:var(--c, var(--muted)); font-size:26px; font-weight:300; line-height:1; }
-  .install{ display:none; width:100%; margin:4px 0 16px; padding:12px 16px; border:1.5px dashed var(--accent); border-radius:14px;
-    background:transparent; color:var(--accent); font:inherit; font-weight:700; font-size:14px; cursor:pointer; }
-  footer{ text-align:center; color:var(--muted); font-size:11.5px; margin-top:24px; }
-  .upd{ display:inline-block; margin-top:6px; opacity:.7; font-size:11px; }
-  .refresh{ position:fixed; top:calc(8px + env(safe-area-inset-top)); left:calc(10px + env(safe-area-inset-left));
-    width:34px; height:34px; padding:0; border-radius:50%; border:1px solid var(--line); background:var(--card);
-    color:var(--muted); font-size:17px; line-height:34px; text-align:center; cursor:pointer; opacity:.55;
-    box-shadow:var(--shadow); z-index:10; -webkit-tap-highlight-color:transparent; transition:opacity .15s; }
-  .refresh:hover{ opacity:.9; }
+    -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+    padding:calc(28px + env(safe-area-inset-top)) 18px calc(28px + env(safe-area-inset-bottom));
+    max-width:760px; margin:0 auto;
+  }
+
+  /* Masthead */
+  .mast{ display:flex; align-items:center; gap:13px; margin:6px 0 6px; }
+  .mark{
+    flex:0 0 auto; width:46px; height:46px; border-radius:13px; display:flex; align-items:center; justify-content:center;
+    background:var(--accent); color:var(--bg); box-shadow:var(--shadow);
+  }
+  .mark svg{ width:26px; height:26px; }
+  .mast h1{ font-size:clamp(25px,7vw,32px); line-height:1.05; margin:0; letter-spacing:-.02em; font-weight:800; }
+  .sub{ color:var(--muted); font-size:14.5px; margin:12px 0 24px; max-width:52ch; }
+
+  .install{
+    display:none; width:100%; margin:0 0 22px; padding:13px 16px; border:1.5px solid var(--line-strong); border-radius:13px;
+    background:var(--card); color:var(--accent-ink); font:inherit; font-weight:700; font-size:14px; cursor:pointer;
+    display:none; align-items:center; justify-content:center; gap:9px; box-shadow:var(--shadow);
+    transition:border-color .18s var(--ease), transform .1s var(--ease);
+  }
+  .install[data-show="1"]{ display:flex; }
+  .install:hover{ border-color:var(--accent); }
+  .install:active{ transform:translateY(1px); }
+  .install svg{ width:18px; height:18px; }
+
+  /* Section label */
+  .eyebrow{ font-size:12px; font-weight:700; letter-spacing:.08em; color:var(--muted); text-transform:none;
+    display:flex; align-items:center; gap:10px; margin:0 0 14px; }
+  .eyebrow::after{ content:""; flex:1; height:1px; background:var(--line); }
+
+  /* Tools grid: two per row, collapses to one only on very narrow screens */
+  .grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:14px; }
+  @media (max-width:360px){ .grid{ grid-template-columns:1fr; } }
+
+  a.card{
+    position:relative; display:flex; flex-direction:column; text-decoration:none; color:inherit; isolation:isolate;
+    background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:19px 18px 17px;
+    box-shadow:var(--shadow); overflow:hidden;
+    transition:transform .22s var(--ease), box-shadow .22s var(--ease), border-color .22s var(--ease);
+  }
+  a.card::before{
+    content:""; position:absolute; inset-block-start:0; inset-inline:0; height:3px;
+    background:var(--c,var(--accent)); opacity:0; transition:opacity .22s var(--ease);
+  }
+  a.card:hover{ transform:translateY(-3px); box-shadow:var(--shadow-hover); border-color:var(--line-strong); }
+  a.card:hover::before{ opacity:1; }
+  a.card:active{ transform:translateY(-1px); }
+  a.card:focus-visible{ outline:2.5px solid var(--c,var(--accent)); outline-offset:2px; }
+
+  .ico{
+    width:46px; height:46px; flex:0 0 auto; border-radius:12px; display:flex; align-items:center; justify-content:center;
+    color:var(--c,var(--accent)); background:color-mix(in srgb, var(--c,var(--accent)) 12%, var(--card));
+    border:1px solid color-mix(in srgb, var(--c,var(--accent)) 22%, transparent);
+    transition:background .22s var(--ease);
+  }
+  a.card:hover .ico{ background:color-mix(in srgb, var(--c,var(--accent)) 18%, var(--card)); }
+  .ico svg{ width:25px; height:25px; }
+
+  .t{ font-size:16.5px; font-weight:700; letter-spacing:-.01em; margin:14px 0 0; }
+  .d{ font-size:12.8px; color:var(--muted); margin:5px 0 0; line-height:1.5; }
+
+  .chev{
+    position:absolute; inset-block-start:18px; inset-inline-end:16px; color:var(--muted); opacity:.45;
+    transition:transform .22s var(--ease), color .22s var(--ease), opacity .22s var(--ease);
+  }
+  .chev svg{ width:19px; height:19px; }
+  a.card:hover .chev{ opacity:1; color:var(--c,var(--accent)); transform:translateX(-4px); }
+
+  footer{ text-align:center; color:var(--muted); font-size:11.5px; margin-top:30px; line-height:1.7; }
+  .foot-line{ display:inline-flex; align-items:center; gap:7px; }
+  .foot-line svg{ width:13px; height:13px; opacity:.75; }
+  .upd{ display:block; margin-top:7px; opacity:.7; font-size:11px; }
+
+  .refresh{
+    position:fixed; top:calc(10px + env(safe-area-inset-top)); left:calc(12px + env(safe-area-inset-left));
+    width:36px; height:36px; padding:0; border-radius:50%; border:1px solid var(--line); background:var(--card);
+    color:var(--muted); cursor:pointer; opacity:.6; box-shadow:var(--shadow); z-index:10;
+    -webkit-tap-highlight-color:transparent; display:flex; align-items:center; justify-content:center;
+    transition:opacity .15s var(--ease), border-color .15s var(--ease);
+  }
+  .refresh svg{ width:17px; height:17px; }
+  .refresh:hover{ opacity:.95; border-color:var(--line-strong); }
   .refresh:active{ opacity:1; }
-  .refresh.spin{ opacity:1; animation:spin .7s linear infinite; }
-  @keyframes spin{ to{ transform:rotate(360deg); } }
+  .refresh.spin svg{ animation:spin .7s linear infinite; }
+  @keyframes spin{ to{ transform:rotate(-360deg); } }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ transition:none !important; }
+    .refresh.spin svg{ animation:none; }
+  }
 </style>
 </head>
 <body>
-  <button class="refresh" id="refresh" type="button" aria-label="רענון ובדיקת עדכון" title="רענון ובדיקת עדכון">↻</button>
-  <h1>🧰 הכלים שלי</h1>
-  <p class="sub">אוסף כלים קטנים שעובדים ישירות בדפדפן.</p>
+  <button class="refresh" id="refresh" type="button" aria-label="רענון ובדיקת עדכון" title="רענון ובדיקת עדכון">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+  </button>
 
-  <button class="install" id="install" type="button">📲 התקן את אוסף הכלים למסך הבית</button>
+  <header class="mast">
+    <span class="mark" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+    </span>
+    <h1>הכלים שלי</h1>
+  </header>
+  <p class="sub">אוסף כלים קטנים שעובדים ישירות בדפדפן, גם בלי אינטרנט. הנתונים נשמרים במכשיר בלבד.</p>
 
-  <a class="card" href="./guard-duty-scheduler/" style="--c:#4b5320">
-    <span class="ico">🛡️</span>
-    <span class="tx"><span class="t">שיבוץ שמירות</span><span class="d">טבלת שמירות עם שעות שוות, איזון לילות ושיתוף לוואטסאפ</span></span>
-    <span class="arr">‹</span>
-  </a>
+  <button class="install" id="install" type="button">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m8 11 4 4 4-4"/><path d="M5 21h14"/></svg>
+    התקנה למסך הבית
+  </button>
 
-  <a class="card" href="./file-search/" style="--c:#0369a1">
-    <span class="ico">🔎</span>
-    <span class="tx"><span class="t">חיפוש בקובץ</span><span class="d">חיפוש מהיר בתוך קבצים, ישירות בדפדפן</span></span>
-    <span class="arr">‹</span>
-  </a>
+  <p class="eyebrow">הכלים</p>
 
-  <a class="card" href="./portfolio-tracker/" style="--c:#1e6f5c">
-    <span class="ico">📊</span>
-    <span class="tx"><span class="t">מעקב תיק השקעות</span><span class="d">פילוח, ריכוזיות, רווח/הפסד ותכנון תרומה — מחירים חיים אופציונליים</span></span>
-    <span class="arr">‹</span>
-  </a>
+  <nav class="grid">
+    <a class="card" href="./guard-duty-scheduler/" style="--c:#4b5320">
+      <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg></span>
+      <span class="t">שיבוץ שמירות</span>
+      <span class="d">טבלת שמירות עם שעות שוות, איזון לילות ושיתוף לוואטסאפ</span>
+      <span class="chev" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></span>
+    </a>
 
-  <a class="card" href="./compound-calculator/" style="--c:#15803d">
-    <span class="ico">📈</span>
-    <span class="tx"><span class="t">מחשבון ריבית דריבית</span><span class="d">כמה יגדל הכסף עם הפקדה חודשית ותשואה — דמי ניהול, אינפלציה, גרף ופירוק שנתי</span></span>
-    <span class="arr">‹</span>
-  </a>
+    <a class="card" href="./file-search/" style="--c:#3d6b6b">
+      <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></span>
+      <span class="t">חיפוש בקובץ</span>
+      <span class="d">חיפוש מהיר בתוך קבצים, ישירות בדפדפן</span>
+      <span class="chev" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></span>
+    </a>
 
-  <a class="card" href="./event-history/" style="--c:#7c3aed">
-    <span class="ico">📰</span>
-    <span class="tx"><span class="t">היסטוריית אירועים</span><span class="d">מהלכי מחיר חדים בעבר וחדשות שהיו סביבם</span></span>
-    <span class="arr">‹</span>
-  </a>
+    <a class="card" href="./portfolio-tracker/" style="--c:#1e6f5c">
+      <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12c.552 0 1.005-.449.95-.998a10 10 0 0 0-8.953-8.951c-.55-.055-.998.398-.998.95v8a1 1 0 0 0 1 1z"/><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/></svg></span>
+      <span class="t">מעקב תיק השקעות</span>
+      <span class="d">פילוח, ריכוזיות, רווח או הפסד ותכנון תרומה. מחירים חיים אופציונליים</span>
+      <span class="chev" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></span>
+    </a>
 
-  <a class="card" href="./claude-team/" style="--c:#c15f3c">
-    <span class="ico">🏢</span>
-    <span class="tx"><span class="t">צוות Claude</span><span class="d">אורג-צ'ארט של 7 מחלקות והכישורים שמפעילים אותן — קישור אמיתי לכל אחד</span></span>
-    <span class="arr">‹</span>
-  </a>
+    <a class="card" href="./compound-calculator/" style="--c:#2f7d4f">
+      <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M16 7h6v6"/><path d="m22 7-8.5 8.5-5-5L2 17"/></svg></span>
+      <span class="t">מחשבון ריבית דריבית</span>
+      <span class="d">כמה יגדל הכסף עם הפקדה חודשית ותשואה. דמי ניהול, אינפלציה, גרף ופירוק שנתי</span>
+      <span class="chev" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></span>
+    </a>
 
-  <footer>עובד אופליין · הנתונים נשמרים במכשיר בלבד
-    <br><span class="upd">עודכן לאחרונה: <span id="built">__BUILD_TIME__</span></span>
+    <a class="card" href="./claude-team/" style="--c:#b0603a">
+      <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="16" y="16" width="6" height="6" rx="1"/><rect x="2" y="16" width="6" height="6" rx="1"/><rect x="9" y="2" width="6" height="6" rx="1"/><path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3"/><path d="M12 12V8"/></svg></span>
+      <span class="t">צוות Claude</span>
+      <span class="d">אורג-צ'ארט של 7 מחלקות והכישורים שמפעילים אותן, קישור אמיתי לכל אחד</span>
+      <span class="chev" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></span>
+    </a>
+  </nav>
+
+  <footer>
+    <span class="foot-line">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      עובד אופליין. הנתונים נשמרים במכשיר בלבד
+    </span>
+    <span class="upd">עודכן לאחרונה: <span id="built">__BUILD_TIME__</span></span>
   </footer>
 
 <script>
@@ -141,15 +239,15 @@
     var btn = document.getElementById('install');
     var deferred = null;
     window.addEventListener('beforeinstallprompt', function(e){
-      e.preventDefault(); deferred = e; btn.style.display = 'block';
+      e.preventDefault(); deferred = e; btn.setAttribute('data-show','1');
     });
     btn.addEventListener('click', async function(){
       if(!deferred) return;
       deferred.prompt();
       try{ await deferred.userChoice; }catch(e){}
-      deferred = null; btn.style.display = 'none';
+      deferred = null; btn.removeAttribute('data-show');
     });
-    window.addEventListener('appinstalled', function(){ btn.style.display = 'none'; });
+    window.addEventListener('appinstalled', function(){ btn.removeAttribute('data-show'); });
   })();
 </script>
 </body>
