@@ -67,6 +67,10 @@
 - **`.github/dependabot.yml`** פותח PR כשיוצאת גרסה חדשה ל-GitHub Actions (GitHub כבר "הרג"
   גרסאות ישנות של Pages/artifact-actions בהתראה קצרה) — כך שהפריסה לא תישבר פתאום.
 - **`@upstash/context7-mcp` נעוץ לגרסה** ב-`.mcp.json` (לא `latest`) כדי ש-breaking שלהם לא ישבור פיתוח.
+- **לוגיקת ה-assemble חיה ב-`.claude/tools/assemble-site.sh`** (מקור אמת אחד; deploy ו-CI שניהם קוראים לו).
+  מלכודת שכבר עלתה: לולאת `for d in */` תופסת את `_site` עצמו (יש בו index.html אחרי העתקת landing)
+  ומנסה `cp` תיקייה לתוך עצמה → deploy נכשל. **החרג את תיקיית הפלט** (`landing|node_modules|_site`).
+  אימות מקומי שרץ ב-`/tmp` לא יתפוס את זה — CI מריץ dry-run של הסקריפט בשורש הריפו כדי לתפוס.
 
 ## סיכונים שיוריים שאי-אפשר לאטמט (להיות מודע)
 - **portfolio-tracker תלוי ב-Twelve Data / Alpha Vantage** למחירים חיים. אם ישנו סכימה/יסגרו tier
