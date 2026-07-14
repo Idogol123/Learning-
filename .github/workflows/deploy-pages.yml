@@ -8,6 +8,7 @@ name: Deploy tools to Pages
 #   /portfolio-tracker/     -> portfolio-tracker/
 #   /compound-calculator/   -> compound-calculator/
 #   /event-history/         -> event-history/
+#   /claude-team/           -> claude-team/
 # Runs on push to the default branch, or manually from the Actions tab.
 
 on:
@@ -19,6 +20,7 @@ on:
       - "portfolio-tracker/**"
       - "compound-calculator/**"
       - "event-history/**"
+      - "claude-team/**"
       - "landing/**"
       - ".github/workflows/deploy-pages.yml"
   workflow_dispatch:
@@ -60,6 +62,7 @@ jobs:
           cp -r portfolio-tracker _site/portfolio-tracker
           cp -r compound-calculator _site/compound-calculator
           cp -r event-history _site/event-history
+          cp -r claude-team _site/claude-team
       - name: Upload site
         uses: actions/upload-pages-artifact@v3
         with:

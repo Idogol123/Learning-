@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="צוות שלם עם Claude — אורג-צ'ארט של 7 מחלקות והכישורים שמפעילים אותן, עם קישור אמיתי לכל אחד.">
+<meta name="theme-color" content="#faf7f5" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1a1614" media="(prefers-color-scheme: dark)">
+<title>צוות Claude</title>
+
+<!-- Installable as an app (home screen) -->
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icon-192.png">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="צוות Claude">
+<style>
+  :root{
+    --bg:#faf7f5; --card:#fff; --ink:#241d1a; --muted:#7a6f69; --soft:#9b8f89;
+    --accent:#c15f3c; --line:#e7ddd7; --pill:#f2ece8;
+    --shadow:0 1px 2px rgba(80,40,20,.06),0 8px 24px rgba(80,40,20,.06);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#1a1614; --card:#241f1c; --ink:#f0e9e5; --muted:#a89c96; --soft:#8a7d77;
+      --accent:#e07a52; --line:#3a322e; --pill:#2c2521; --shadow:none;
+    }
+  }
+  *{box-sizing:border-box}
+  html,body{overflow-x:hidden}
+  body{
+    margin:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Hebrew",Arial,sans-serif;
+    background:var(--bg); color:var(--ink); direction:rtl; line-height:1.5;
+    padding:calc(20px + env(safe-area-inset-top)) 16px calc(28px + env(safe-area-inset-bottom));
+    max-width:680px; margin:0 auto; -webkit-text-size-adjust:100%;
+  }
+  a{color:inherit}
+
+  /* ---- header ---- */
+  .top{display:flex; align-items:center; gap:10px; margin-bottom:4px}
+  .back{font-size:22px; text-decoration:none; color:var(--muted); line-height:1; padding:4px}
+  h1{font-size:23px; margin:0; letter-spacing:-.01em}
+  .sub{color:var(--muted); font-size:14px; margin:6px 0 16px}
+  .stats{display:flex; flex-wrap:wrap; gap:8px; margin:0 0 18px}
+  .chip{background:var(--pill); color:var(--muted); font-size:12.5px; font-weight:600;
+    padding:6px 11px; border-radius:999px; white-space:nowrap}
+  .chip b{color:var(--ink)}
+
+  .bar{display:flex; gap:8px; margin:0 0 6px}
+  .bar button{flex:1; background:var(--card); border:1px solid var(--line); color:var(--muted);
+    font:inherit; font-weight:600; font-size:13px; padding:9px; border-radius:12px; cursor:pointer;
+    -webkit-tap-highlight-color:transparent; transition:border-color .15s, color .15s}
+  .bar button:hover{border-color:var(--accent); color:var(--ink)}
+  .bar button:active{transform:translateY(1px)}
+
+  /* ---- org chart ---- */
+  .chart{display:flex; flex-direction:column; align-items:center}
+
+  .ceo{position:relative; background:var(--card); border:1px solid var(--line); border-radius:16px;
+    box-shadow:var(--shadow); padding:14px 20px; display:flex; align-items:center; gap:12px;
+    margin-top:6px; text-align:start}
+  .ceo .crown{width:46px; height:46px; flex:0 0 auto; border-radius:13px;
+    background:linear-gradient(160deg,#c15f3c,#a84e30); color:#fff; font-size:24px;
+    display:flex; align-items:center; justify-content:center}
+  .ceo .who{display:flex; flex-direction:column}
+  .ceo .who .n{font-size:17px; font-weight:800; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:-.02em}
+  .ceo .who .r{font-size:12px; color:var(--muted); font-weight:600}
+
+  /* vertical connector between blocks (continuous spine) */
+  .node{position:relative; width:100%; padding-top:26px}
+  .node::before{content:""; position:absolute; top:0; inset-inline-start:50%; transform:translateX(50%);
+    width:2px; height:26px; background:var(--line)}
+
+  .card{width:100%; background:var(--card); border:1px solid var(--line); border-radius:16px;
+    box-shadow:var(--shadow); overflow:hidden; border-inline-start:4px solid var(--c,var(--accent))}
+  .sumr{display:flex; align-items:center; gap:13px; padding:15px 16px; cursor:pointer; user-select:none;
+    -webkit-tap-highlight-color:transparent}
+  .sumr .ico{width:44px; height:44px; flex:0 0 auto; border-radius:12px; font-size:22px;
+    display:flex; align-items:center; justify-content:center; background:var(--c,var(--accent)); color:#fff}
+  .sumr .tx{display:flex; flex-direction:column; min-width:0; flex:1}
+  .sumr .tx .t{font-size:17px; font-weight:800}
+  .sumr .tx .d{font-size:12.5px; color:var(--muted); margin-top:1px; overflow:hidden;
+    text-overflow:ellipsis; white-space:nowrap}
+  .count{flex:0 0 auto; font-size:12px; font-weight:800; color:var(--c,var(--accent));
+    background:color-mix(in srgb, var(--c,var(--accent)) 13%, transparent);
+    padding:4px 9px; border-radius:999px; min-width:34px; text-align:center}
+  .chev{flex:0 0 auto; color:var(--soft); font-size:15px; transition:transform .25s ease; line-height:1}
+  .card.open .chev{transform:rotate(-180deg)}
+
+  /* animated body */
+  .kids{display:grid; grid-template-rows:0fr; transition:grid-template-rows .28s ease}
+  .card.open .kids{grid-template-rows:1fr}
+  .kids > .inner{overflow:hidden; min-height:0}
+  .kidpad{padding:2px 14px 14px}
+
+  /* sub-tree guide line (branches off toward start edge) */
+  .list{position:relative; padding-inline-start:14px}
+  .list::before{content:""; position:absolute; top:2px; bottom:16px; inset-inline-start:5px;
+    width:2px; background:var(--line)}
+
+  .skill{position:relative; display:flex; align-items:center; gap:11px; text-decoration:none;
+    padding:11px 12px; border-radius:12px; margin-top:8px; background:var(--pill);
+    transition:transform .1s ease, background .15s ease}
+  .skill::before{content:""; position:absolute; inset-inline-start:-9px; top:50%;
+    width:9px; height:2px; background:var(--line)}
+  .skill:hover{background:color-mix(in srgb, var(--c,var(--accent)) 10%, var(--pill))}
+  .skill:active{transform:translateX(-2px)}
+  .skill .sd{width:9px; height:9px; flex:0 0 auto; border-radius:50%; background:var(--c,var(--accent))}
+  .skill .stx{display:flex; flex-direction:column; min-width:0; flex:1}
+  .skill .stx .sn{font-size:14.5px; font-weight:700; line-height:1.25}
+  .skill .stx .se{font-size:11.5px; color:var(--soft); font-weight:600; font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .skill .stx .sdesc{font-size:12px; color:var(--muted); margin-top:2px}
+  .skill .go{flex:0 0 auto; color:var(--soft); font-size:15px}
+
+  /* bundle row (a whole department as one installable pack) */
+  .bundle{background:transparent; border:1.5px dashed var(--line)}
+  .bundle::before{display:none}
+  .bundle .sd{border-radius:4px}
+
+  footer{text-align:center; color:var(--soft); font-size:11.5px; margin-top:26px; line-height:1.7}
+  footer a{color:var(--muted)}
+  noscript{display:block; text-align:center; color:var(--muted); padding:30px 10px}
+</style>
+</head>
+<body>
+  <div class="top">
+    <a class="back" href="../" aria-label="חזרה לאוסף הכלים" title="חזרה לאוסף הכלים">›</a>
+    <h1>🏢 צוות שלם עם Claude</h1>
+  </div>
+  <p class="sub">הפכתי את Claude לחברה שלמה — מנכ"ל אחד, שבע מחלקות, וכישור אמיתי ומותקן מאחורי כל תפקיד. לחצו על מחלקה כדי לפתוח אותה.</p>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="bar">
+    <button id="openAll" type="button">פתח הכול</button>
+    <button id="closeAll" type="button">כווץ הכול</button>
+  </div>
+
+  <div class="chart" id="chart"></div>
+
+  <noscript>הדף הזה בונה את תרשים הצוות באמצעות JavaScript. יש להפעיל JavaScript כדי לצפות בו.</noscript>
+
+  <footer>
+    כל הכישורים אמיתיים וניתנים להתקנה מהקישורים · נפתחים בלשונית חדשה<br>
+    חלק מאוסף הכלים · <a href="../">חזרה לכל הכלים ›</a>
+  </footer>
+
+<script>
+/* ---- the org chart, as data ---------------------------------------------
+   Each department has a Hebrew display name, the original English name,
+   a short Hebrew description, an accent colour and its skills. A skill keeps
+   its real English name (people search for it) plus a Hebrew label, and a
+   real, installable link. "bundle" departments ship as one installable pack. */
+const CEO = { name:"claude-code", role:'מנכ"ל — מריץ את כל המחלקות' };
+
+const DEPTS = [
+  { key:"dev", he:"מפתחים", en:"Developers", ico:"🛠️", c:"#2563eb",
+    desc:"בונים, בודקים וזוכרים — הליבה ההנדסית",
+    skills:[
+      { he:"כוחות-על", en:"Superpowers", d:"הרחבת יכולות הליבה של המפתח", url:"https://github.com/obra/superpowers" },
+      { he:"קונטקסט7", en:"Context7", d:"תיעוד ספריות עדכני ישר לתוך הקוד", url:"https://github.com/upstash/context7" },
+      { he:"יוצר הכישורים", en:"Skill Creator", d:"בונה כישורים חדשים ל-Claude", url:"https://github.com/anthropics/skills" },
+      { he:"בונה MCP", en:"MCP Builder", d:"בניית שרתי MCP לחיבור כלים", url:"https://github.com/anthropics/skills" },
+      { he:"בדיקות אפליקציות ווב", en:"Webapp Testing", d:"בדיקות אוטומטיות לאפליקציות דפדפן", url:"https://github.com/anthropics/skills" },
+      { he:"זיכרון ל-Claude", en:"Claude-Mem", d:"זיכרון מתמשך בין שיחות", url:"https://github.com/thedotmack/claude-mem" }
+    ]
+  },
+  { key:"design", he:"מעצבים", en:"Designers", ico:"🎨", c:"#db2777",
+    desc:"ממשק, טעם, מעברים וזהות מותג",
+    skills:[
+      { he:"עיצוב UI/UX פרו", en:"UI UX Pro Max", d:"ערכת עיצוב ממשק מקצה לקצה", url:"https://github.com/nextlevelbuilder/ui-ux-pro-max-skill" },
+      { he:"טעם עיצובי", en:"Taste", d:"שיפוט אסתטי וליטוש עיצובי", url:"https://github.com/Leonxlnx/taste-skill" },
+      { he:"עיצוב פרונטאנד", en:"Frontend Design", d:"עיצוב ממשקי צד-לקוח", url:"https://github.com/anthropics/skills" },
+      { he:"מעברים ואנימציות", en:"Transitions", d:"אנימציות ומעברים חלקים", url:"https://github.com/Jakubantalik/transitions.dev" },
+      { he:"ארטיפקטים לווב", en:"Web Artifacts", d:"יצירת ארטיפקטים אינטראקטיביים", url:"https://github.com/anthropics/skills" },
+      { he:"קווי מותג", en:"Brand Guidelines", d:"שמירה על זהות מותג עקבית", url:"https://github.com/anthropics/skills" }
+    ]
+  },
+  { key:"mkt", he:"שיווק", en:"Marketing", ico:"📣", c:"#ea580c",
+    desc:"מקופירייטינג ועד SEO ומגנטי-לידים",
+    bundle:{ count:45, en:"Marketing skills", d:"45 כישורים לניהול כל השיווק — במקבץ אחד", url:"https://github.com/coreyhaines31/marketingskills" }
+  },
+  { key:"social", he:"מדיה חברתית", en:"Social Media", ico:"📱", c:"#0891b2",
+    desc:"מכתיבת פוסטים ועד Reels ותמונות ממוזערות",
+    bundle:{ count:17, en:"Social Media skills", d:"17 כישורים לניהול הרשתות החברתיות", url:"https://github.com/charlie947/social-media-skills" }
+  },
+  { key:"fin", he:"פיננסים", en:"Finance", ico:"💰", c:"#16a34a",
+    desc:"מדוחות ועד התאמות וביקורת",
+    bundle:{ count:8, en:"Finance plugin", d:"8 כישורים לניהול הכספים", url:"https://claude.com/plugins/finance" }
+  },
+  { key:"biz", he:"עסק קטן", en:"Small Business", ico:"🏪", c:"#7c3aed",
+    desc:"מתזרים מזומנים ועד שכר וחשבוניות",
+    bundle:{ count:31, en:"Small Business plugin", d:"31 כישורים לניהול העסק היומיומי", url:"https://claude.com/plugins/small-business" }
+  },
+  { key:"legal", he:"משפטים", en:"Legal", ico:"⚖️", c:"#b45309",
+    desc:"מבדיקת חוזים ועד NDA וציות רגולטורי",
+    bundle:{ count:9, en:"Legal plugin", d:"9 כישורים לעבודה המשפטית", url:"https://claude.com/plugins/legal" }
+  }
+];
+
+/* ---- render -------------------------------------------------------------- */
+function el(tag, cls, html){ const e=document.createElement(tag); if(cls) e.className=cls; if(html!=null) e.innerHTML=html; return e; }
+function esc(s){ return String(s).replace(/[&<>"]/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c])); }
+function skillCount(dep){ return dep.bundle ? dep.bundle.count : dep.skills.length; }
+
+// stats
+(function(){
+  const total = DEPTS.reduce((s,d)=>s+skillCount(d),0);
+  const stats = document.getElementById("stats");
+  [["7","מחלקות"],[String(total),"כישורים"],["1","מנכ\"ל — claude-code"]].forEach(([n,l])=>{
+    stats.appendChild(el("span","chip",`<b>${n}</b> ${l}`));
+  });
+})();
+
+const chart = document.getElementById("chart");
+
+// CEO node
+const ceo = el("div","ceo");
+ceo.innerHTML =
+  `<span class="crown">👑</span>
+   <span class="who"><span class="n">${esc(CEO.name)}</span><span class="r">${esc(CEO.role)}</span></span>`;
+chart.appendChild(ceo);
+
+// department nodes
+DEPTS.forEach(dep=>{
+  const node = el("div","node");
+  const card = el("div","card");
+  card.style.setProperty("--c", dep.c);
+
+  const sumr = el("div","sumr");
+  sumr.setAttribute("role","button");
+  sumr.setAttribute("tabindex","0");
+  sumr.setAttribute("aria-expanded","false");
+  sumr.innerHTML =
+    `<span class="ico">${dep.ico}</span>
+     <span class="tx"><span class="t">${esc(dep.he)}</span><span class="d">${esc(dep.en)} · ${esc(dep.desc)}</span></span>
+     <span class="count">${skillCount(dep)}</span>
+     <span class="chev">▾</span>`;
+  card.appendChild(sumr);
+
+  const kids = el("div","kids");
+  const inner = el("div","inner");
+  const pad = el("div","kidpad");
+  const list = el("div","list");
+
+  if(dep.bundle){
+    list.appendChild(skillRow({
+      he:`כל ${dep.bundle.count} הכישורים`, en:dep.bundle.en, d:dep.bundle.d, url:dep.bundle.url
+    }, true));
+  } else {
+    dep.skills.forEach(s=> list.appendChild(skillRow(s, false)));
+  }
+
+  pad.appendChild(list);
+  inner.appendChild(pad);
+  kids.appendChild(inner);
+  card.appendChild(kids);
+  node.appendChild(card);
+  chart.appendChild(node);
+
+  function toggle(){
+    const open = card.classList.toggle("open");
+    sumr.setAttribute("aria-expanded", open ? "true" : "false");
+  }
+  sumr.addEventListener("click", toggle);
+  sumr.addEventListener("keydown", e=>{
+    if(e.key==="Enter" || e.key===" "){ e.preventDefault(); toggle(); }
+  });
+});
+
+function skillRow(s, bundle){
+  const a = el("a", "skill" + (bundle ? " bundle" : ""));
+  a.href = s.url; a.target = "_blank"; a.rel = "noopener noreferrer";
+  a.innerHTML =
+    `<span class="sd"></span>
+     <span class="stx">
+       <span class="sn">${esc(s.he)}</span>
+       <span class="se">${esc(s.en)}</span>
+       ${s.d ? `<span class="sdesc">${esc(s.d)}</span>` : ""}
+     </span>
+     <span class="go" aria-hidden="true">↗</span>`;
+  return a;
+}
+
+// expand / collapse all
+document.getElementById("openAll").addEventListener("click", ()=>{
+  document.querySelectorAll(".card").forEach(c=>{ c.classList.add("open");
+    c.querySelector(".sumr").setAttribute("aria-expanded","true"); });
+});
+document.getElementById("closeAll").addEventListener("click", ()=>{
+  document.querySelectorAll(".card").forEach(c=>{ c.classList.remove("open");
+    c.querySelector(".sumr").setAttribute("aria-expanded","false"); });
+});
+
+// service worker for offline / installable
+if("serviceWorker" in navigator && location.protocol.startsWith("http")){
+  window.addEventListener("load", ()=> navigator.serviceWorker.register("sw.js").catch(()=>{}));
+}
+</script>
+</body>
+</html>
