@@ -354,6 +354,16 @@
     });
   });
 
+  // Highlight the chip matching the current return value (and clear the rest).
+  // Runs on every change, so clicking a chip, typing, or dragging the slider
+  // all keep the green "selected" state in sync.
+  function syncRetChips(){
+    var cur = $('ret').value;
+    Array.prototype.forEach.call(document.querySelectorAll('#retChips .chip'), function(c){
+      c.classList.toggle('on', c.dataset.ret === cur);
+    });
+  }
+
   // mode switch
   Array.prototype.forEach.call(document.querySelectorAll('#modeSeg button'), function(b){
     b.addEventListener('click', function(){
@@ -440,6 +450,7 @@
   function onChange(){
     var o = readInputs();
     lastO = o;
+    syncRetChips();
 
     if(mode === 'goal'){
       renderGoal(o);
