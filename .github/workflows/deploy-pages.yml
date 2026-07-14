@@ -37,7 +37,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Structural quality gate (enforced even on direct pushes to main)
         # The full headless gate runs on branches/PRs (ci.yml). This fast,
         # browser-free structural check runs here too so a structurally broken
@@ -45,15 +45,15 @@ jobs:
         # link) can never deploy — even via a direct push that skipped the branch.
         run: node .claude/tools/verify-all.mjs --structural
       - name: Configure Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
         with:
           enablement: true
       - name: Assemble site
         run: bash .claude/tools/assemble-site.sh _site
       - name: Upload site
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: _site
       - name: Deploy
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
