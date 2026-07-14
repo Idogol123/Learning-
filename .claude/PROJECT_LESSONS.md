@@ -64,6 +64,8 @@
   מ-landing לכל כלי, שה-workflow לא חוזר לרשימת cp קשיחה, ו-headless באור+חושך (קונסולה+overflow).
 - **`.github/workflows/ci.yml`** מריץ את אותו סקריפט על כל ענף/PR (לא main). אם אדום — אל תמזג.
   זו רשת הביטחון שקודם הסתמכה על בדיקה ידנית של בן-אדם.
+- **גם ה-Deploy (main) מריץ שער `verify-all --structural`** לפני ה-assemble — כך שאפילו push
+  ישיר ל-main (שדילג על הענף/CI) לא יכול לפרוס אתר שבור מבנית. ה-headless נשאר ב-CI (זול שם).
 - **`.github/dependabot.yml`** פותח PR כשיוצאת גרסה חדשה ל-GitHub Actions (GitHub כבר "הרג"
   גרסאות ישנות של Pages/artifact-actions בהתראה קצרה) — כך שהפריסה לא תישבר פתאום.
 - **`@upstash/context7-mcp` נעוץ לגרסה** ב-`.mcp.json` (לא `latest`) כדי ש-breaking שלהם לא ישבור פיתוח.

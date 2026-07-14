@@ -38,6 +38,12 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      - name: Structural quality gate (enforced even on direct pushes to main)
+        # The full headless gate runs on branches/PRs (ci.yml). This fast,
+        # browser-free structural check runs here too so a structurally broken
+        # site (missing files, invalid manifest, unregistered SW, dead landing
+        # link) can never deploy — even via a direct push that skipped the branch.
+        run: node .claude/tools/verify-all.mjs --structural
       - name: Configure Pages
         uses: actions/configure-pages@v5
         with:
