@@ -23,6 +23,15 @@
 | Web Artifacts | `web-artifacts-builder/` | בניית ארטיפקטים אינטראקטיביים מרובי‑רכיבים |
 | Brand Guidelines | `brand-guidelines/` | החלת צבעי וטיפוגרפיית מותג עקביים |
 
+בנוסף, **כל 14 כישורי ה‑Superpowers** (מ‑[`obra/superpowers`](https://github.com/obra/superpowers))
+שתולים כאן ונטענים אוטומטית: `brainstorming`, `test-driven-development`,
+`systematic-debugging`, `writing-plans`, `executing-plans`, `subagent-driven-development`,
+`dispatching-parallel-agents`, `requesting-code-review`, `receiving-code-review`,
+`using-git-worktrees`, `finishing-a-development-branch`, `verification-before-completion`,
+`writing-skills`, `using-superpowers`.
+הערה: כשמתקינים אותם דרך הפלאגין הרשמי מגיע גם hook שמפעיל אותם אוטומטית; כאן הם
+נטענים ככישורים רגילים (Claude יבחר בהם לפי ההקשר) בלי ה‑hook.
+
 ---
 
 ## 📦 שאר הצוות — התקנה בפקודה אחת אצלך
@@ -32,11 +41,9 @@
 אינטראקטיבי שרצים אצלך ב‑Claude Code. הפקודות נלקחו מתיעוד הפרויקטים עצמם.
 
 ### מפתחים
-- **Superpowers** — ספריית כישורי‑הליבה למפתח (TDD, דיבוג, שיתוף‑פעולה)
-  ```
-  /plugin install superpowers@claude-plugins-official
-  ```
-  מקור: https://github.com/obra/superpowers
+- **Superpowers** — ✅ כבר שתול (14 כישורים, ראה למעלה). להתקנה עם ה‑hook המלא
+  אפשר גם דרך הפלאגין הרשמי: `/plugin install superpowers@claude-plugins-official`
+  · מקור: https://github.com/obra/superpowers
 - **Context7** — תיעוד ספריות עדכני ישר לתוך הקוד (שרת MCP)
   ```
   claude mcp add context7 -- npx -y @upstash/context7-mcp
