@@ -31,3 +31,5 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Run verification (structural + headless, light & dark)
         run: node .claude/tools/verify-all.mjs
+      - name: Dry-run the deploy assemble step (same script deploy uses)
+        run: bash .claude/tools/assemble-site.sh /tmp/_site_dryrun

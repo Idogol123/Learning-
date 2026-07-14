@@ -43,33 +43,7 @@ jobs:
         with:
           enablement: true
       - name: Assemble site
-        run: |
-          set -euo pipefail
-          mkdir -p _site
-
-          # --- Hub (landing) is served at the site root ---
-          cp landing/index.html _site/index.html
-          # Stamp the landing page with the last-change time (Israel time) so
-          # visitors can tell whether they're on the latest deployed version.
-          BUILD_TIME=$(TZ='Asia/Jerusalem' git log -1 --format=%cd --date=format-local:'%d/%m/%Y %H:%M')
-          sed -i "s|__BUILD_TIME__|${BUILD_TIME}|" _site/index.html
-          cp landing/manifest.webmanifest landing/sw.js _site/
-          cp landing/icon-192.png landing/icon-512.png landing/icon-maskable-512.png landing/apple-touch-icon.png _site/
-
-          # --- Tools: every other top-level dir that has an index.html ---
-          for d in */; do
-            d="${d%/}"
-            case "$d" in
-              landing|node_modules) continue ;;
-            esac
-            if [ -f "$d/index.html" ]; then
-              echo "Deploying tool: $d"
-              cp -r "$d" "_site/$d"
-            fi
-          done
-
-          echo "Assembled site contents:"
-          ls -la _site
+        run: bash .claude/tools/assemble-site.sh _site
       - name: Upload site
         uses: actions/upload-pages-artifact@v3
         with:
