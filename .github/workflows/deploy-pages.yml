@@ -45,7 +45,7 @@ jobs:
       - name: Assemble site
         run: bash .claude/tools/assemble-site.sh _site
       - name: Upload site
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: _site
       - name: Deploy
