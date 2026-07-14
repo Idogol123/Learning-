@@ -48,14 +48,34 @@
 - **בדיקת "חי" מטעה:** `idogol123.github.io` (Pages edge) מתעכב ~1-5 דק' אחרי שה-Deploy
   מסתיים, וגם ה-proxy של הסביבה ממטמן. **מקור אמת מיידי = `raw.githubusercontent.com/.../main/...`**
   (git). אל תכריז "חי" על סמך fetch לעמוד Pages מיד אחרי push.
-- **פריסה מ-main בלבד.** `deploy-pages.yml` מופעל רק על נתיבי הכלים/landing —
-  שינויי `.claude/**` (כולל הקובץ הזה) **לא** מפעילים deploy. מצוין: אפשר לעדכן לקחים
-  בלי לגרום פריסה מיותרת.
+- **פריסה מ-main בלבד.** `deploy-pages.yml` רץ על כל push ל-main **חוץ** מ-`paths-ignore`
+  (`.claude/**`, `**/*.md`, `.gitignore`, `.mcp.json`). שינויי `.claude/**` והמאגר הזה
+  **לא** מפעילים deploy — אפשר לעדכן לקחים בלי פריסה מיותרת.
 - **מיזוג ל-main:** `git push origin <branch>:main` (fast-forward, היסטוריה נקייה).
   לפני כן ודא ש-main הוא ancestor: `git merge-base --is-ancestor origin/main <branch>`.
-- **הוספת כלי חדש = 3 מקומות יחד:** (א) תיקייה + `index.html` (+PWA), (ב) כרטיס ב-`landing/index.html`,
-  (ג) `deploy-pages.yml` — גם `paths:` וגם שורת ה-cp ב-"Assemble site". **מחיקת כלי** = אותם 3 + שורה ב-`README.md`.
+- **הוספת כלי חדש = 2 מקומות בלבד:** (א) תיקייה + `index.html` (+PWA), (ב) כרטיס ב-`landing/index.html`.
+  **ה-workflow מגלה כלים אוטומטית** (כל תיקיית-שורש עם `index.html`) — **אל תערוך את `deploy-pages.yml`
+  כדי להוסיף/למחוק כלי.** **מחיקת כלי** = מחיקת התיקייה + הכרטיס ב-landing + שורה ב-`README.md`.
 - אחרי push ל-main אפשר לאמת שה-Deploy עבר עם `actions_list` (מסונן).
+
+## שער איכות ואוטומציה (מונע רגרסיות בפרודקשן)
+- **לפני כל push הרץ `node .claude/tools/verify-all.mjs`** (הוסף `--structural` לריצה מהירה בלי דפדפן).
+  בודק: קבצים חובה לכל כלי, manifest תקין (JSON + שדות PWA), רישום service worker, קישור
+  מ-landing לכל כלי, שה-workflow לא חוזר לרשימת cp קשיחה, ו-headless באור+חושך (קונסולה+overflow).
+- **`.github/workflows/ci.yml`** מריץ את אותו סקריפט על כל ענף/PR (לא main). אם אדום — אל תמזג.
+  זו רשת הביטחון שקודם הסתמכה על בדיקה ידנית של בן-אדם.
+- **`.github/dependabot.yml`** פותח PR כשיוצאת גרסה חדשה ל-GitHub Actions (GitHub כבר "הרג"
+  גרסאות ישנות של Pages/artifact-actions בהתראה קצרה) — כך שהפריסה לא תישבר פתאום.
+- **`@upstash/context7-mcp` נעוץ לגרסה** ב-`.mcp.json` (לא `latest`) כדי ש-breaking שלהם לא ישבור פיתוח.
+
+## סיכונים שיוריים שאי-אפשר לאטמט (להיות מודע)
+- **portfolio-tracker תלוי ב-Twelve Data / Alpha Vantage** למחירים חיים. אם ישנו סכימה/יסגרו tier
+  חינמי — הפיצ'ר נשבר. מנוהל טוב (מפתח של המשתמש ב-localStorage, `ApiError` + fallback ידני, לא סוד מקודד).
+- **`file-search/index.html` = ~3.3MB עם blob מוטמע** (PDF.js/SheetJS/mammoth). כבד ובלתי-ניתן
+  לעריכה ידנית. אל תקרא במלואו; אם צריך לשדרג ספרייה — החלף את הבלוק המוטמע, אל תערוך ידנית.
+- **שם הריפו/משתמש קדוש:** ה-URL הציבורי `idogol123.github.io/Learning-` והקישור ל-claude-team ב-CLAUDE.md
+  תלויים בו. הנתיבים באתר יחסיים (טוב) — אבל שינוי שם ישבור קישורים חיצוניים. גם: אם הגדרת Pages
+  ב-repo settings תשונה מ-"GitHub Actions" ל-"deploy from branch" — הפריסה תפסיק לעבוד בשקט.
 
 ## העדפות והחלטות של המשתמש
 - **גוון לכל כלי (מתואם), לא איחוד לצבע אחד** — המשתמש בחר במפורש שכל כלי ישמור

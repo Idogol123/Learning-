@@ -1,0 +1,13 @@
+# Early-warning for stale/deprecated GitHub Actions. GitHub has hard-deprecated
+# older action major versions (e.g. the Pages/artifact actions) on short notice
+# before; this opens a PR when a newer version ships so the deploy never breaks
+# out of the blue.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: ci

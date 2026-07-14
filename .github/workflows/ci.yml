@@ -1,0 +1,33 @@
+name: Verify tools
+
+# Quality gate for the browser-tools collection. Runs the SAME script used in
+# the local dev loop (.claude/tools/verify-all.mjs): structural integrity of
+# every tool (files, manifest, service-worker registration, landing-page link,
+# deploy auto-discovery) plus a headless render in light AND dark that fails on
+# console errors or horizontal overflow.
+#
+# This is the safety net the project previously relied on humans to run by hand.
+# Nothing broken should reach `main` (and therefore production) without this
+# going green first.
+
+on:
+  push:
+    branches-ignore: [main] # main is covered by deploy; gate the branches that feed it
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install Playwright + Chromium
+        run: |
+          npm init -y >/dev/null 2>&1 || true
+          npm install playwright@^1
+          npx playwright install --with-deps chromium
+      - name: Run verification (structural + headless, light & dark)
+        run: node .claude/tools/verify-all.mjs

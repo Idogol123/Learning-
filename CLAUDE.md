@@ -30,13 +30,16 @@
 - כל כלי = **HTML עצמאי אחד**, **עברית RTL**, **mobile-first**, **עובד אופליין**
   (בלי תלות ברשת אם אפשר), עם manifest + service worker + אייקונים (PWA).
 - **הפריסה מ‑`main` בלבד.** שינוי מגיע לאוויר רק כשהוא ב‑main.
-- **הוספת כלי חדש = לעדכן שלושה מקומות יחד**, אחרת האתר נשבר:
-  1. תיקייה חדשה עם `index.html` (+ נכסי PWA).
-  2. כרטיס מקשר ב‑`landing/index.html`.
-  3. הכלי ב‑`.github/workflows/deploy-pages.yml` — גם ב‑`paths:` וגם בשלב "Assemble site" (שורת `cp`).
-- **תמיד לבדוק מקצה‑לקצה לפני push** — הרץ את הכלי בדפדפן headless (Playwright/Chromium
-  מותקנים; `PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers`), אמת רינדור/אינטראקציה, אין שגיאות
-  קונסולה, אין גלישה אופקית, ובדוק גם מצב כהה.
+- **הוספת כלי חדש = שני מקומות בלבד** (ה‑workflow מגלה כלים אוטומטית — אל תיגע בו):
+  1. תיקייה חדשה עם `index.html` (+ נכסי PWA: manifest, sw.js, אייקונים).
+  2. כרטיס מקשר ב‑`landing/index.html` (`href="./<tool>/"`).
+  הפריסה (`deploy-pages.yml`) מזהה כל תיקיית‑שורש עם `index.html` לבד. **מחיקת כלי** =
+  למחוק את התיקייה + הכרטיס ב‑landing + שורה ב‑`README.md`.
+- **שער איכות חובה לפני push — הרץ `node .claude/tools/verify-all.mjs`.** הוא בודק
+  שלמות מבנית (קבצים, manifest תקין, רישום service worker, קישור מ‑landing, גילוי‑פריסה)
+  **וגם** רינדור headless באור+חושך (שגיאות קונסולה + גלישה אופקית). אותו סקריפט רץ ב‑CI
+  (`.github/workflows/ci.yml`) על כל ענף/PR — אם הוא אדום, אל תמזג ל‑main. Playwright/Chromium
+  מותקנים מקומית (`PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers`).
 
 ---
 
