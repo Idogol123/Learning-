@@ -37,7 +37,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Structural quality gate (enforced even on direct pushes to main)
         # The full headless gate runs on branches/PRs (ci.yml). This fast,
         # browser-free structural check runs here too so a structurally broken
