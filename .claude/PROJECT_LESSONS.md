@@ -29,7 +29,7 @@
 - **אקסנט לכל כלי (מתואם, לא אקראי) — בהיר / כהה:**
   guard-duty זית `#4b5320` / `#b3c256` · file-search פלדה-טורקיז `#3d6b6b` / `#5f9a9a` ·
   portfolio טורקיז `#1e6f5c` / `#3fae90` · compound אורן `#2f7d4f` / `#4bbd7c` ·
-  claude-team חמרה `#b0603a` / `#e07a52`.
+  claude-team חמרה `#b0603a` / `#e07a52` · admin גרפיט-אינדיגו `#3d4a6b` / `#8593c4` (גוון "מערכת/טכני").
 - **אייקונים:** קו-inline מ-Lucide בלבד. **לא אימוג'י, לא לצייר SVG מהיד.**
   צ'יפ-אייקון = "זכוכית רכה": `color:accent; background:color-mix(in srgb, accent 12%, card);
   border:1px solid color-mix(in srgb, accent 24%, transparent)`.
@@ -74,6 +74,22 @@
   ומנסה `cp` תיקייה לתוך עצמה → deploy נכשל. **החרג את תיקיית הפלט** (`landing|node_modules|_site`).
   אימות מקומי שרץ ב-`/tmp` לא יתפוס את זה — CI מריץ dry-run של הסקריפט בשורש הריפו כדי לתפוס.
 
+## דף האדמין (`/admin/`) — אבטחה ותחזוקה
+- **תבנית "תיקייה שנפרסת אך אינה כלי":** ל-`admin/` יש `index.html`+`sw.js` אבל **אין `manifest.webmanifest`
+  בכוונה**. לכן `assemble-site.sh` פורס אותו (מספיק index.html), אבל `verify-all.mjs` לא מזהה אותו ככלי
+  (הגילוי דורש index.html+manifest יחד) — כך **אין חובת כרטיס בנחיתה / 7 קבצי PWA**, ואין אימות headless
+  ב-CI (אז **בדוק אותו ידנית** בכל שינוי). נגיש רק דרך כפתור המנעול ב-`landing` (`.admin-link`, ליד `.refresh`).
+- **אבטחה = הצפנת AES-256-GCM של תוכן הפאנל.** ה-`index.html` מכיל רק מסך-נעילה + `SALT/IV/CT` ב-base64.
+  מפתח נגזר מהסיסמה ב-PBKDF2 (210k, SHA-256). סיסמה שגויה **נכשלת לפענח** (auth-tag של GCM) — אין hash נפרד,
+  אין סיסמה בקוד, ואין דליפת תוכן ב-view-source. `new Function(js)()` מריץ את הפאנל המפוענח (Pages ללא CSP).
+  **כנות:** זו לא אבטחת-שרת — brute-force offline אפשרי; ההגנה האמיתית = סיסמה חזקה + PBKDF2 יקר.
+- **תחזוקה/בנייה מחדש (קריטי):** מקור-האמת של הפאנל (`admin-payload.js`) וסקריפט הבנייה (`build-admin.mjs`)
+  **לא נמצאים בריפו בכוונה** (מוטמעים רק ה-ciphertext) — כדי לא לדלוף. לעריכת הפאנל צריך לשחזר את המקור,
+  להצפין מחדש עם הסיסמה (`node build-admin.mjs <payload.js> admin/index.html <pw>`), ולבמפ `admin/sw.js` (`admin-vN`).
+  **בכל שינוי ב-`landing`** (כמו הוספת כפתור) — **בַּמְפ `landing/sw.js`** (`tools-hub-vN`), אחרת ה-PWA לא יתעדכן.
+- **בדיקת unlock headless:** `screenshot.mjs` רק מצלם (לא מקליד). למצב הפתוח — הרץ שרת מקומי (`python3 -m http.server`)
+  + סקריפט Playwright קצר שממלא `#pw` ולוחץ `#go` (מקור אמת ל-caches/SW/storage אמיתיים, לא file://).
+
 ## סיכונים שיוריים שאי-אפשר לאטמט (להיות מודע)
 - **portfolio-tracker תלוי ב-Twelve Data / Alpha Vantage** למחירים חיים. אם ישנו סכימה/יסגרו tier
   חינמי — הפיצ'ר נשבר. מנוהל טוב (מפתח של המשתמש ב-localStorage, `ApiError` + fallback ידני, לא סוד מקודד).
@@ -107,6 +123,9 @@
   את הירוק, והבחירה הרגישה "לא עבדה"). ערך שלא תואם אף preset → אף צ'יפ לא ON (תקין).
 
 ## היסטוריית שינויים גדולים
+- **15/07/2026:** נוסף דף אדמין `/admin/` — לוח בקרה מוגן בהצפנת AES-GCM (נתונים חיים: אחסון,
+  caches, SW, מכשיר; פעולות: ניקוי מטמונים/עדכון SW/גיבוי-יבוא-מחיקת localStorage). כפתור מנעול
+  ב-`landing` (`.admin-link`) + באמפ `landing/sw.js` ל-v4. ראה סעיף "דף האדמין" למעלה.
 - **14/07/2026 (מאוחר):** תוקן `compound-calculator` — צ'יפי התשואה עכשיו מדגישים את
   הבחירה הפעילה (ראה מלכודות למעלה).
 - **14/07/2026:** הוסר הכלי `event-history` לגמרי. עוצבו מחדש כל 5 הכלים + דף הנחיתה

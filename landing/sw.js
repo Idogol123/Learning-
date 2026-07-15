@@ -2,7 +2,7 @@
    Caches just the hub's own shell so it opens offline. Requests for the
    individual tools are left untouched — each tool has its own service
    worker and cache under its own path. */
-const CACHE = 'tools-hub-v3';
+const CACHE = 'tools-hub-v4';
 // The hub's own directory, as an absolute path derived from where this worker
 // actually lives (e.g. "/Learning-/" on Pages, "/" locally). We compare
 // against this known base instead of self.registration.scope so the guard
