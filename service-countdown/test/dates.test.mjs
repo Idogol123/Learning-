@@ -22,13 +22,29 @@ import assert from 'node:assert/strict';
 const here = dirname(fileURLToPath(import.meta.url));
 const html = readFileSync(join(here, '..', 'index.html'), 'utf8');
 
-const m = html.match(/const dates = \(\(\) => \{[\s\S]*?\n\}\)\(\);/);
-if (!m) throw new Error('could not find the `dates` module in index.html');
+const mDates = html.match(/const dates = \(\(\) => \{[\s\S]*?\n\}\)\(\);/);
+if (!mDates) throw new Error('could not find the `dates` module in index.html');
+const mStore = html.match(/const store = \(\(\) => \{[\s\S]*?\n\}\)\(\);/);
+if (!mStore) throw new Error('could not find the `store` module in index.html');
 
-const sandbox = { Math, Date, String, Number };
+// A minimal localStorage stand-in so `store` can run outside a browser.
+function makeLS() {
+  const map = new Map();
+  return {
+    getItem: k => (map.has(k) ? map.get(k) : null),
+    setItem: (k, v) => { map.set(k, String(v)); },
+    removeItem: k => { map.delete(k); },
+  };
+}
+
+const sandbox = { Math, Date, String, Number, JSON, Error, localStorage: makeLS() };
 vm.createContext(sandbox);
-vm.runInContext(`${m[0]}\nglobalThis.__dates = dates;`, sandbox);
+vm.runInContext(
+  `${mDates[0]}\n${mStore[0]}\nglobalThis.__dates = dates; globalThis.__store = store;`,
+  sandbox
+);
 const dates = sandbox.__dates;
+const store = sandbox.__store;
 
 let passed = 0;
 function t(name, fn) {
@@ -127,6 +143,76 @@ t('remainingLabel conjugates the verb and handles the past', () => {
 t('formatHe renders a Hebrew long date', () => {
   assert.equal(dates.formatHe('2027-11-14'), '14 בנובמבר 2027');
   assert.equal(dates.formatHe('2026-08-07'), '7 באוגוסט 2026');
+});
+
+// ---- store ----
+t('blank state is valid and empty', () => {
+  const s = store.blank();
+  assert.equal(s.v, 1);
+  assert.equal(s.profile, null);
+  // Spread into a host array: values built inside the vm sandbox carry that
+  // realm's Array.prototype, which deepEqual treats as a mismatch on its own.
+  assert.deepEqual([...s.events], []);
+  assert.equal(s.theme, 'dark');
+});
+
+t('save then load round-trips the state', () => {
+  const s = store.blank();
+  s.profile = { enlistDate: '2025-03-15', releaseDate: '2027-11-15', gender: 'm' };
+  assert.equal(store.save(s), true);
+  assert.deepEqual(store.load().profile, s.profile);
+});
+
+t('load returns a blank state when storage is empty or corrupt', () => {
+  sandbox.localStorage.removeItem(store.KEY);
+  assert.equal(store.load().profile, null);
+  sandbox.localStorage.setItem(store.KEY, 'not json{');
+  assert.equal(store.load().profile, null);
+});
+
+t('allEvents injects release as a virtual event when a profile exists', () => {
+  const s = store.blank();
+  s.profile = { enlistDate: '2025-03-15', releaseDate: '2027-11-15', gender: 'm' };
+  const ids = store.allEvents(s).map(e => e.id);
+  assert.ok(ids.includes('release'));
+  assert.equal(store.allEvents(s).find(e => e.id === 'release').virtual, true);
+});
+
+t('allEvents omits release when there is no profile', () => {
+  const s = store.blank();
+  assert.deepEqual([...store.allEvents(s)], []);
+});
+
+t('allEvents sorts nearest-first by date', () => {
+  const s = store.blank();
+  s.events = [
+    { id: 'b', title: 'שני', date: '2027-01-01', icon: 'flag', source: 'custom' },
+    { id: 'a', title: 'ראשון', date: '2026-01-01', icon: 'flag', source: 'custom' },
+  ];
+  assert.deepEqual(store.allEvents(s).map(e => e.id), ['a', 'b']);
+});
+
+t('heroEvent falls back when heroId points at nothing', () => {
+  const s = store.blank();
+  s.heroId = 'release';                 // but there is no profile
+  s.events = [{ id: 'a', title: 'ראשון', date: '2026-01-01', icon: 'flag', source: 'custom' }];
+  assert.equal(store.heroEvent(s).id, 'a');
+
+  const empty = store.blank();
+  empty.heroId = 'ghost';
+  assert.equal(store.heroEvent(empty), null);
+});
+
+t('importJSON rejects malformed and foreign payloads', () => {
+  assert.throws(() => store.importJSON('not json{'));
+  assert.throws(() => store.importJSON('{"v":999}'));
+  assert.throws(() => store.importJSON('[]'));
+});
+
+t('exportJSON output survives importJSON', () => {
+  const s = store.blank();
+  s.profile = { enlistDate: '2025-03-15', releaseDate: '2027-11-15', gender: 'f' };
+  assert.deepEqual(store.importJSON(store.exportJSON(s)).profile, s.profile);
 });
 
 console.log(`${passed} passed`);

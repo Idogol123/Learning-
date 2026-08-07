@@ -81,5 +81,71 @@ const dates = (() => {
            progressPct, hebrewDays, remainingLabel, formatHe };
 })();
 </script>
+
+<script>
+/* ---------- store: localStorage persistence, no DOM ---------- */
+const store = (() => {
+  const KEY = 'service-countdown.v1';
+
+  function blank() {
+    return { v: 1, profile: null, events: [], heroId: 'release', theme: 'dark' };
+  }
+
+  // Never throws. A corrupt or foreign payload is treated as "no data yet"
+  // rather than breaking the page on open.
+  function load() {
+    try {
+      const raw = localStorage.getItem(KEY);
+      if (!raw) return blank();
+      const s = JSON.parse(raw);
+      if (!s || typeof s !== 'object' || s.v !== 1) return blank();
+      return Object.assign(blank(), s);
+    } catch (e) {
+      return blank();
+    }
+  }
+
+  // Returns false when storage is unavailable (private mode, quota full) so
+  // the caller can warn that nothing will persist.
+  function save(state) {
+    try { localStorage.setItem(KEY, JSON.stringify(state)); return true; }
+    catch (e) { return false; }
+  }
+
+  // Release is NOT a row in `events`: it is derived from the profile so that
+  // one date drives the headline, the timeline and the percentage alike.
+  function releaseEvent(state) {
+    if (!state.profile || !state.profile.releaseDate) return null;
+    return { id: 'release', title: 'שחרור', date: state.profile.releaseDate,
+             icon: 'party-popper', source: 'profile', virtual: true };
+  }
+
+  function allEvents(state) {
+    const list = state.events.map(e => Object.assign({ virtual: false }, e));
+    const rel = releaseEvent(state);
+    if (rel) list.push(rel);
+    return list.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  }
+
+  // Falls back to the nearest event, then to nothing, so a deleted event or a
+  // "release" id without a profile can never blank the screen.
+  function heroEvent(state) {
+    const list = allEvents(state);
+    if (list.length === 0) return null;
+    return list.find(e => e.id === state.heroId) || list[0];
+  }
+
+  function exportJSON(state) { return JSON.stringify(state, null, 2); }
+
+  function importJSON(text) {
+    const s = JSON.parse(text);
+    if (!s || typeof s !== 'object' || Array.isArray(s)) throw new Error('קובץ לא תקין');
+    if (s.v !== 1) throw new Error('גרסת קובץ לא נתמכת');
+    return Object.assign(blank(), s);
+  }
+
+  return { KEY, blank, load, save, allEvents, heroEvent, exportJSON, importJSON };
+})();
+</script>
 </body>
 </html>
