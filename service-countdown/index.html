@@ -107,6 +107,24 @@ h1,h2,h3{font-weight:800;letter-spacing:-.02em;margin:0}
   width:100%; padding:.85rem; border-radius:var(--r); font-size:1rem; font-family:inherit;
   background:var(--card); color:var(--ink); border:1px solid var(--line-strong)}
 
+/* ---- top bar + row actions ---- */
+.topbar{position:fixed; inset-block-start:0; inset-inline-end:0; z-index:10;
+  padding:.9rem; display:flex; gap:.4rem}
+.iconbtn{width:40px; height:40px; display:inline-flex; align-items:center;
+  justify-content:center; border-radius:12px; cursor:pointer; font:inherit;
+  background:color-mix(in srgb, var(--card) 80%, transparent);
+  border:1px solid var(--line); color:var(--ink);
+  -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px)}
+.iconbtn svg{width:20px;height:20px}
+.ev-del{flex:none; width:32px; height:32px; display:inline-flex; align-items:center;
+  justify-content:center; border-radius:10px; border:1px solid transparent;
+  background:transparent; color:var(--muted); cursor:pointer; font:inherit}
+.ev-del svg{width:17px;height:17px}
+.ev-del:hover{border-color:var(--line-strong); color:var(--ink)}
+.ev-row{display:flex; align-items:center; gap:.35rem}
+.ev-row .ev{margin-bottom:0}
+.ev-row+.ev-row{margin-top:.6rem}
+
 /* ---- onboarding wizard ---- */
 .wizard{position:fixed; inset:0; z-index:20; background:var(--bg);
   display:flex; flex-direction:column; justify-content:center;
@@ -133,6 +151,10 @@ h1,h2,h3{font-weight:800;letter-spacing:-.02em;margin:0}
 </head>
 <body>
 <main id="app">
+<div class="topbar">
+  <button class="iconbtn" id="btnTheme" type="button" aria-label="החלף מצב תצוגה"></button>
+  <button class="iconbtn" id="btnSettings" type="button" aria-label="הגדרות"></button>
+</div>
   <section class="hero" id="hero"></section>
   <section class="panel" id="timeline"></section>
   <section class="panel" id="events"></section>
@@ -296,6 +318,9 @@ const ICONS = {
   'shield': '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
   'star': '<path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.12 2.12 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.12 2.12 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.12 2.12 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.12 2.12 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.12 2.12 0 0 0 1.597-1.16z"/>',
   'plus': '<path d="M5 12h14"/><path d="M12 5v14"/>',
+  'trash': '<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+  'sun': '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>',
+  'moon': '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9"/>',
   'settings': '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
 };
 
@@ -449,7 +474,20 @@ const render = (() => {
       row.append(el('span', { class: 'ev-days' }, dates.remainingLabel(left)));
       row.onclick = () => { state.heroId = ev.id; store.save(state); refresh();
         window.scrollTo({ top: 0, behavior: 'smooth' }); };
-      host.append(row);
+
+      const wrap = el('div', { class: 'ev-row' });
+      wrap.append(row);
+      if (!ev.virtual) {                       // release comes from the profile
+        const del = el('button', { class: 'ev-del', type: 'button', 'aria-label': 'מחק ' + ev.title },
+          icon('trash'));
+        del.onclick = () => {
+          state.events = state.events.filter(x => x.id !== ev.id);
+          store.save(state);
+          refresh();
+        };
+        wrap.append(del);
+      }
+      host.append(wrap);
     }
   }
 
@@ -495,6 +533,73 @@ const render = (() => {
         id: 'e' + Date.now().toString(36),
         title, date, icon: picked ? picked.icon : 'flag', source: picked ? 'template' : 'custom',
       });
+      store.save(state);
+      box.remove();
+      refresh();
+    };
+  }
+
+  function settings(state, refresh) {
+    const box = el('div', { class: 'sheet' });
+    box.innerHTML = `
+      <h2>הגדרות</h2>
+      <div class="row">
+        <button class="btn" id="sProfile" type="button">ערוך תאריכי שירות</button>
+      </div>
+      <div class="row">
+        <button class="btn" id="sExport" type="button">ייצא גיבוי</button>
+        <button class="btn" id="sImport" type="button">ייבא גיבוי</button>
+        <input type="file" id="sFile" accept="application/json" hidden>
+      </div>
+      <p class="ev-d">הגיבוי נשמר כקובץ במכשיר. אין ענן ואין חשבון — אם תחליף מכשיר,
+        זו הדרך להעביר את הנתונים.</p>
+      <p class="err" id="sErr"></p>
+      <div class="row">
+        <button class="btn" id="sReset" type="button">אפס הכול</button>
+        <button class="btn ghost" id="sClose" type="button">סגור</button>
+      </div>`;
+    document.body.append(box);
+    const err = box.querySelector('#sErr');
+
+    box.querySelector('#sClose').onclick = () => box.remove();
+
+    box.querySelector('#sProfile').onclick = () => {
+      box.remove();
+      render.wizard(state, refresh);
+    };
+
+    box.querySelector('#sExport').onclick = () => {
+      const blob = new Blob([store.exportJSON(state)], { type: 'application/json' });
+      const a = el('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'ha-sfira-backup.json';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    };
+
+    const file = box.querySelector('#sFile');
+    box.querySelector('#sImport').onclick = () => file.click();
+    file.onchange = () => {
+      const f = file.files[0];
+      if (!f) return;
+      const r = new FileReader();
+      r.onload = () => {
+        try {
+          const next = store.importJSON(String(r.result));
+          Object.assign(state, next);        // keep the same object identity
+          store.save(state);
+          box.remove();
+          refresh();
+        } catch (e) {
+          err.textContent = 'הקובץ לא תקין: ' + e.message;
+        }
+      };
+      r.readAsText(f);
+    };
+
+    box.querySelector('#sReset').onclick = () => {
+      if (!confirm('למחוק את כל הנתונים? אי אפשר לבטל.')) return;
+      Object.assign(state, store.blank());
       store.save(state);
       box.remove();
       refresh();
@@ -559,7 +664,7 @@ const render = (() => {
     box.querySelector('#wSkip').onclick = () => { box.remove(); onDone(); };
   }
 
-  return { hero, wizard, timeline, events, addSheet };
+  return { hero, wizard, timeline, events, addSheet, settings };
 })();
 </script>
 
@@ -604,9 +709,27 @@ const motion = (() => {
 
 <script>
 let state = store.load();
-document.documentElement.setAttribute('data-theme', state.theme);
+
+const btnTheme = document.getElementById('btnTheme');
+const btnSettings = document.getElementById('btnSettings');
+
+function paintTheme() {
+  document.documentElement.setAttribute('data-theme', state.theme);
+  btnTheme.innerHTML = icon(state.theme === 'dark' ? 'sun' : 'moon');
+}
+btnTheme.onclick = () => {
+  state.theme = state.theme === 'dark' ? 'light' : 'dark';
+  store.save(state);
+  paintTheme();
+};
+btnSettings.innerHTML = icon('settings');
+btnSettings.onclick = () => render.settings(state, refresh);
+paintTheme();
 
 function refresh() {
+  // paintTheme is part of the refresh: a reset or an imported backup can
+  // carry a different theme than the one currently on screen.
+  paintTheme();
   render.hero(state);
   render.timeline(state);
   render.events(state, refresh);
