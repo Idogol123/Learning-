@@ -89,6 +89,27 @@ t('daysBetween spans a leap day', () => {
   assert.equal(dates.daysBetween('2025-02-28', '2025-03-01'), 1);
 });
 
+// ---- addDays ----
+t('addDays walks the calendar, not the clock', () => {
+  assert.equal(dates.addDays('2026-01-01', 1), '2026-01-02');
+  assert.equal(dates.addDays('2026-01-01', -1), '2025-12-31');
+  assert.equal(dates.addDays('2024-02-28', 2), '2024-03-01');
+});
+
+t('addDays is unaffected by DST boundaries', () => {
+  // Adding 86400000ms per day across these boundaries lands on 01:00 or on
+  // 23:00 of the previous day, and would report the wrong calendar date.
+  assert.equal(dates.addDays('2026-03-26', 2), '2026-03-28');   // spring forward
+  assert.equal(dates.addDays('2026-10-24', 2), '2026-10-26');   // fall back
+  assert.equal(dates.addDays('2026-10-26', -2), '2026-10-24');
+});
+
+t('addDays and daysBetween are inverses across DST', () => {
+  const from = '2026-03-01';
+  const to = dates.addDays(from, 100);
+  assert.equal(dates.daysBetween(from, to), 100);
+});
+
 // ---- addMonths ----
 t('addMonths clamps to the end of a shorter month', () => {
   // Naive JS gives 2025-05-01 here. It must clamp to 2025-04-30.

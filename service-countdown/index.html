@@ -60,6 +60,40 @@ h1,h2,h3{font-weight:800;letter-spacing:-.02em;margin:0}
   border:1px solid color-mix(in srgb, var(--accent) 24%, transparent);
 }
 .chip-ico svg{width:20px;height:20px}
+/* ---- timeline + event strip ---- */
+.panel{padding:1.25rem; max-width:640px; margin-inline:auto}
+.panel h2{font-size:1.15rem; margin-bottom:.9rem}
+.tl{position:relative; padding-inline-start:1.25rem; border-inline-start:2px solid var(--line)}
+.tl-fill{position:absolute; inset-block-start:0; inset-inline-start:-2px; width:2px;
+  background:var(--accent); border-radius:2px}
+.tl-node{position:relative; padding-block:.55rem; color:var(--muted); font-size:.9rem}
+.tl-node::before{content:""; position:absolute; inset-inline-start:-1.6rem; top:.9rem;
+  width:9px; height:9px; border-radius:50%; background:var(--line-strong)}
+.tl-node.done::before{background:var(--accent)}
+.tl-node.now{color:var(--ink); font-weight:800}
+.tl-node.now::before{background:var(--accent); box-shadow:0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent)}
+.ev{display:flex; align-items:center; gap:.75rem; width:100%; text-align:start;
+  padding:.85rem; margin-bottom:.6rem; border-radius:var(--r);
+  background:var(--card); border:1px solid var(--line); box-shadow:var(--shadow);
+  color:inherit; font:inherit; cursor:pointer;
+  transition:transform .18s var(--ease), border-color .18s var(--ease)}
+.ev:hover{transform:translateY(-1px); border-color:var(--line-strong)}
+.ev.soon{border-color:color-mix(in srgb, var(--accent) 45%, var(--line))}
+.ev-t{font-weight:800}
+.ev-d{color:var(--muted); font-size:.85rem}
+.ev-grow{flex:1; min-width:0}
+.ev-days{font-weight:800; color:var(--accent); font-variant-numeric:tabular-nums; white-space:nowrap}
+.sheet{position:fixed; inset:0; z-index:30; background:var(--bg); overflow-y:auto;
+  padding:1.25rem; display:flex; flex-direction:column; gap:.9rem}
+.sheet label{display:block; color:var(--muted); font-size:.9rem; margin-bottom:.35rem}
+.tpl{display:flex; flex-wrap:wrap; gap:.45rem}
+.tpl button{padding:.5rem .75rem; border-radius:999px; border:1px solid var(--line-strong);
+  background:var(--card); color:var(--ink); font:inherit; font-size:.9rem; cursor:pointer}
+.tpl button.on{background:var(--accent); border-color:var(--accent); color:var(--bg)}
+.sheet input[type=text],.sheet input[type=date]{
+  width:100%; padding:.85rem; border-radius:var(--r); font-size:1rem; font-family:inherit;
+  background:var(--card); color:var(--ink); border:1px solid var(--line-strong)}
+
 /* ---- onboarding wizard ---- */
 .wizard{position:fixed; inset:0; z-index:20; background:var(--bg);
   display:flex; flex-direction:column; justify-content:center;
@@ -87,6 +121,8 @@ h1,h2,h3{font-weight:800;letter-spacing:-.02em;margin:0}
 <body>
 <main id="app">
   <section class="hero" id="hero"></section>
+  <section class="panel" id="timeline"></section>
+  <section class="panel" id="events"></section>
 </main>
 <script>
 /* ---------- dates: pure date arithmetic, no DOM, no storage ---------- */
@@ -116,6 +152,15 @@ const dates = (() => {
   // across those days -- directly wrong in the headline number.
   function daysBetween(fromISO, toISOStr) {
     return Math.round((parse(toISOStr) - parse(fromISO)) / MS_DAY);
+  }
+
+  // Add n calendar days. Built through the Date constructor rather than by
+  // adding n * MS_DAY: a DST boundary would leave the result at 01:00 or at
+  // 23:00 of the previous day, and the previous-day case reports a date that
+  // is off by one.
+  function addDays(iso, n) {
+    const d = parse(iso);
+    return toISO(new Date(d.getFullYear(), d.getMonth(), d.getDate() + n));
   }
 
   // Add n months, clamping onto the last day of the target month.
@@ -156,7 +201,7 @@ const dates = (() => {
     return `${d.getDate()} ב${MONTHS_HE[d.getMonth()]} ${d.getFullYear()}`;
   }
 
-  return { parse, toISO, todayISO, daysBetween, addMonths,
+  return { parse, toISO, todayISO, daysBetween, addDays, addMonths,
            progressPct, hebrewDays, remainingLabel, formatHe };
 })();
 </script>
@@ -256,7 +301,38 @@ function el(tag, attrs = {}, html = '') {
   return n;
 }
 
+const TEMPLATES = [
+  { title: 'סוף טירונות',      icon: 'shield' },
+  { title: 'מסע כומתה',        icon: 'star' },
+  { title: 'סוף אימון מתקדם',  icon: 'shield' },
+  { title: 'סוף מסלול',        icon: 'flag' },
+  { title: 'קורס מפקדים',      icon: 'graduation-cap' },
+  { title: 'קורס קצינים',      icon: 'graduation-cap' },
+  { title: 'דרגה חדשה',        icon: 'star' },
+  { title: 'רגילה הבאה',       icon: 'home' },
+  { title: 'הביתה',            icon: 'home' },
+];
+
 const render = (() => {
+  // Milestones derived from the profile. Not editable: they are a view of the
+  // service, not user data.
+  function milestones(p) {
+    const total = dates.daysBetween(p.enlistDate, p.releaseDate);
+    const at = frac => dates.addDays(p.enlistDate, Math.round(total * frac));
+    const out = [
+      { title: 'גיוס',        date: p.enlistDate },
+      { title: 'רבע פז״מ',    date: at(.25) },
+      { title: 'חצי פז״מ',    date: at(.5) },
+      { title: 'שלושת רבעי',  date: at(.75) },
+      { title: 'שחרור',       date: p.releaseDate },
+    ];
+    if (total > 365) out.push({ title: 'שנה בצבא', date: dates.addMonths(p.enlistDate, 12) });
+    if (total > 730) out.push({ title: 'שנתיים',   date: dates.addMonths(p.enlistDate, 24) });
+    if (total > 100) out.push({ title: '100 ימים אחרונים',
+      date: dates.addDays(p.releaseDate, -100) });
+    return out.sort((a, b) => (a.date < b.date ? -1 : 1));
+  }
+
   function hero(state) {
     const host = document.getElementById('hero');
     host.innerHTML = '';
@@ -275,7 +351,10 @@ const render = (() => {
     const left = dates.daysBetween(today, ev.date);
     const past = left < 0;
 
-    host.append(el('div', { class: 'hero-label' }, past ? 'משוחרר' : ev.title));
+    // "משוחרר" only fits the release. Any other event that has passed keeps
+    // its own title, or the screen reads "discharged" for a beret march.
+    host.append(el('div', { class: 'hero-label' },
+      past && ev.id === 'release' ? 'משוחרר' : ev.title));
     host.append(el('div', { class: 'hero-num', id: 'heroNum' }, String(Math.abs(left))));
     host.append(el('div', { class: 'hero-unit' },
       past ? `ימים מאז ${ev.title}` : (left === 0 ? 'היום!' : 'ימים')));
@@ -294,6 +373,119 @@ const render = (() => {
     }
 
     host.append(el('div', { class: 'scroll-hint' }, icon('chevron-down')));
+  }
+
+  function timeline(state) {
+    const host = document.getElementById('timeline');
+    host.innerHTML = '';
+    if (!state.profile) return;                 // no profile -> no timeline
+
+    const today = dates.todayISO();
+    const p = state.profile;
+    const pct = dates.progressPct(p.enlistDate, p.releaseDate, today);
+
+    host.append(el('h2', {}, 'ציר השירות'));
+    const tl = el('div', { class: 'tl' });
+    const fill = el('div', { class: 'tl-fill' });
+    fill.style.height = pct + '%';
+    tl.append(fill);
+
+    const nodes = milestones(p);
+    let placedNow = false;
+    for (const n of nodes) {
+      if (!placedNow && n.date > today) {
+        tl.append(el('div', { class: 'tl-node now' }, `אתה כאן · ${pct}%`));
+        placedNow = true;
+      }
+      const done = n.date <= today;
+      tl.append(el('div', { class: 'tl-node' + (done ? ' done' : '') },
+        `${n.title} · ${dates.formatHe(n.date)}`));
+    }
+    if (!placedNow) tl.append(el('div', { class: 'tl-node now' }, `אתה כאן · ${pct}%`));
+
+    host.append(tl);
+  }
+
+  function events(state, refresh) {
+    const host = document.getElementById('events');
+    host.innerHTML = '';
+    const today = dates.todayISO();
+    const list = store.allEvents(state);
+
+    const head = el('div', { class: 'row' });
+    head.append(el('h2', { class: 'ev-grow' }, 'אירועים'));
+    const add = el('button', { class: 'btn', type: 'button' }, 'הוסף אירוע');
+    add.onclick = () => addSheet(state, refresh);
+    head.append(add);
+    host.append(head);
+
+    if (list.length === 0) {
+      host.append(el('p', { class: 'ev-d' }, 'אין עדיין אירועים. הוסיפו אחד כדי להתחיל לספור.'));
+      return;
+    }
+
+    for (const ev of list) {
+      const left = dates.daysBetween(today, ev.date);
+      const soon = left >= 0 && left <= 7;
+      const row = el('button', { class: 'ev' + (soon ? ' soon' : ''), type: 'button' });
+      row.append(el('span', { class: 'chip-ico' }, icon(ev.icon)));
+      const mid = el('span', { class: 'ev-grow' });
+      mid.append(el('span', { class: 'ev-t' }, ev.title));
+      mid.append(el('span', { class: 'ev-d' }, ` ${dates.formatHe(ev.date)}`));
+      row.append(mid);
+      row.append(el('span', { class: 'ev-days' }, dates.remainingLabel(left)));
+      row.onclick = () => { state.heroId = ev.id; store.save(state); refresh();
+        window.scrollTo({ top: 0, behavior: 'smooth' }); };
+      host.append(row);
+    }
+  }
+
+  function addSheet(state, refresh) {
+    const box = el('div', { class: 'sheet' });
+    box.innerHTML = `
+      <h2>אירוע חדש</h2>
+      <div class="tpl" id="tpl"></div>
+      <div>
+        <label for="aTitle">שם</label>
+        <input type="text" id="aTitle" placeholder="למשל: סוף קורס מפקדים">
+      </div>
+      <div>
+        <label for="aDate">תאריך</label>
+        <input type="date" id="aDate">
+      </div>
+      <p class="err" id="aErr"></p>
+      <div class="row">
+        <button class="btn primary" id="aSave" type="button">הוסף</button>
+        <button class="btn ghost" id="aCancel" type="button">ביטול</button>
+      </div>`;
+    document.body.append(box);
+
+    let picked = null;
+    const tpl = box.querySelector('#tpl');
+    for (const t of TEMPLATES) {
+      const b = el('button', { type: 'button' }, t.title);
+      b.onclick = () => {
+        tpl.querySelectorAll('button').forEach(x => x.classList.remove('on'));
+        b.classList.add('on');
+        picked = t;
+        box.querySelector('#aTitle').value = t.title;
+      };
+      tpl.append(b);
+    }
+
+    box.querySelector('#aCancel').onclick = () => box.remove();
+    box.querySelector('#aSave').onclick = () => {
+      const title = box.querySelector('#aTitle').value.trim();
+      const date = box.querySelector('#aDate').value;
+      if (!title || !date) { box.querySelector('#aErr').textContent = 'צריך שם ותאריך'; return; }
+      state.events.push({
+        id: 'e' + Date.now().toString(36),
+        title, date, icon: picked ? picked.icon : 'flag', source: picked ? 'template' : 'custom',
+      });
+      store.save(state);
+      box.remove();
+      refresh();
+    };
   }
 
   function wizard(state, onDone) {
@@ -354,7 +546,7 @@ const render = (() => {
     box.querySelector('#wSkip').onclick = () => { box.remove(); onDone(); };
   }
 
-  return { hero, wizard };
+  return { hero, wizard, timeline, events, addSheet };
 })();
 </script>
 
@@ -362,7 +554,11 @@ const render = (() => {
 let state = store.load();
 document.documentElement.setAttribute('data-theme', state.theme);
 
-function refresh() { render.hero(state); }
+function refresh() {
+  render.hero(state);
+  render.timeline(state);
+  render.events(state, refresh);
+}
 
 if (!state.profile && state.events.length === 0) {
   render.wizard(state, refresh);
