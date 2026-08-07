@@ -29,7 +29,11 @@
 - **אקסנט לכל כלי (מתואם, לא אקראי) — בהיר / כהה:**
   guard-duty זית `#4b5320` / `#b3c256` · file-search פלדה-טורקיז `#3d6b6b` / `#5f9a9a` ·
   portfolio טורקיז `#1e6f5c` / `#3fae90` · compound אורן `#2f7d4f` / `#4bbd7c` ·
-  claude-team חמרה `#b0603a` / `#e07a52` · admin גרפיט-אינדיגו `#3d4a6b` / `#8593c4` (גוון "מערכת/טכני").
+  claude-team חמרה `#b0603a` / `#e07a52` · admin גרפיט-אינדיגו `#3d4a6b` / `#8593c4` (גוון "מערכת/טכני") ·
+  **service-countdown ענבר `#8a5a12` / `#e0a33c`** (משוריין 07/08/2026 — מתוכנן, טרם מומש).
+- **מדיניות גופנים (לא הייתה כתובה עד 07/08/2026):** מחסנית מערכת בלבד —
+  `system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Hebrew",Arial,sans-serif`.
+  **אין Google Fonts, אין הטמעת קובץ גופן, אין CDN** — הכלים חייבים לרנדר במצב טיסה.
 - **אייקונים:** קו-inline מ-Lucide בלבד. **לא אימוג'י, לא לצייר SVG מהיד.**
   צ'יפ-אייקון = "זכוכית רכה": `color:accent; background:color-mix(in srgb, accent 12%, card);
   border:1px solid color-mix(in srgb, accent 24%, transparent)`.
@@ -140,6 +144,12 @@
   זה עובד. תמיד קודֵד `#`→`%23` בכל ה-SVG. באג-עבר: כרטיסים עם `background-image:url('data:svg...')` ריקים.
 
 ## היסטוריית שינויים גדולים
+- **07/08/2026:** תוכנן הכלי `service-countdown` ("הספירה") — ספירה לאחור לאירועי שירות.
+  **טרם מומש.** אפיון: `docs/superpowers/specs/2026-08-07-service-countdown-design.md`
+  (כולל תיעוד דחיית מעבר לאפליקציה נייטיבית — Keychain/Keystore אינם נגישים מדף אינטרנט).
+  תוכנית מימוש ב-8 משימות: `docs/superpowers/plans/2026-08-07-service-countdown.md`.
+  **מלכודת תאריכים שכבר תועדה שם:** `new Date("YYYY-MM-DD")` מפרש כ-UTC ומזיז יום;
+  ו-`floor(ms/86400000)` שגוי ביום מעבר שעון קיץ — יש לעגל בין חצות מקומי לחצות מקומי.
 - **15/07/2026:** נוסף דף אדמין `/admin/` — לוח בקרה מוגן בהצפנת AES-GCM (נתונים חיים: אחסון,
   caches, SW, מכשיר; פעולות: ניקוי מטמונים/עדכון SW/גיבוי-יבוא-מחיקת localStorage). כפתור מנעול
   ב-`landing` (`.admin-link`) + באמפ `landing/sw.js` ל-v4. ראה סעיף "דף האדמין" למעלה.
