@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>הספירה — ספירה לאחור לשירות</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<meta name="theme-color" content="#13140f">
+</head>
+<body>
+<script>
+/* ---------- dates: pure date arithmetic, no DOM, no storage ---------- */
+const dates = (() => {
+  const MS_DAY = 86400000;
+  const MONTHS_HE = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני',
+                     'יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+
+  // "YYYY-MM-DD" -> Date at LOCAL midnight.
+  // Never use new Date(iso): that parses as UTC and shifts the calendar day
+  // in any negative-offset timezone.
+  function parse(iso) {
+    const [y, m, d] = iso.split('-').map(Number);
+    return new Date(y, m - 1, d);
+  }
+
+  function toISO(d) {
+    const p = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  }
+
+  function todayISO() { return toISO(new Date()); }
+
+  // Whole calendar days between two local dates.
+  // Rounds rather than floors: a DST boundary makes a calendar day 23 or 25
+  // hours long, and flooring the raw millisecond difference is off by one
+  // across those days -- directly wrong in the headline number.
+  function daysBetween(fromISO, toISOStr) {
+    return Math.round((parse(toISOStr) - parse(fromISO)) / MS_DAY);
+  }
+
+  // Add n months, clamping onto the last day of the target month.
+  // Naive JS overflows: 31 March + 1 month lands on 1 May.
+  function addMonths(iso, n) {
+    const d = parse(iso);
+    const day = d.getDate();
+    const t = new Date(d.getFullYear(), d.getMonth() + n, 1);
+    const last = new Date(t.getFullYear(), t.getMonth() + 1, 0).getDate();
+    t.setDate(Math.min(day, last));
+    return toISO(t);
+  }
+
+  // 0..100, clamped. An empty or inverted range reads as finished.
+  function progressPct(startISO, endISO, nowISO) {
+    const total = daysBetween(startISO, endISO);
+    if (total <= 0) return 100;
+    const done = daysBetween(startISO, nowISO);
+    return Math.max(0, Math.min(100, Math.round((done / total) * 100)));
+  }
+
+  function hebrewDays(n) {
+    const a = Math.abs(n);
+    if (a === 0) return 'היום';
+    if (a === 1) return 'יום אחד';
+    if (a === 2) return 'יומיים';
+    return `${a} ימים`;
+  }
+
+  function remainingLabel(n) {
+    if (n === 0) return 'היום!';
+    if (n < 0) return `עברו ${hebrewDays(n)}`;
+    return `${n === 1 ? 'נשאר' : 'נשארו'} ${hebrewDays(n)}`;
+  }
+
+  function formatHe(iso) {
+    const d = parse(iso);
+    return `${d.getDate()} ב${MONTHS_HE[d.getMonth()]} ${d.getFullYear()}`;
+  }
+
+  return { parse, toISO, todayISO, daysBetween, addMonths,
+           progressPct, hebrewDays, remainingLabel, formatHe };
+})();
+</script>
+</body>
+</html>
