@@ -7,8 +7,68 @@
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="apple-touch-icon" href="./apple-touch-icon.png">
 <meta name="theme-color" content="#13140f">
+<style>
+:root{
+  --bg:#f2f1ea; --card:#fbfaf5; --ink:#1c1e16; --muted:#6b7061;
+  --line:#e0ded2; --line-strong:#d0cebf; --accent:#8a5a12;
+  --ease:cubic-bezier(.16,1,.3,1); --r:16px;
+  --shadow:0 1px 2px rgba(28,30,22,.05), 0 8px 24px rgba(28,30,22,.06);
+}
+:root[data-theme="dark"]{
+  --bg:#13140f; --card:#1c1e15; --ink:#edefe1; --muted:#9aa08c;
+  --line:#2c2f23; --line-strong:#3a3d2e; --accent:#e0a33c;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Hebrew",Arial,sans-serif;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+h1,h2,h3{font-weight:800;letter-spacing:-.02em;margin:0}
+
+/* ---- hero: one full viewport, one number ---- */
+.hero{
+  min-height:100dvh;               /* dvh, not vh: mobile browser chrome */
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:.5rem; padding:1.5rem; text-align:center;
+}
+.hero-label{color:var(--muted); font-size:1rem; letter-spacing:.02em}
+.hero-num{
+  font-size:clamp(5rem, 20vw, 11rem); font-weight:800; line-height:.9;
+  letter-spacing:-.05em; color:var(--accent);
+  font-variant-numeric:tabular-nums;
+}
+.hero-unit{font-size:1.25rem; font-weight:800; color:var(--ink)}
+.hero-meta{color:var(--muted); font-size:.95rem; margin-top:.75rem}
+.hero-ring{width:min(72vw,320px); height:4px; border-radius:999px;
+  background:var(--line); margin-top:1rem; position:relative; overflow:hidden}
+.hero-ring>i{position:absolute; inset-block:0; inset-inline-start:0;
+  background:var(--accent); border-radius:999px; display:block}
+.scroll-hint{margin-top:2rem; color:var(--muted); opacity:.7}
+.scroll-hint svg{width:24px;height:24px}
+
+/* ---- shared ---- */
+.ico{display:inline-flex; width:20px; height:20px}
+.ico svg{width:100%;height:100%}
+.chip-ico{
+  display:inline-flex; align-items:center; justify-content:center;
+  width:38px; height:38px; border-radius:12px; color:var(--accent);
+  background:color-mix(in srgb, var(--accent) 12%, var(--card));
+  border:1px solid color-mix(in srgb, var(--accent) 24%, transparent);
+}
+.chip-ico svg{width:20px;height:20px}
+@media (prefers-reduced-motion: reduce){
+  *{animation-duration:.01ms !important; transition-duration:.01ms !important}
+}
+</style>
 </head>
 <body>
+<main id="app">
+  <section class="hero" id="hero"></section>
+</main>
 <script>
 /* ---------- dates: pure date arithmetic, no DOM, no storage ---------- */
 const dates = (() => {
@@ -146,6 +206,85 @@ const store = (() => {
 
   return { KEY, blank, load, save, allEvents, heroEvent, exportJSON, importJSON };
 })();
+</script>
+
+<script>
+/* ---------- render: state -> DOM ---------- */
+const ICONS = {
+  'chevron-down': '<path d="m6 9 6 6 6-6"/>',
+  'party-popper': '<path d="M5.8 11.3 2 22l10.7-3.79"/><path d="M4 3h.01"/><path d="M22 8h.01"/><path d="M15 2h.01"/><path d="M22 20h.01"/><path d="m22 2-2.24.75a2.9 2.9 0 0 0-1.96 3.12c.1.86-.57 1.63-1.45 1.63h-.38c-.86 0-1.6.6-1.76 1.44L14 11"/><path d="m22 13-.82-.33c-.86-.34-1.82.2-1.98 1.11c-.11.7-.72 1.22-1.43 1.22H16"/><path d="M11 2 9.9 2.44a2.03 2.03 0 0 0-1.12 2.5l.33.83c.28.7 0 1.5-.65 1.85L7 8.5"/>',
+  'flag': '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/>',
+  'graduation-cap': '<path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"/><path d="M22 10v6"/><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"/>',
+  'home': '<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+  'shield': '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
+  'star': '<path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.12 2.12 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.12 2.12 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.12 2.12 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.12 2.12 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.12 2.12 0 0 0 1.597-1.16z"/>',
+  'plus': '<path d="M5 12h14"/><path d="M12 5v14"/>',
+  'settings': '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
+};
+
+function icon(name) {
+  const body = ICONS[name] || ICONS.flag;
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
+}
+
+function el(tag, attrs = {}, html = '') {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'class') n.className = v; else n.setAttribute(k, v);
+  }
+  if (html) n.innerHTML = html;
+  return n;
+}
+
+const render = (() => {
+  function hero(state) {
+    const host = document.getElementById('hero');
+    host.innerHTML = '';
+    const ev = store.heroEvent(state);
+
+    if (!ev) {
+      host.append(
+        el('div', { class: 'chip-ico' }, icon('plus')),
+        el('h1', { class: 'hero-unit' }, 'עוד אין ספירה'),
+        el('p', { class: 'hero-meta' }, 'הוסיפו תאריך שחרור או אירוע כדי להתחיל')
+      );
+      return;
+    }
+
+    const today = dates.todayISO();
+    const left = dates.daysBetween(today, ev.date);
+    const past = left < 0;
+
+    host.append(el('div', { class: 'hero-label' }, past ? 'משוחרר' : ev.title));
+    host.append(el('div', { class: 'hero-num', id: 'heroNum' }, String(Math.abs(left))));
+    host.append(el('div', { class: 'hero-unit' },
+      past ? `ימים מאז ${ev.title}` : (left === 0 ? 'היום!' : 'ימים')));
+
+    if (state.profile) {
+      const pct = dates.progressPct(state.profile.enlistDate, state.profile.releaseDate, today);
+      const ring = el('div', { class: 'hero-ring' });
+      const fill = el('i');
+      fill.style.width = pct + '%';
+      ring.append(fill);
+      host.append(ring);
+      host.append(el('div', { class: 'hero-meta' },
+        `${dates.formatHe(ev.date)} · ${pct}% פז"מ`));
+    } else {
+      host.append(el('div', { class: 'hero-meta' }, dates.formatHe(ev.date)));
+    }
+
+    host.append(el('div', { class: 'scroll-hint' }, icon('chevron-down')));
+  }
+
+  return { hero };
+})();
+</script>
+
+<script>
+let state = store.load();
+document.documentElement.setAttribute('data-theme', state.theme);
+render.hero(state);
 </script>
 </body>
 </html>
