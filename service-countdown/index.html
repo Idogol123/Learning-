@@ -35,6 +35,13 @@ h1,h2,h3{font-weight:800;letter-spacing:-.02em;margin:0}
   display:flex; flex-direction:column; align-items:center; justify-content:center;
   gap:.5rem; padding:1.5rem; text-align:center;
 }
+.hero{
+  --t:0;                                    /* 0 = full hero, 1 = collapsed */
+  transform:scale(calc(1 - var(--t) * .35));
+  opacity:calc(1 - var(--t) * .55);
+  transform-origin:top center;
+  will-change:transform, opacity;
+}
 .hero-label{color:var(--muted); font-size:1rem; letter-spacing:.02em}
 .hero-num{
   font-size:clamp(5rem, 20vw, 11rem); font-weight:800; line-height:.9;
@@ -49,6 +56,12 @@ h1,h2,h3{font-weight:800;letter-spacing:-.02em;margin:0}
   background:var(--accent); border-radius:999px; display:block}
 .scroll-hint{margin-top:2rem; color:var(--muted); opacity:.7}
 .scroll-hint svg{width:24px;height:24px}
+.hero-num{transition:color .3s var(--ease)}
+@keyframes roll{
+  from{transform:translateY(.35em); opacity:0}
+  to{transform:none; opacity:1}
+}
+.rolling{animation:roll .45s var(--ease)}
 
 /* ---- shared ---- */
 .ico{display:inline-flex; width:20px; height:20px}
@@ -551,6 +564,45 @@ const render = (() => {
 </script>
 
 <script>
+/* ---------- motion: scroll-driven hero collapse + digit roll ---------- */
+const motion = (() => {
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // Deliberately NOT animation-timeline: scroll(). That is Chromium-only and
+  // this tool's primary target is an installed PWA on iOS Safari, where it
+  // would silently do nothing.
+  function init() {
+    if (reduce) return;
+    const hero = document.getElementById('hero');
+    if (!hero) return;
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        const t = Math.min(1, window.scrollY / (window.innerHeight * 0.6));
+        hero.style.setProperty('--t', t.toFixed(3));
+        ticking = false;
+      });
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+  }
+
+  function rollNumber() {
+    if (reduce) return;
+    const n = document.getElementById('heroNum');
+    if (!n) return;
+    n.classList.remove('rolling');
+    void n.offsetWidth;             // force reflow so the animation restarts
+    n.classList.add('rolling');
+  }
+
+  return { init, rollNumber };
+})();
+</script>
+
+<script>
 let state = store.load();
 document.documentElement.setAttribute('data-theme', state.theme);
 
@@ -558,6 +610,7 @@ function refresh() {
   render.hero(state);
   render.timeline(state);
   render.events(state, refresh);
+  motion.rollNumber();
 }
 
 if (!state.profile && state.events.length === 0) {
@@ -565,6 +618,8 @@ if (!state.profile && state.events.length === 0) {
 } else {
   refresh();
 }
+
+motion.init();
 </script>
 </body>
 </html>
