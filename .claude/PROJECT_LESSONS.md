@@ -14,6 +14,11 @@
   הוא מדפיס `overflow=` ו-`console_errors=`, מאתר את Chromium לבד, ומטפל ב-dialogs.
   **אל תבנה סקריפט Playwright מאפס** — זה בזבז כמה ניסיונות בעבר (Playwright מותקן
   גלובלית ולא כ-node_module מקומי; import דרך `npm root -g` + default export).
+- **ייצור אייקוני PWA בלי ספריית גרפיקה:** `screenshot.mjs` **לא מתאים** לזה — הוא תמיד
+  מצלם `fullPage` מול viewport בגובה 900, אז כל פלט יוצא בגובה 1800 (רוחב נכון, גובה לא).
+  לאייקון ריבועי צריך סקריפט Playwright קצר ב-scratchpad עם `viewport:{width:size,height:size}`,
+  `deviceScaleFactor:1` ו-`screenshot()` **בלי** `fullPage` — ה-viewport עצמו הוא האייקון.
+  (דוגמה עובדת: `service-countdown/icon-*.png`, 512/192/180 + maskable עם גליף קטן יותר לספיית-בטיחות.)
 - **אל תקרא את `file-search/index.html` במלואו** — יש בו blob מוטמע של ~3.3MB.
   קרא רק את בלוק ה-`<style>` ואת ה-markup (header/body), למשל עם Grep/offset.
 - **פלט `mcp__github__actions_list` ענק** (מאות אלפי תווים) — סנן עם python/jq על
@@ -30,7 +35,7 @@
   guard-duty זית `#4b5320` / `#b3c256` · file-search פלדה-טורקיז `#3d6b6b` / `#5f9a9a` ·
   portfolio טורקיז `#1e6f5c` / `#3fae90` · compound אורן `#2f7d4f` / `#4bbd7c` ·
   claude-team חמרה `#b0603a` / `#e07a52` · admin גרפיט-אינדיגו `#3d4a6b` / `#8593c4` (גוון "מערכת/טכני") ·
-  **service-countdown ענבר `#8a5a12` / `#e0a33c`** (משוריין 07/08/2026 — מתוכנן, טרם מומש).
+  **service-countdown ענבר `#8a5a12` / `#e0a33c`** (הכלי היחיד שברירת המחדל שלו כהה, בכוונה).
 - **מדיניות גופנים (לא הייתה כתובה עד 07/08/2026):** מחסנית מערכת בלבד —
   `system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Hebrew",Arial,sans-serif`.
   **אין Google Fonts, אין הטמעת קובץ גופן, אין CDN** — הכלים חייבים לרנדר במצב טיסה.
@@ -124,6 +129,20 @@
   אם רואים את התזכורת — פשוט לעדכן כאן ולדחוף. הוא מזהה לפי `git push` + `main` בפקודה.
 
 ## מלכודות ספציפיות לכלים
+- **`service-countdown` — רישום SW חייב שומר פרוטוקול:** `navigator.serviceWorker.register()`
+  מ-`file://` זורק, ו-`verify-all.mjs` מרנדר ב-`file://` — כלומר רישום "נקי" מפיל את שער האיכות
+  עם `PAGEERROR: The URL protocol of the current origin ('null') is not supported`. הדפוס הנכון
+  (כמו בשאר הכלים): `if ('serviceWorker' in navigator && location.protocol.startsWith('http'))`
+  **וגם** `.catch(() => {})`.
+- **`service-countdown` — חשבון תאריכים: אף פעם לא `+ n*86400000`.** גם `daysBetween` וגם
+  הוספת ימים חייבים לעבוד על לוח השנה: מעבר שעון חורף גורם ל-`midnight + 100*86400000`
+  לנחות ב-23:00 של היום הקודם, ואז שם התאריך זז ביום. יש `dates.addDays(iso,n)` שבונה דרך
+  `new Date(y,m,d+n)`; `daysBetween` מעגל (`Math.round`) ולא מרצף. שתי המלכודות מכוסות בבדיקות.
+- **בדיקות שמחלצות מודול מ-HTML ומריצות ב-`node:vm` — מלכודת realm:** ערכים שנוצרים בתוך
+  ה-sandbox נושאים את `Array/Object.prototype` של אותו realm, ולכן
+  `assert.deepEqual(sandboxValue, [])` **נכשל** ("same structure but not reference-equal")
+  גם כשהערך נכון. פתרון: להעתיק לריאלם המארח (`[...value]`) או להשוות אורך/שדות.
+  (הדפוס הזה משמש ב-`service-countdown/test/dates.test.mjs` וב-`guard-duty-scheduler/test/`.)
 - **`compound-calculator` — צ'יפים של תשואה (סולידי/מדד/אגרסיבי):** המצב הפעיל (`.chip.on`
   הירוק) מסונכרן **מרכזית** ב-`syncRetChips()` שנקראת מתוך `onChange()` — כך שלחיצה על
   צ'יפ, הקלדה ידנית, וגרירת סליידר כולם מעדכנים את ההדגשה לפי ערך `#ret`. אל תחזיר
@@ -144,12 +163,14 @@
   זה עובד. תמיד קודֵד `#`→`%23` בכל ה-SVG. באג-עבר: כרטיסים עם `background-image:url('data:svg...')` ריקים.
 
 ## היסטוריית שינויים גדולים
-- **07/08/2026:** תוכנן הכלי `service-countdown` ("הספירה") — ספירה לאחור לאירועי שירות.
-  **טרם מומש.** אפיון: `docs/superpowers/specs/2026-08-07-service-countdown-design.md`
-  (כולל תיעוד דחיית מעבר לאפליקציה נייטיבית — Keychain/Keystore אינם נגישים מדף אינטרנט).
-  תוכנית מימוש ב-8 משימות: `docs/superpowers/plans/2026-08-07-service-countdown.md`.
-  **מלכודת תאריכים שכבר תועדה שם:** `new Date("YYYY-MM-DD")` מפרש כ-UTC ומזיז יום;
-  ו-`floor(ms/86400000)` שגוי ביום מעבר שעון קיץ — יש לעגל בין חצות מקומי לחצות מקומי.
+- **07/08/2026:** נוסף הכלי `service-countdown` ("הספירה") — ספירה לאחור לאירועי שירות:
+  גיבור מלא-מסך שמתכווץ בגלילה, ציר שירות עם אבני דרך נגזרות, רצועת אירועים שלחיצה עליה
+  מחליפה את הגיבור, אשף "חשב לי" (32/24 חודשים), הגדרות עם ייצוא/ייבוא, וברירת מחדל כהה.
+  אפיון: `docs/superpowers/specs/2026-08-07-service-countdown-design.md` (כולל תיעוד דחיית
+  מעבר לאפליקציה נייטיבית — Keychain/Keystore אינם נגישים מדף אינטרנט).
+  תוכנית ב-8 משימות: `docs/superpowers/plans/2026-08-07-service-countdown.md`.
+  28 בדיקות יחידה ל-`dates`+`store` (`node service-countdown/test/dates.test.mjs`),
+  שרצות מול המקור האמיתי המחולץ מ-`index.html`. מלכודות התאריכים והריאלם — בסעיפים למעלה.
 - **15/07/2026:** נוסף דף אדמין `/admin/` — לוח בקרה מוגן בהצפנת AES-GCM (נתונים חיים: אחסון,
   caches, SW, מכשיר; פעולות: ניקוי מטמונים/עדכון SW/גיבוי-יבוא-מחיקת localStorage). כפתור מנעול
   ב-`landing` (`.admin-link`) + באמפ `landing/sw.js` ל-v4. ראה סעיף "דף האדמין" למעלה.

@@ -743,6 +743,13 @@ if (!state.profile && state.events.length === 0) {
 }
 
 motion.init();
+
+// The protocol guard matches the other tools: registering from file:// throws
+// an unhandled rejection, which the headless quality gate reports as an error.
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  window.addEventListener('load', () =>
+    navigator.serviceWorker.register('./sw.js').catch(() => {}));
+}
 </script>
 </body>
 </html>
