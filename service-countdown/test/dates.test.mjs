@@ -460,4 +460,31 @@ t('decodeState rejects junk instead of wiping the device', () => {
   assert.throws(() => store.decodeState(''));
 });
 
+// ---- repeating events ----
+t('nextOccurrence rolls forward to the next cycle', () => {
+  assert.equal(dates.nextOccurrence('2026-08-01', 21, '2026-08-08'), '2026-08-22');
+  assert.equal(dates.nextOccurrence('2026-08-01', 21, '2026-08-22'), '2026-08-22');
+  assert.equal(dates.nextOccurrence('2026-08-01', 21, '2026-08-23'), '2026-09-12');
+});
+
+t('nextOccurrence leaves a future start alone', () => {
+  assert.equal(dates.nextOccurrence('2026-12-01', 21, '2026-08-08'), '2026-12-01');
+});
+
+t('nextOccurrence ignores a nonsense cycle', () => {
+  assert.equal(dates.nextOccurrence('2026-08-01', 0, '2026-08-08'), '2026-08-01');
+  assert.equal(dates.nextOccurrence('2026-08-01', -7, '2026-08-08'), '2026-08-01');
+});
+
+t('allEvents rolls a repeating event to its next occurrence', () => {
+  const s = store.blank();
+  s.events = [{ id: 'r', title: 'רגילה', date: '2026-08-01', every: 21,
+                icon: 'home', source: 'template' }];
+  const row = store.allEvents(s, '2026-08-08').find(e => e.id === 'r');
+  assert.equal(row.date, '2026-08-22');
+  assert.equal(row.baseDate, '2026-08-01');
+  // The stored row is untouched: rolling is a view, not a mutation.
+  assert.equal(s.events[0].date, '2026-08-01');
+});
+
 console.log(`${passed} passed`);
