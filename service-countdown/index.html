@@ -66,7 +66,7 @@ h1,h2,h3{font-weight:800;letter-spacing:-.02em;margin:0}
 }
 .hero-label{color:var(--muted); font-size:1rem; letter-spacing:.02em}
 .hero-num{
-  font-size:clamp(5rem, 20vw, 11rem); font-weight:800; line-height:.9;
+  font-size:clamp(4rem, 16vw, 8.5rem); font-weight:800; line-height:.9;
   letter-spacing:-.05em; color:var(--accent);
   font-variant-numeric:tabular-nums;
 }
@@ -75,10 +75,16 @@ h1,h2,h3{font-weight:800;letter-spacing:-.02em;margin:0}
 .hero-num:focus-visible{outline:2px solid var(--accent); outline-offset:6px; border-radius:8px}
 .hero-unit{font-size:1.25rem; font-weight:800; color:var(--ink)}
 .hero-meta{color:var(--muted); font-size:.95rem; margin-top:.75rem}
-.hero-ring{width:min(72vw,320px); height:4px; border-radius:999px;
-  background:var(--line); margin-top:1rem; position:relative; overflow:hidden}
-.hero-ring>i{position:absolute; inset-block:0; inset-inline-start:0;
-  background:var(--accent); border-radius:999px; display:block}
+.hero-wrap{position:relative; display:grid; place-items:center; margin-block:.25rem}
+.hero-ring{display:block; width:min(78vw, 340px); height:auto; overflow:visible}
+.hero-ring circle{fill:none; stroke-linecap:round;
+  transform:rotate(-90deg); transform-origin:50% 50%}
+.hero-ring .track{stroke:var(--line); stroke-width:3}
+.hero-ring .fill{stroke:var(--accent); stroke-width:3;
+  transition:stroke-dashoffset .9s var(--ease)}
+.hero-wrap>.hero-inner{position:absolute; inset:0; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; gap:.15rem; padding:12%}
+@media (prefers-reduced-motion: reduce){ .hero-ring .fill{transition:none} }
 .scroll-hint{margin-top:2rem; color:var(--muted); opacity:.7}
 .scroll-hint svg{width:24px;height:24px}
 .hero-num{transition:color .3s var(--ease)}
@@ -578,6 +584,32 @@ const render = (() => {
   let heroState = null, heroRefresh = null;
   function refreshHero() { if (heroState) hero(heroState, heroRefresh); }
 
+  // A ring, not a bar: the spec drew one and a straight line under the number
+  // reads as a loading indicator rather than as a share of a service.
+  // r=46 in a 100-unit box leaves room for the 3-unit stroke at both ends.
+  function ring(pct) {
+    const R = 46, C = 2 * Math.PI * R;
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'hero-ring');
+    svg.setAttribute('viewBox', '0 0 100 100');
+    svg.setAttribute('aria-hidden', 'true');
+    for (const cls of ['track', 'fill']) {
+      const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      c.setAttribute('class', cls);
+      c.setAttribute('cx', '50'); c.setAttribute('cy', '50'); c.setAttribute('r', String(R));
+      if (cls === 'fill') {
+        c.setAttribute('stroke-dasharray', String(C));
+        // Start empty, then let the CSS transition draw it on the next frame.
+        c.setAttribute('stroke-dashoffset', String(C));
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          c.setAttribute('stroke-dashoffset', String(C * (1 - Math.min(100, pct) / 100)));
+        }));
+      }
+      svg.append(c);
+    }
+    return svg;
+  }
+
   function hero(state, refresh) {
     const host = document.getElementById('hero');
     heroState = state; heroRefresh = refresh;
@@ -620,23 +652,25 @@ const render = (() => {
       store.save(state);
       refreshHero();
     };
-    host.append(num);
+    const wrap = el('div', { class: 'hero-wrap' });
+    const inner = el('div', { class: 'hero-inner' });
+    inner.append(num);
     const rest = dates.remainderLabel(unit, today, ev.date);
-    host.append(el('div', { class: 'hero-unit' },
+    inner.append(el('div', { class: 'hero-unit' },
       past ? `${dates.unitName(unit, value)} מאז ${ev.title}`
            : (value === 0 && unit === 'days' ? 'היום!'
               : `${dates.unitName(unit, value)}${rest ? ' ' + rest : ''}`)));
 
     if (state.profile) {
       const pct = dates.progressPct(state.profile.enlistDate, state.profile.releaseDate, today);
-      const ring = el('div', { class: 'hero-ring' });
-      const fill = el('i');
-      fill.style.width = pct + '%';
-      ring.append(fill);
-      host.append(ring);
+      wrap.append(ring(pct));
+      wrap.append(inner);
+      host.append(wrap);
       host.append(el('div', { class: 'hero-meta' },
         `${dates.formatHe(ev.date)} · ${pct}% פז"מ`));
     } else {
+      wrap.append(inner);
+      host.append(wrap);
       host.append(el('div', { class: 'hero-meta' }, dates.formatHe(ev.date)));
     }
 
@@ -1161,7 +1195,8 @@ const render = (() => {
     box.querySelector('#wSkip').onclick = () => { dismiss(); onDone(); };
   }
 
-  return { hero, wizard, timeline, stats, events, addSheet, eventSheet, settings, toast, openSheet };
+  return { hero, ring, wizard, timeline, stats, events, addSheet, eventSheet, settings,
+           toast, openSheet };
 })();
 </script>
 
