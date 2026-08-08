@@ -26,6 +26,19 @@
   --line:#2c2f23; --line-strong:#3a3d2e; --accent:#e0a33c;
   --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
 }
+/* A closed set, all from the collection's muted family. The default stays
+   amber -- it is the tool's identity on the landing page. */
+:root[data-accent="olive"]  { --accent:#4b5320 }
+:root[data-accent="maroon"] { --accent:#7a3b32 }
+:root[data-accent="steel"]  { --accent:#3d6b6b }
+:root[data-accent="navy"]   { --accent:#3d4a6b }
+:root[data-theme="dark"][data-accent="olive"]  { --accent:#b3c256 }
+:root[data-theme="dark"][data-accent="maroon"] { --accent:#d98878 }
+:root[data-theme="dark"][data-accent="steel"]  { --accent:#5f9a9a }
+:root[data-theme="dark"][data-accent="navy"]   { --accent:#8593c4 }
+.swatch{width:36px; height:36px; border-radius:50%; border:2px solid var(--line-strong);
+  cursor:pointer; padding:0}
+.swatch.on{border-color:var(--ink); box-shadow:0 0 0 3px color-mix(in srgb, var(--ink) 15%, transparent)}
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
 body{
@@ -382,7 +395,8 @@ const store = (() => {
   const KEY = 'service-countdown.v1';
 
   function blank() {
-    return { v: 1, profile: null, events: [], heroId: 'release', theme: 'dark', unit: 'days' };
+    return { v: 1, profile: null, events: [], heroId: 'release', theme: 'dark', unit: 'days',
+             accent: 'amber' };
   }
 
   // Never throws. A corrupt or foreign payload is treated as "no data yet"
@@ -882,6 +896,10 @@ const render = (() => {
       <div class="row">
         <button class="btn" id="sProfile" type="button">ערוך תאריכי שירות</button>
       </div>
+      <div>
+        <label>צבע</label>
+        <div class="row" id="sAccent"></div>
+      </div>
       <div class="row">
         <button class="btn" id="sIcs" type="button">הוסף ליומן עם תזכורת</button>
         <button class="btn" id="sShare" type="button">שתף את הספירה</button>
@@ -937,6 +955,28 @@ const render = (() => {
         err.textContent = ok ? 'התג יופיע על האייקון' : 'ההרשאה נדחתה — אין תג';
         if (ok) refresh();
       };
+    }
+
+    const ACCENTS = [
+      { key: 'amber',  light: '#8a5a12', dark: '#e0a33c', name: 'ענבר' },
+      { key: 'olive',  light: '#4b5320', dark: '#b3c256', name: 'זית' },
+      { key: 'maroon', light: '#7a3b32', dark: '#d98878', name: 'בורדו' },
+      { key: 'steel',  light: '#3d6b6b', dark: '#5f9a9a', name: 'פלדה' },
+      { key: 'navy',   light: '#3d4a6b', dark: '#8593c4', name: 'כחול' },
+    ];
+    const accentRow = box.querySelector('#sAccent');
+    for (const a of ACCENTS) {
+      const b = el('button', { class: 'swatch', type: 'button', 'aria-label': a.name });
+      b.style.background = state.theme === 'dark' ? a.dark : a.light;
+      b.onclick = () => {
+        state.accent = a.key;
+        store.save(state);
+        accentRow.querySelectorAll('.swatch').forEach(x => x.classList.remove('on'));
+        b.classList.add('on');
+        refresh();
+      };
+      if ((state.accent || 'amber') === a.key) b.classList.add('on');
+      accentRow.append(b);
     }
 
     box.querySelector('#sProfile').onclick = () => {
@@ -1242,6 +1282,7 @@ const btnSettings = document.getElementById('btnSettings');
 
 function paintTheme() {
   document.documentElement.setAttribute('data-theme', state.theme);
+  document.documentElement.setAttribute('data-accent', state.accent || 'amber');
   btnTheme.innerHTML = icon(state.theme === 'dark' ? 'sun' : 'moon');
   btnTheme.setAttribute('aria-pressed', state.theme === 'dark' ? 'true' : 'false');
   // The tool picks its own theme regardless of the system setting, so a static
