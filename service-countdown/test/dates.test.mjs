@@ -230,6 +230,24 @@ t('formatHe renders a Hebrew long date', () => {
   assert.equal(dates.formatHe('2026-08-07'), '7 באוגוסט 2026');
 });
 
+// ---- timeline axis ----
+t('axisGap is proportional to elapsed time', () => {
+  // Half the span => half the pixels. (2026-01-01 + 200 days = 2026-07-20;
+  // + 400 days = 2027-02-05.)
+  assert.equal(dates.axisGap('2026-01-01', '2026-07-20', 400, 400, 14), 200);
+  assert.equal(dates.axisGap('2026-01-01', '2027-02-05', 400, 400, 14), 400);
+});
+
+t('axisGap floors at the readable minimum and never goes negative', () => {
+  assert.equal(dates.axisGap('2026-01-01', '2026-01-02', 400, 400, 14), 14);
+  assert.equal(dates.axisGap('2026-01-01', '2026-01-01', 400, 400, 14), 14);
+  assert.equal(dates.axisGap('2026-07-01', '2026-01-01', 400, 400, 14), 14);
+});
+
+t('axisGap tolerates a zero-length span', () => {
+  assert.equal(dates.axisGap('2026-01-01', '2026-01-01', 0, 400, 14), 14);
+});
+
 // ---- store ----
 t('blank state is valid and empty', () => {
   const s = store.blank();

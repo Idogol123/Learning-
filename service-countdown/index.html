@@ -103,12 +103,15 @@ h1,h2,h3{font-weight:800;letter-spacing:-.02em;margin:0}
 .panel{padding:1.25rem; max-width:640px; margin-inline:auto}
 .panel:last-of-type{padding-block-end:calc(1.25rem + env(safe-area-inset-bottom))}
 .panel h2{font-size:1.15rem; margin-bottom:.9rem}
-.tl{position:relative; padding-inline-start:1.25rem; border-inline-start:2px solid var(--line)}
+.tl{position:relative; padding-inline-start:1.25rem; margin:0;
+  border-inline-start:2px solid var(--line); list-style:none}
 .tl-fill{position:absolute; inset-block-start:0; inset-inline-start:-2px; width:2px;
   background:var(--accent); border-radius:2px}
-.tl-node{position:relative; padding-block:.55rem; color:var(--muted); font-size:.9rem}
-.tl-node::before{content:""; position:absolute; inset-inline-start:-1.6rem; top:.9rem;
+.tl-node{position:relative; color:var(--muted); font-size:.9rem}
+.tl-node::before{content:""; position:absolute; inset-inline-start:-1.6rem; top:.2rem;
   width:9px; height:9px; border-radius:50%; background:var(--line-strong)}
+.tl-node.ev-node::before{background:transparent;
+  border:2px solid color-mix(in srgb, var(--accent) 60%, var(--line-strong))}
 .tl-node.done::before{background:var(--accent)}
 .tl-node.now{color:var(--ink); font-weight:800}
 .tl-node.now::before{background:var(--accent); box-shadow:0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent)}
@@ -336,6 +339,18 @@ const dates = (() => {
     return out;
   }
 
+  // Vertical distance between two nodes on the service axis. The old timeline
+  // spaced nodes evenly and then drew a fill at `pct%` of the LIST's pixel
+  // height -- so the fill and the "you are here" marker agreed only by
+  // coincidence. Spacing by elapsed time makes the axis mean something, and the
+  // floor keeps two same-week milestones from colliding.
+  function axisGap(prevISO, dateISO, spanDays, pxTotal, minPx) {
+    if (spanDays <= 0) return minPx;
+    const d = daysBetween(prevISO, dateISO);
+    if (d <= 0) return minPx;
+    return Math.max(minPx, Math.round((d / spanDays) * pxTotal));
+  }
+
   function hebrewDays(n) {
     const a = Math.abs(n);
     if (a === 0) return 'היום';
@@ -356,7 +371,7 @@ const dates = (() => {
   }
 
   return { parse, toISO, todayISO, daysBetween, addDays, addMonths, msUntilNextMidnight,
-           monthsBetween, unitValue, unitName, remainderLabel, enlistWaves,
+           monthsBetween, unitValue, unitName, remainderLabel, enlistWaves, axisGap,
            progressPct, hebrewDays, remainingLabel, formatHe };
 })();
 </script>
@@ -611,27 +626,41 @@ const render = (() => {
     const today = dates.todayISO();
     const p = state.profile;
     const pct = dates.progressPct(p.enlistDate, p.releaseDate, today);
+    const span = dates.daysBetween(p.enlistDate, p.releaseDate);
 
     host.append(el('h2', {}, 'ציר השירות'));
-    const tl = el('div', { class: 'tl' });
+    const tl = el('ol', { class: 'tl' });
     const fill = el('div', { class: 'tl-fill' });
-    fill.style.height = pct + '%';
     tl.append(fill);
 
-    const nodes = milestones(p);
-    let placedNow = false;
-    for (const n of nodes) {
-      if (!placedNow && n.date > today) {
-        tl.append(el('div', { class: 'tl-node now' }, `אתה כאן · ${pct}%`));
-        placedNow = true;
-      }
-      const done = n.date <= today;
-      tl.append(el('div', { class: 'tl-node' + (done ? ' done' : '') },
-        `${n.title} · ${dates.formatHe(n.date)}`));
+    // Milestones, the user's own events, and "you are here" all live on one
+    // axis: the spec asked for event points placed by date, and a separate
+    // list of milestones was never the same thing.
+    const nodes = milestones(p).map(n => ({ ...n, kind: 'milestone' }));
+    for (const ev of store.allEvents(state)) {
+      if (ev.id === 'release') continue;        // already a milestone
+      nodes.push({ title: ev.title, date: ev.date, kind: 'event', icon: ev.icon });
     }
-    if (!placedNow) tl.append(el('div', { class: 'tl-node now' }, `אתה כאן · ${pct}%`));
+    nodes.push({ title: `אתה כאן · ${pct}%`, date: today, kind: 'now' });
+    nodes.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+
+    let prev = nodes[0].date;
+    let nowNode = null;
+    for (const n of nodes) {
+      const cls = n.kind === 'now' ? 'tl-node now'
+                : n.date <= today ? 'tl-node done' : 'tl-node';
+      const node = el('li', { class: cls + (n.kind === 'event' ? ' ev-node' : '') },
+        n.kind === 'now' ? n.title : `${n.title} · ${dates.formatHe(n.date)}`);
+      node.style.marginBlockStart = dates.axisGap(prev, n.date, span, 420, 14) + 'px';
+      tl.append(node);
+      if (n.kind === 'now') nowNode = node;
+      prev = n.date;
+    }
 
     host.append(tl);
+    // Measured, not computed from a percentage: the fill now ends exactly at
+    // the marker, whatever the dates are.
+    if (nowNode) fill.style.height = (nowNode.offsetTop + 14) + 'px';
   }
 
   let toastTimer = null;
