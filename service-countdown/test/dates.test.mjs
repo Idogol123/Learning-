@@ -278,6 +278,20 @@ t('splitDuration breaks milliseconds into d/h/m/s', () => {
     { days: 0, hours: 0, minutes: 0, seconds: 5 });
 });
 
+// ---- service moments ----
+t('momentFor names the crossover, the halfway mark and the last 100 days', () => {
+  const enlist = '2025-03-15', release = '2027-11-15';   // 975 days
+  assert.equal(dates.momentFor(enlist, release, '2025-03-16'), null);
+  assert.equal(dates.momentFor(enlist, release, '2026-09-01').key, 'half');
+  assert.equal(dates.momentFor(enlist, release, '2027-09-01').key, 'last100');
+});
+
+t('momentFor prefers the nearest milestone and stops after release', () => {
+  const enlist = '2025-03-15', release = '2027-11-15';
+  assert.equal(dates.momentFor(enlist, release, '2027-11-16'), null);
+  assert.ok(dates.momentFor(enlist, release, '2026-09-01').text.includes('פחות'));
+});
+
 // ---- store ----
 t('blank state is valid and empty', () => {
   const s = store.blank();

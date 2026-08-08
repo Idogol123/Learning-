@@ -106,6 +106,15 @@ h1,h2,h3{font-weight:800;letter-spacing:-.02em;margin:0}
   to{transform:none; opacity:1}
 }
 .rolling{animation:roll .45s var(--ease)}
+.moment{display:inline-flex; align-items:center; gap:.5rem; margin-top:.9rem;
+  padding:.5rem .8rem; border-radius:999px; font-size:.88rem; font-weight:700;
+  color:var(--accent); background:color-mix(in srgb, var(--accent) 12%, var(--card));
+  border:1px solid color-mix(in srgb, var(--accent) 26%, transparent)}
+.moment .ico{width:16px; height:16px}
+@keyframes celebrate{
+  0%{filter:none} 35%{filter:drop-shadow(0 0 14px var(--accent))} 100%{filter:none}
+}
+.celebrate{animation:celebrate 1.1s var(--ease)}
 .hero-mini{
   position:fixed; inset-block-start:0; inset-inline:0; z-index:9;
   display:flex; align-items:center; justify-content:center; gap:.45rem;
@@ -424,6 +433,22 @@ const dates = (() => {
     return { days, hours, minutes, seconds: s - minutes * 60 };
   }
 
+  // The three moments people actually count toward. Returns the most advanced
+  // one that has already happened, or null when there is nothing to say --
+  // a banner that is always on stops being a banner.
+  function momentFor(enlistISO, releaseISO, todayISO) {
+    const left = daysBetween(todayISO, releaseISO);
+    if (left < 0) return null;
+    if (left <= 100) {
+      return { key: 'last100', text: `100 הימים האחרונים — נשארו ${hebrewDays(left)}` };
+    }
+    const pct = progressPct(enlistISO, releaseISO, todayISO);
+    if (pct >= 50) {
+      return { key: 'half', text: 'עברת את חצי הפז״מ — נשאר לך פחות ממה שכבר עשית' };
+    }
+    return null;
+  }
+
   function hebrewDays(n) {
     const a = Math.abs(n);
     if (a === 0) return 'היום';
@@ -445,7 +470,7 @@ const dates = (() => {
 
   return { parse, toISO, todayISO, daysBetween, addDays, addMonths, msUntilNextMidnight,
            monthsBetween, unitValue, unitName, remainderLabel, enlistWaves, axisGap,
-           countWeekday, msUntilDate, splitDuration, progressPct, hebrewDays,
+           countWeekday, msUntilDate, splitDuration, momentFor, progressPct, hebrewDays,
            remainingLabel, formatHe };
 })();
 </script>
@@ -457,7 +482,7 @@ const store = (() => {
 
   function blank() {
     return { v: 1, profile: null, events: [], heroId: 'release', theme: 'dark', unit: 'days',
-             accent: 'amber' };
+             accent: 'amber', seenMoment: null };
   }
 
   // Never throws. A corrupt or foreign payload is treated as "no data yet"
@@ -740,6 +765,22 @@ const render = (() => {
       wrap.append(inner);
       host.append(wrap);
       host.append(el('div', { class: 'hero-meta' }, dates.formatHe(ev.date)));
+    }
+
+    if (state.profile) {
+      const moment = dates.momentFor(state.profile.enlistDate, state.profile.releaseDate, today);
+      if (moment) {
+        const badgeEl = el('div', { class: 'moment' });
+        badgeEl.append(el('span', { class: 'ico' }, icon('star')));
+        badgeEl.append(el('span', {}, moment.text));
+        host.append(badgeEl);
+        // Celebrate once per moment, not on every render.
+        if (state.seenMoment !== moment.key) {
+          state.seenMoment = moment.key;
+          store.save(state);
+          motion.celebrate();
+        }
+      }
     }
 
     host.append(el('div', { class: 'hero-meta', style: 'opacity:.6;font-size:.8rem' },
@@ -1327,7 +1368,19 @@ const motion = (() => {
     n.classList.add('rolling');
   }
 
-  return { init, rollNumber };
+  // A restrained pulse of the accent, not confetti: this collection does not
+  // do party graphics, and reduced-motion users get nothing at all.
+  function celebrate() {
+    if (reduce) return;
+    const el2 = document.querySelector('.hero-ring .fill') || document.getElementById('heroNum');
+    if (!el2) return;
+    el2.classList.remove('celebrate');
+    void el2.getBoundingClientRect();
+    el2.classList.add('celebrate');
+    if (navigator.vibrate) { try { navigator.vibrate([12, 60, 12]); } catch (e) {} }
+  }
+
+  return { init, rollNumber, celebrate };
 })();
 </script>
 
