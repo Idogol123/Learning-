@@ -85,17 +85,21 @@ h1,h2,h3{font-weight:800;letter-spacing:-.02em;margin:0}
 .tl-node.done::before{background:var(--accent)}
 .tl-node.now{color:var(--ink); font-weight:800}
 .tl-node.now::before{background:var(--accent); box-shadow:0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent)}
-.ev{display:flex; align-items:center; gap:.75rem; width:100%; text-align:start;
+.ev{display:flex; align-items:center; gap:.7rem; width:100%; text-align:start;
   padding:.85rem; margin-bottom:.6rem; border-radius:var(--r);
   background:var(--card); border:1px solid var(--line); box-shadow:var(--shadow);
-  color:inherit; font:inherit; cursor:pointer;
+  color:inherit; font:inherit; cursor:pointer; flex-wrap:wrap;
   transition:transform .18s var(--ease), border-color .18s var(--ease)}
 .ev:hover{transform:translateY(-1px); border-color:var(--line-strong)}
+.ev:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
 .ev.soon{border-color:color-mix(in srgb, var(--accent) 45%, var(--line))}
-.ev-t{font-weight:800}
+/* Title and date are block-level inside their own column: as inline spans they
+   wrapped mid-phrase at 320px ("סוף / טירונות", "10 / ביוני / 2025"). */
+.ev-grow{display:flex; flex-direction:column; gap:.15rem; flex:1 1 7rem; min-width:0}
+.ev-t{font-weight:800; overflow-wrap:anywhere}
 .ev-d{color:var(--muted); font-size:.85rem}
-.ev-grow{flex:1; min-width:0}
-.ev-days{font-weight:800; color:var(--accent); font-variant-numeric:tabular-nums; white-space:nowrap}
+.ev-days{font-weight:800; color:var(--accent); font-variant-numeric:tabular-nums;
+  white-space:nowrap; flex:0 0 auto; margin-inline-start:auto}
 .sheet{position:fixed; inset:0; z-index:30; background:var(--bg); overflow-y:auto;
   padding:1.25rem; display:flex; flex-direction:column; gap:.9rem}
 .sheet label{display:block; color:var(--muted); font-size:.9rem; margin-bottom:.35rem}
@@ -116,11 +120,12 @@ h1,h2,h3{font-weight:800;letter-spacing:-.02em;margin:0}
   border:1px solid var(--line); color:var(--ink);
   -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px)}
 .iconbtn svg{width:20px;height:20px}
-.ev-del{flex:none; width:32px; height:32px; display:inline-flex; align-items:center;
+.ev-del{flex:none; width:40px; height:40px; display:inline-flex; align-items:center;
   justify-content:center; border-radius:10px; border:1px solid transparent;
-  background:transparent; color:var(--muted); cursor:pointer; font:inherit}
+  background:transparent; color:var(--muted); cursor:pointer; font:inherit; opacity:.6;
+  transition:opacity .18s var(--ease), border-color .18s var(--ease)}
+.ev-del:hover,.ev-del:focus-visible{opacity:1; border-color:var(--line-strong); color:var(--ink)}
 .ev-del svg{width:17px;height:17px}
-.ev-del:hover{border-color:var(--line-strong); color:var(--ink)}
 .ev-row{display:flex; align-items:center; gap:.35rem}
 .ev-row .ev{margin-bottom:0}
 .ev-row+.ev-row{margin-top:.6rem}
@@ -525,7 +530,7 @@ const render = (() => {
       row.append(el('span', { class: 'chip-ico' }, icon(ev.icon)));
       const mid = el('span', { class: 'ev-grow' });
       mid.append(el('span', { class: 'ev-t' }, ev.title));
-      mid.append(el('span', { class: 'ev-d' }, ` ${dates.formatHe(ev.date)}`));
+      mid.append(el('span', { class: 'ev-d' }, dates.formatHe(ev.date)));
       row.append(mid);
       row.append(el('span', { class: 'ev-days' }, dates.remainingLabel(left)));
       row.onclick = () => { state.heroId = ev.id; store.save(state); refresh();
