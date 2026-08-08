@@ -681,6 +681,8 @@ const render = (() => {
       node.remove();
       if (opener && opener.focus) opener.focus();
       if (onClose) onClose();
+      // Run the hand-off only now, once our own history entry is gone.
+      if (after) { const fn = after; after = null; fn(); }
     };
     const onKey = e => { if (e.key === 'Escape') { e.preventDefault(); history.back(); } };
     const onPop = () => close();
@@ -691,7 +693,19 @@ const render = (() => {
 
     // Closing through history.back() keeps the browser's own back gesture and
     // our buttons on the same path, so the stack never drifts.
-    const dismiss = () => { if (node.isConnected) history.back(); };
+    //
+    // A follow-up that opens ANOTHER sheet must be passed in here rather than
+    // called after dismiss(). history.back() is asynchronous: a sheet opened
+    // synchronously after it pushed its own entry BEFORE the pending traversal
+    // fired, so the one popstate ran both listeners -- closing the new sheet in
+    // the same tick it opened, and restoring the scroll lock it had captured
+    // from the old one, which left the page permanently unscrollable.
+    let after = null;
+    const dismiss = fn => {
+      if (!node.isConnected) return;
+      if (typeof fn === 'function') after = fn;
+      history.back();
+    };
 
     const x = el('button', { class: 'sheet-x', type: 'button', 'aria-label': 'סגור' },
       icon('plus'));
@@ -816,8 +830,9 @@ const render = (() => {
     }
 
     box.querySelector('#sProfile').onclick = () => {
-      dismiss();
-      render.wizard(state, refresh);
+      // Handed to dismiss so the wizard opens after this sheet's history entry
+      // has popped -- see the note in openSheet.
+      dismiss(() => render.wizard(state, refresh));
     };
 
     box.querySelector('#sExport').onclick = () => {
@@ -1110,10 +1125,14 @@ function refresh() {
   badge.paint(shown ? dates.daysBetween(dates.todayISO(), shown.date) : null);
 }
 
+// Render first, then put the wizard on top of a drawn page. Now that a sheet
+// can be dismissed with Escape or the back gesture, opening the wizard INSTEAD
+// of rendering left whoever dismissed it staring at a blank screen with no way
+// back except a reload. Behind it now sits the empty state, which offers both
+// "set a release date" and "add an event".
+refresh();
 if (!state.profile && state.events.length === 0) {
   render.wizard(state, refresh);
-} else {
-  refresh();
 }
 
 motion.init();
