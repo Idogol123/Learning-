@@ -37,7 +37,8 @@ function makeLS() {
   };
 }
 
-const sandbox = { Math, Date, String, Number, JSON, Error, localStorage: makeLS() };
+const sandbox = { Math, Date, String, Number, JSON, Error, Array, Uint8Array,
+                  TextEncoder, TextDecoder, btoa, atob, localStorage: makeLS() };
 vm.createContext(sandbox);
 vm.runInContext(
   `${mDates[0]}\n${mStore[0]}\nglobalThis.__dates = dates; globalThis.__store = store;`,
@@ -410,6 +411,23 @@ t('validateEvent rejects a duplicate title on the same date', () => {
 t('validateEvent accepts anything sane without a profile', () => {
   const s = store.blank();
   assert.equal(store.validateEvent(s, { title: 'א', date: '2030-01-01' }), '');
+});
+
+t('encodeState round-trips through decodeState, Hebrew included', () => {
+  const s = store.blank();
+  s.profile = { enlistDate: '2025-03-15', releaseDate: '2027-11-15', gender: 'm', months: 32 };
+  s.events = [{ id: 'a', title: 'מסע כומתה', date: '2026-09-01', icon: 'star',
+                source: 'template', every: null }];
+  const code = store.encodeState(s);
+  assert.ok(!/[+/=]/.test(code), 'must be URL-safe with no padding');
+  const back = store.decodeState(code);
+  assert.deepEqual(back.profile, s.profile);
+  assert.equal(back.events[0].title, 'מסע כומתה');
+});
+
+t('decodeState rejects junk instead of wiping the device', () => {
+  assert.throws(() => store.decodeState('not-a-real-code'));
+  assert.throws(() => store.decodeState(''));
 });
 
 console.log(`${passed} passed`);

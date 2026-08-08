@@ -522,8 +522,26 @@ const store = (() => {
     return Object.assign(blank(), s);
   }
 
+  // base64url of the UTF-8 JSON. Not encryption and not claimed to be: the
+  // payload is enlistment dates, and the link only ever leaves the device
+  // because the user chose to send it.
+  function encodeState(state) {
+    const bytes = new TextEncoder().encode(JSON.stringify(state));
+    let bin = '';
+    for (const b of bytes) bin += String.fromCharCode(b);
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  function decodeState(text) {
+    if (!text) throw new Error('קישור ריק');
+    const b64 = text.replace(/-/g, '+').replace(/_/g, '/');
+    const bin = atob(b64);
+    const bytes = Uint8Array.from(bin, ch => ch.charCodeAt(0));
+    return importJSON(new TextDecoder().decode(bytes));
+  }
+
   return { KEY, blank, load, save, allEvents, heroEvent, removeEvent, restoreEvent,
-           validateEvent, exportJSON, importJSON };
+           validateEvent, exportJSON, importJSON, encodeState, decodeState };
 })();
 </script>
 
@@ -1002,6 +1020,7 @@ const render = (() => {
       </div>
       <div class="row">
         <button class="btn" id="sExport" type="button">ייצא גיבוי</button>
+        <button class="btn" id="sLink" type="button">קישור העברה</button>
         <button class="btn" id="sImport" type="button">ייבא גיבוי</button>
         <input type="file" id="sFile" accept="application/json" hidden>
       </div>
@@ -1083,6 +1102,15 @@ const render = (() => {
       a.download = 'ha-sfira-backup.json';
       a.click();
       URL.revokeObjectURL(a.href);
+    };
+
+    box.querySelector('#sLink').onclick = async () => {
+      const url = location.origin + location.pathname + '#t=' + store.encodeState(state);
+      if (url.length > 8000) { err.textContent = 'יותר מדי אירועים לקישור — השתמשו בגיבוי'; return; }
+      try {
+        if (navigator.share) await navigator.share({ text: url });
+        else { await navigator.clipboard.writeText(url); err.textContent = 'הקישור הועתק'; }
+      } catch (e) { /* dismissed */ }
     };
 
     const file = box.querySelector('#sFile');
@@ -1368,6 +1396,21 @@ const badge = (() => {
 
 <script>
 let state = store.load();
+
+// An incoming transfer link never overwrites silently: this device may already
+// hold a service someone is counting.
+if (location.hash.startsWith('#t=')) {
+  const code = location.hash.slice(3);
+  history.replaceState(null, '', location.pathname);
+  try {
+    const incoming = store.decodeState(code);
+    const hasData = state.profile || state.events.length > 0;
+    if (!hasData || confirm('הקישור מכיל ספירה אחרת. להחליף את מה שיש במכשיר?')) {
+      Object.assign(state, incoming);
+      store.save(state);
+    }
+  } catch (e) { /* a broken link must not break the page */ }
+}
 
 const btnTheme = document.getElementById('btnTheme');
 const btnSettings = document.getElementById('btnSettings');
