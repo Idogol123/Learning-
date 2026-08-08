@@ -62,6 +62,20 @@ h1,h2,h3{font-weight:800;letter-spacing:-.02em;margin:0}
   to{transform:none; opacity:1}
 }
 .rolling{animation:roll .45s var(--ease)}
+.hero-mini{
+  position:fixed; inset-block-start:0; inset-inline:0; z-index:9;
+  display:flex; align-items:center; justify-content:center; gap:.45rem;
+  padding:calc(.55rem + env(safe-area-inset-top)) 4.5rem .55rem;
+  font-weight:800; font-size:.95rem;
+  background:color-mix(in srgb, var(--bg) 84%, transparent);
+  -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);
+  border-block-end:1px solid var(--line);
+  opacity:0; transform:translateY(-101%); pointer-events:none;
+  transition:opacity .2s var(--ease), transform .2s var(--ease);
+}
+.hero-mini.on{opacity:1; transform:none}
+.hero-mini b{color:var(--accent); font-variant-numeric:tabular-nums}
+.hero-mini em{font-style:normal; color:var(--muted); font-weight:400}
 
 /* ---- shared ---- */
 .ico{display:inline-flex; width:20px; height:20px}
@@ -161,6 +175,7 @@ h1,h2,h3{font-weight:800;letter-spacing:-.02em;margin:0}
 </head>
 <body>
 <main id="app">
+<div class="hero-mini" id="heroMini" aria-hidden="true"></div>
 <div class="topbar">
   <button class="iconbtn" id="btnTheme" type="button" aria-label="החלף מצב תצוגה"></button>
   <button class="iconbtn" id="btnSettings" type="button" aria-label="הגדרות"></button>
@@ -415,8 +430,10 @@ const render = (() => {
     const host = document.getElementById('hero');
     host.innerHTML = '';
     const ev = store.heroEvent(state);
+    const mini = document.getElementById('heroMini');
 
     if (!ev) {
+      mini.innerHTML = '';
       host.append(
         el('div', { class: 'chip-ico' }, icon('plus')),
         el('h1', { class: 'hero-unit' }, 'עוד אין ספירה'),
@@ -451,6 +468,12 @@ const render = (() => {
     }
 
     host.append(el('div', { class: 'scroll-hint' }, icon('chevron-down')));
+
+    // The sticky bar carries the same number the hero shows, so scrolling to
+    // the timeline never means losing the headline.
+    mini.innerHTML = past
+      ? `${ev.title} · <b>${Math.abs(left)}</b> <em>ימים מאז</em>`
+      : `${ev.title} · <b>${Math.abs(left)}</b> <em>${left === 0 ? 'היום' : 'ימים'}</em>`;
   }
 
   function timeline(state) {
@@ -738,7 +761,9 @@ const motion = (() => {
   // this tool's primary target is an installed PWA on iOS Safari, where it
   // would silently do nothing.
   function init() {
-    if (reduce) return;
+    // Reduced motion removes the collapse animation, not the sticky header:
+    // the header is information, not decoration.
+    const animate = !reduce;
     const hero = document.getElementById('hero');
     if (!hero) return;
     let ticking = false;
@@ -747,7 +772,13 @@ const motion = (() => {
       ticking = true;
       requestAnimationFrame(() => {
         const t = Math.min(1, window.scrollY / (window.innerHeight * 0.6));
-        hero.style.setProperty('--t', t.toFixed(3));
+        if (animate) hero.style.setProperty('--t', t.toFixed(3));
+        const mini = document.getElementById('heroMini');
+        if (mini) {
+          const on = t > 0.72;
+          mini.classList.toggle('on', on);
+          mini.setAttribute('aria-hidden', on ? 'false' : 'true');
+        }
         ticking = false;
       });
     };
