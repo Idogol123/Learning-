@@ -209,6 +209,15 @@ const dates = (() => {
     return toISO(t);
   }
 
+  // Milliseconds from `now` to the next local midnight. Built through the Date
+  // constructor for the same reason addDays is: on a DST night the distance to
+  // midnight is 23 or 25 hours, and a hardcoded 86400000 drifts the daily
+  // re-render by an hour in each direction.
+  function msUntilNextMidnight(now) {
+    const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    return next - now;
+  }
+
   // 0..100, clamped. An empty or inverted range reads as finished.
   function progressPct(startISO, endISO, nowISO) {
     const total = daysBetween(startISO, endISO);
@@ -236,7 +245,7 @@ const dates = (() => {
     return `${d.getDate()} ב${MONTHS_HE[d.getMonth()]} ${d.getFullYear()}`;
   }
 
-  return { parse, toISO, todayISO, daysBetween, addDays, addMonths,
+  return { parse, toISO, todayISO, daysBetween, addDays, addMonths, msUntilNextMidnight,
            progressPct, hebrewDays, remainingLabel, formatHe };
 })();
 </script>
@@ -708,6 +717,42 @@ const motion = (() => {
 </script>
 
 <script>
+/* ---------- clock: keeps the number honest without a reload ---------- */
+const clock = (() => {
+  let timer = null;
+  let day = null;
+
+  function schedule(onNewDay) {
+    if (timer) clearTimeout(timer);
+    // +1s of slack: firing a hair before midnight would compute the same day
+    // again and reschedule in a tight loop.
+    const ms = dates.msUntilNextMidnight(new Date()) + 1000;
+    timer = setTimeout(() => tick(onNewDay), ms);
+  }
+
+  function tick(onNewDay) {
+    const today = dates.todayISO();
+    if (today !== day) { day = today; onNewDay(); }
+    schedule(onNewDay);
+  }
+
+  // An installed PWA is suspended, not closed. Coming back to it after a day
+  // in the background is the common case where the number on screen is a day
+  // (or a week) stale -- which is the one thing a countdown may not do.
+  function init(onNewDay) {
+    day = dates.todayISO();
+    schedule(onNewDay);
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) tick(onNewDay);
+    });
+    window.addEventListener('pageshow', () => tick(onNewDay));
+  }
+
+  return { init };
+})();
+</script>
+
+<script>
 let state = store.load();
 
 const btnTheme = document.getElementById('btnTheme');
@@ -743,6 +788,7 @@ if (!state.profile && state.events.length === 0) {
 }
 
 motion.init();
+clock.init(refresh);
 
 // The protocol guard matches the other tools: registering from file:// throws
 // an unhandled rejection, which the headless quality gate reports as an error.
