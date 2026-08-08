@@ -192,6 +192,14 @@ h1,h2,h3{font-weight:800;letter-spacing:-.02em;margin:0}
   transform:rotate(45deg)}
 .sheet-x svg{width:20px;height:20px}
 .sheet-x:hover{color:var(--ink); border-color:var(--line-strong)}
+.sheet.live{justify-content:center; align-items:center}
+.live-body{display:flex; flex-direction:column; align-items:center; gap:1rem; text-align:center}
+.live-grid{display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:.6rem}
+.live-cell{min-width:4rem; padding:.8rem .4rem; border-radius:var(--r);
+  background:var(--card); border:1px solid var(--line)}
+.live-num{font-size:clamp(1.6rem, 8vw, 2.6rem); font-weight:800; color:var(--accent);
+  font-variant-numeric:tabular-nums; line-height:1}
+.live-lab{color:var(--muted); font-size:.8rem; margin-top:.3rem}
 
 /* ---- top bar + row actions ---- */
 .topbar{position:fixed; inset-block-start:0; inset-inline-end:0; z-index:10;
@@ -400,6 +408,22 @@ const dates = (() => {
     return Math.floor((total - offset - 1) / 7) + 1;
   }
 
+  // Distance to local midnight that starts the target day. Negative once the
+  // day has begun -- the live screen shows the elapsed time instead.
+  function msUntilDate(iso, now) {
+    return parse(iso) - now;
+  }
+
+  // Absolute breakdown: the sign is the caller's business, since "3 days since"
+  // and "3 days until" render identically apart from their label.
+  function splitDuration(ms) {
+    let s = Math.floor(Math.abs(ms) / 1000);
+    const days = Math.floor(s / 86400); s -= days * 86400;
+    const hours = Math.floor(s / 3600); s -= hours * 3600;
+    const minutes = Math.floor(s / 60);
+    return { days, hours, minutes, seconds: s - minutes * 60 };
+  }
+
   function hebrewDays(n) {
     const a = Math.abs(n);
     if (a === 0) return 'היום';
@@ -421,7 +445,8 @@ const dates = (() => {
 
   return { parse, toISO, todayISO, daysBetween, addDays, addMonths, msUntilNextMidnight,
            monthsBetween, unitValue, unitName, remainderLabel, enlistWaves, axisGap,
-           countWeekday, progressPct, hebrewDays, remainingLabel, formatHe };
+           countWeekday, msUntilDate, splitDuration, progressPct, hebrewDays,
+           remainingLabel, formatHe };
 })();
 </script>
 
@@ -665,6 +690,17 @@ const render = (() => {
       store.save(state);
       refreshHero();
     };
+    // Long press, not a second button: the hero screen earns its calm by
+    // having exactly one thing on it.
+    let holdTimer = null;
+    const startHold = () => {
+      holdTimer = setTimeout(() => { holdTimer = null; live.open(ev.title, ev.date); }, 550);
+    };
+    const cancelHold = () => { if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; } };
+    num.addEventListener('pointerdown', startHold);
+    num.addEventListener('pointerup', cancelHold);
+    num.addEventListener('pointerleave', cancelHold);
+    num.addEventListener('contextmenu', e => e.preventDefault());
     const wrap = el('div', { class: 'hero-wrap' });
     const inner = el('div', { class: 'hero-inner' });
     inner.append(num);
@@ -687,6 +723,9 @@ const render = (() => {
       host.append(wrap);
       host.append(el('div', { class: 'hero-meta' }, dates.formatHe(ev.date)));
     }
+
+    host.append(el('div', { class: 'hero-meta', style: 'opacity:.6;font-size:.8rem' },
+      'לחיצה על המספר מחליפה יחידה · לחיצה ארוכה לספירה חיה'));
 
     host.append(el('div', { class: 'scroll-hint' }, icon('chevron-down')));
 
@@ -1363,6 +1402,73 @@ const badge = (() => {
   }
 
   return { supported, paint, enable };
+})();
+</script>
+
+<script>
+/* ---------- live: the seconds view, for the week when seconds matter ---------- */
+const live = (() => {
+  let raf = null, sentinel = null;
+
+  async function lock() {
+    // Screen Wake Lock so the phone can sit on a shelf counting down. Absent on
+    // some browsers and revoked whenever the tab is backgrounded -- both are
+    // fine, the view just dims with the screen.
+    try {
+      if ('wakeLock' in navigator) sentinel = await navigator.wakeLock.request('screen');
+    } catch (e) { sentinel = null; }
+  }
+
+  function release() {
+    if (sentinel) { sentinel.release().catch(() => {}); sentinel = null; }
+  }
+
+  function open(title, dateISO) {
+    const box = el('div', { class: 'sheet live', role: 'dialog', 'aria-modal': 'true' });
+    box.innerHTML = `
+      <div class="live-body">
+        <div class="hero-label" id="lvTitle"></div>
+        <div class="live-grid" id="lvGrid"></div>
+        <div class="hero-meta" id="lvDate"></div>
+      </div>`;
+    const dismiss = render.openSheet(box, () => {
+      if (raf) cancelAnimationFrame(raf);
+      raf = null;
+      release();
+    });
+    box.querySelector('#lvTitle').textContent = title;
+    box.querySelector('#lvDate').textContent = dates.formatHe(dateISO);
+    const grid = box.querySelector('#lvGrid');
+
+    const cells = [['days', 'ימים'], ['hours', 'שעות'], ['minutes', 'דקות'], ['seconds', 'שניות']]
+      .map(([key, label]) => {
+        const cell = el('div', { class: 'live-cell' });
+        const n = el('div', { class: 'live-num' }, '0');
+        cell.append(n, el('div', { class: 'live-lab' }, label));
+        grid.append(cell);
+        return { key, n };
+      });
+
+    let lastSecond = -1;
+    function frame() {
+      const ms = dates.msUntilDate(dateISO, new Date());
+      const parts = dates.splitDuration(ms);
+      // One DOM write per second, not per frame: rAF only exists here to stay
+      // in step with the compositor and to stop cleanly when the sheet closes.
+      if (parts.seconds !== lastSecond) {
+        lastSecond = parts.seconds;
+        for (const c of cells) c.n.textContent = String(parts[c.key]);
+        box.querySelector('#lvTitle').textContent =
+          ms < 0 ? `מאז ${title}` : title;
+      }
+      raf = requestAnimationFrame(frame);
+    }
+    frame();
+    lock();
+    return dismiss;
+  }
+
+  return { open };
 })();
 </script>
 

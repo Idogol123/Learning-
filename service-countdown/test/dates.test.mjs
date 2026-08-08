@@ -261,6 +261,22 @@ t('countWeekday returns zero for an inverted range', () => {
   assert.equal(dates.countWeekday('2026-02-01', '2026-01-01', 6), 0);
 });
 
+// ---- live countdown ----
+t('msUntilDate measures to local midnight of the target day', () => {
+  assert.equal(dates.msUntilDate('2026-08-09', new Date(2026, 7, 8, 23, 0, 0, 0)), 3600 * 1000);
+  assert.equal(dates.msUntilDate('2026-08-08', new Date(2026, 7, 8, 0, 0, 0, 0)), 0);
+  assert.equal(dates.msUntilDate('2026-08-07', new Date(2026, 7, 8, 0, 0, 0, 0)), -86400000);
+});
+
+t('splitDuration breaks milliseconds into d/h/m/s', () => {
+  assert.deepEqual({ ...dates.splitDuration(0) },
+    { days: 0, hours: 0, minutes: 0, seconds: 0 });
+  assert.deepEqual({ ...dates.splitDuration(90061000) },
+    { days: 1, hours: 1, minutes: 1, seconds: 1 });
+  assert.deepEqual({ ...dates.splitDuration(-5000) },
+    { days: 0, hours: 0, minutes: 0, seconds: 5 });
+});
+
 // ---- store ----
 t('blank state is valid and empty', () => {
   const s = store.blank();
