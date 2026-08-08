@@ -182,7 +182,8 @@ h1,h2,h3{font-weight:800;letter-spacing:-.02em;margin:0}
 .sheet input[type=text],.sheet input[type=date]{
   width:100%; padding:.85rem; border-radius:var(--r); font-size:1rem; font-family:inherit;
   background:var(--card); color:var(--ink); border:1px solid var(--line-strong)}
-.wizard input[type=number]{width:5.5rem; padding:.85rem; border-radius:var(--r);
+.wizard input[type=number],.sheet input[type=number]{
+  width:5.5rem; padding:.85rem; border-radius:var(--r);
   font-size:1rem; font-family:inherit; text-align:center;
   background:var(--card); color:var(--ink); border:1px solid var(--line-strong)}
 .sheet-x{position:absolute; inset-block-start:calc(.9rem + env(safe-area-inset-top));
@@ -424,6 +425,15 @@ const dates = (() => {
     return { days, hours, minutes, seconds: s - minutes * 60 };
   }
 
+  // The next date in a fixed-day cycle at or after `todayISO`. Built on addDays
+  // so a cycle that crosses a DST boundary keeps landing on the same weekday.
+  function nextOccurrence(startISO, everyDays, todayISO) {
+    if (!everyDays || everyDays <= 0) return startISO;
+    const behind = daysBetween(startISO, todayISO);
+    if (behind <= 0) return startISO;
+    return addDays(startISO, Math.ceil(behind / everyDays) * everyDays);
+  }
+
   function hebrewDays(n) {
     const a = Math.abs(n);
     if (a === 0) return 'היום';
@@ -445,8 +455,8 @@ const dates = (() => {
 
   return { parse, toISO, todayISO, daysBetween, addDays, addMonths, msUntilNextMidnight,
            monthsBetween, unitValue, unitName, remainderLabel, enlistWaves, axisGap,
-           countWeekday, msUntilDate, splitDuration, progressPct, hebrewDays,
-           remainingLabel, formatHe };
+           countWeekday, msUntilDate, splitDuration, nextOccurrence, progressPct,
+           hebrewDays, remainingLabel, formatHe };
 })();
 </script>
 
@@ -489,8 +499,18 @@ const store = (() => {
              icon: 'party-popper', source: 'profile', virtual: true };
   }
 
-  function allEvents(state) {
-    const list = state.events.map(e => Object.assign({ virtual: false }, e));
+  // A repeating event is stored once and rolled forward for display. Mutating
+  // the stored date on every open would rewrite history and break undo.
+  function allEvents(state, todayISO) {
+    const today = todayISO || dates.todayISO();
+    const list = state.events.map(e => {
+      const row = Object.assign({ virtual: false }, e);
+      if (e.every > 0) {
+        row.baseDate = e.date;
+        row.date = dates.nextOccurrence(e.date, e.every, today);
+      }
+      return row;
+    });
     const rel = releaseEvent(state);
     if (rel) list.push(rel);
     return list.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
@@ -867,6 +887,10 @@ const render = (() => {
       const mid = el('span', { class: 'ev-grow' });
       mid.append(el('span', { class: 'ev-t' }, ev.title));
       mid.append(el('span', { class: 'ev-d' }, dates.formatHe(ev.date)));
+      if (ev.baseDate) {
+        mid.append(el('span', { class: 'ev-d' },
+          `חוזר כל ${dates.hebrewDays(state.events.find(x => x.id === ev.id).every)}`));
+      }
       row.append(mid);
       row.append(el('span', { class: 'ev-days' }, dates.remainingLabel(left)));
       row.onclick = () => { state.heroId = ev.id; store.save(state); refresh();
@@ -966,6 +990,15 @@ const render = (() => {
         <input type="date" id="aDate">
       </div>
       <div>
+        <label for="aEvery">חוזר כל</label>
+        <div class="row">
+          <input type="number" id="aEvery" min="0" max="365" step="1" value="0"
+                 inputmode="numeric" aria-label="מספר ימים בין מופעים">
+          <span class="ev-d">ימים · 0 = אירוע חד-פעמי</span>
+        </div>
+        <div class="tpl" id="aEveryQuick"></div>
+      </div>
+      <div>
         <label>אייקון</label>
         <div class="tpl" id="icons"></div>
       </div>
@@ -981,6 +1014,20 @@ const render = (() => {
     if (existing) {
       box.querySelector('#aTitle').value = existing.title;
       box.querySelector('#aDate').value = existing.date;
+    }
+
+    const every = box.querySelector('#aEvery');
+    if (existing && existing.every) every.value = existing.every;
+    const quick = box.querySelector('#aEveryQuick');
+    for (const q of [{ n: 7, label: 'כל שבוע' }, { n: 14, label: 'כל שבועיים' },
+                     { n: 21, label: 'כל 3 שבועות' }, { n: 28, label: 'כל 4 שבועות' }]) {
+      const b = el('button', { type: 'button' }, q.label);
+      b.onclick = () => {
+        quick.querySelectorAll('button').forEach(x => x.classList.remove('on'));
+        b.classList.add('on');
+        every.value = q.n;
+      };
+      quick.append(b);
     }
 
     const icons = box.querySelector('#icons');
@@ -1022,11 +1069,14 @@ const render = (() => {
       };
       const problem = store.validateEvent(state, draft);
       if (problem) { box.querySelector('#aErr').textContent = problem; return; }
+      const cycle = Math.max(0, Math.min(365, Number(every.value) || 0));
       if (existing) {
-        Object.assign(existing, { title: draft.title, date: draft.date, icon: pickedIcon });
+        Object.assign(existing, { title: draft.title, date: draft.date,
+                                  icon: pickedIcon, every: cycle || null });
       } else {
         state.events.push({ id: 'e' + Date.now().toString(36), title: draft.title,
-                            date: draft.date, icon: pickedIcon, source });
+                            date: draft.date, icon: pickedIcon, source,
+                            every: cycle || null });
       }
       store.save(state);
       dismiss();
