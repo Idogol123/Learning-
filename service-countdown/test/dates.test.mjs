@@ -353,4 +353,32 @@ t('restoreEvent puts a removed row back exactly once', () => {
   assert.equal(store.restoreEvent(s, null), false);
 });
 
+t('validateEvent demands a title and a date', () => {
+  const s = store.blank();
+  assert.equal(store.validateEvent(s, { title: '', date: '2026-01-01' }), 'צריך שם ותאריך');
+  assert.equal(store.validateEvent(s, { title: 'א', date: '' }), 'צריך שם ותאריך');
+});
+
+t('validateEvent rejects a date before enlistment', () => {
+  const s = store.blank();
+  s.profile = { enlistDate: '2025-03-15', releaseDate: '2027-11-15', gender: 'm' };
+  assert.equal(store.validateEvent(s, { title: 'א', date: '1999-01-01' }),
+    'התאריך מוקדם מתאריך הגיוס');
+  assert.equal(store.validateEvent(s, { title: 'א', date: '2026-01-01' }), '');
+});
+
+t('validateEvent rejects a duplicate title on the same date', () => {
+  const s = store.blank();
+  s.events = [{ id: 'a', title: 'מסע כומתה', date: '2026-09-01', icon: 'star', source: 'template' }];
+  assert.equal(store.validateEvent(s, { title: 'מסע כומתה', date: '2026-09-01' }),
+    'האירוע הזה כבר קיים');
+  // Editing the row itself is not a duplicate of itself.
+  assert.equal(store.validateEvent(s, { id: 'a', title: 'מסע כומתה', date: '2026-09-01' }), '');
+});
+
+t('validateEvent accepts anything sane without a profile', () => {
+  const s = store.blank();
+  assert.equal(store.validateEvent(s, { title: 'א', date: '2030-01-01' }), '');
+});
+
 console.log(`${passed} passed`);

@@ -135,6 +135,9 @@ h1,h2,h3{font-weight:800;letter-spacing:-.02em;margin:0}
 .tpl button{padding:.5rem .75rem; border-radius:999px; border:1px solid var(--line-strong);
   background:var(--card); color:var(--ink); font:inherit; font-size:.9rem; cursor:pointer}
 .tpl button.on{background:var(--accent); border-color:var(--accent); color:var(--bg)}
+#icons button{width:44px; height:44px; display:inline-flex; align-items:center;
+  justify-content:center; padding:0}
+#icons svg{width:20px;height:20px}
 .sheet input[type=text],.sheet input[type=date]{
   width:100%; padding:.85rem; border-radius:var(--r); font-size:1rem; font-family:inherit;
   background:var(--card); color:var(--ink); border:1px solid var(--line-strong)}
@@ -431,6 +434,20 @@ const store = (() => {
     return true;
   }
 
+  // The sheet used to accept any date at all: an event dated 1999 sat happily
+  // in a 2025-2027 service and pushed the axis into nonsense.
+  function validateEvent(state, draft) {
+    const title = (draft.title || '').trim();
+    if (!title || !draft.date) return 'צריך שם ותאריך';
+    if (state.profile && draft.date < state.profile.enlistDate) {
+      return 'התאריך מוקדם מתאריך הגיוס';
+    }
+    const clash = state.events.some(e =>
+      e.id !== draft.id && e.title === title && e.date === draft.date);
+    if (clash) return 'האירוע הזה כבר קיים';
+    return '';
+  }
+
   function exportJSON(state) { return JSON.stringify(state, null, 2); }
 
   function importJSON(text) {
@@ -441,7 +458,7 @@ const store = (() => {
   }
 
   return { KEY, blank, load, save, allEvents, heroEvent, removeEvent, restoreEvent,
-           exportJSON, importJSON };
+           validateEvent, exportJSON, importJSON };
 })();
 </script>
 
@@ -478,6 +495,7 @@ function el(tag, attrs = {}, html = '') {
 }
 
 const TEMPLATES = [
+  { title: 'שחרור',            icon: 'party-popper', profile: true },
   { title: 'סוף טירונות',      icon: 'shield' },
   { title: 'מסע כומתה',        icon: 'star' },
   { title: 'סוף אימון מתקדם',  icon: 'shield' },
@@ -666,6 +684,10 @@ const render = (() => {
       const wrap = el('div', { class: 'ev-row' });
       wrap.append(row);
       if (!ev.virtual) {                       // release comes from the profile
+        const edit = el('button', { class: 'ev-del', type: 'button',
+          'aria-label': 'ערוך ' + ev.title }, icon('settings'));
+        edit.onclick = () => eventSheet(state, refresh, state.events.find(x => x.id === ev.id));
+        wrap.append(edit);
         const del = el('button', { class: 'ev-del', type: 'button', 'aria-label': 'מחק ' + ev.title },
           icon('trash'));
         del.onclick = () => {
@@ -737,10 +759,12 @@ const render = (() => {
     return dismiss;
   }
 
-  function addSheet(state, refresh) {
+  const ICON_CHOICES = ['flag', 'shield', 'star', 'graduation-cap', 'home', 'party-popper'];
+
+  function eventSheet(state, refresh, existing) {
     const box = el('div', { class: 'sheet', role: 'dialog', 'aria-modal': 'true' });
     box.innerHTML = `
-      <h2>אירוע חדש</h2>
+      <h2>${existing ? 'עריכת אירוע' : 'אירוע חדש'}</h2>
       <div class="tpl" id="tpl"></div>
       <div>
         <label for="aTitle">שם</label>
@@ -750,21 +774,49 @@ const render = (() => {
         <label for="aDate">תאריך</label>
         <input type="date" id="aDate">
       </div>
+      <div>
+        <label>אייקון</label>
+        <div class="tpl" id="icons"></div>
+      </div>
       <p class="err" id="aErr"></p>
       <div class="row">
-        <button class="btn primary" id="aSave" type="button">הוסף</button>
+        <button class="btn primary" id="aSave" type="button">${existing ? 'שמור' : 'הוסף'}</button>
         <button class="btn ghost" id="aCancel" type="button">ביטול</button>
       </div>`;
     const dismiss = openSheet(box);
 
-    let picked = null;
+    let pickedIcon = existing ? existing.icon : 'flag';
+    let source = existing ? existing.source : 'custom';
+    if (existing) {
+      box.querySelector('#aTitle').value = existing.title;
+      box.querySelector('#aDate').value = existing.date;
+    }
+
+    const icons = box.querySelector('#icons');
+    function paintIcons() {
+      icons.querySelectorAll('button').forEach(b =>
+        b.classList.toggle('on', b.dataset.icon === pickedIcon));
+    }
+    for (const name of ICON_CHOICES) {
+      const b = el('button', { type: 'button', 'aria-label': name, 'data-icon': name },
+        icon(name));
+      b.onclick = () => { pickedIcon = name; paintIcons(); };
+      icons.append(b);
+    }
+    paintIcons();
+
     const tpl = box.querySelector('#tpl');
     for (const t of TEMPLATES) {
       const b = el('button', { type: 'button' }, t.title);
       b.onclick = () => {
+        // "שחרור" is not an event: it is the profile. Creating it as a row
+        // would give the tool two competing release dates. The wizard is handed
+        // to dismiss so it opens only after this sheet's history entry popped --
+        // see the note in openSheet.
+        if (t.profile) { dismiss(() => wizard(state, refresh)); return; }
         tpl.querySelectorAll('button').forEach(x => x.classList.remove('on'));
         b.classList.add('on');
-        picked = t;
+        pickedIcon = t.icon; source = 'template'; paintIcons();
         box.querySelector('#aTitle').value = t.title;
       };
       tpl.append(b);
@@ -772,18 +824,27 @@ const render = (() => {
 
     box.querySelector('#aCancel').onclick = () => dismiss();
     box.querySelector('#aSave').onclick = () => {
-      const title = box.querySelector('#aTitle').value.trim();
-      const date = box.querySelector('#aDate').value;
-      if (!title || !date) { box.querySelector('#aErr').textContent = 'צריך שם ותאריך'; return; }
-      state.events.push({
-        id: 'e' + Date.now().toString(36),
-        title, date, icon: picked ? picked.icon : 'flag', source: picked ? 'template' : 'custom',
-      });
+      const draft = {
+        id: existing ? existing.id : undefined,
+        title: box.querySelector('#aTitle').value.trim(),
+        date: box.querySelector('#aDate').value,
+      };
+      const problem = store.validateEvent(state, draft);
+      if (problem) { box.querySelector('#aErr').textContent = problem; return; }
+      if (existing) {
+        Object.assign(existing, { title: draft.title, date: draft.date, icon: pickedIcon });
+      } else {
+        state.events.push({ id: 'e' + Date.now().toString(36), title: draft.title,
+                            date: draft.date, icon: pickedIcon, source });
+      }
       store.save(state);
       dismiss();
       refresh();
     };
   }
+
+  // Kept so the empty state and the events header can keep calling addSheet.
+  function addSheet(state, refresh) { eventSheet(state, refresh); }
 
   function settings(state, refresh) {
     const box = el('div', { class: 'sheet', role: 'dialog', 'aria-modal': 'true' });
@@ -988,7 +1049,7 @@ const render = (() => {
     box.querySelector('#wSkip').onclick = () => { dismiss(); onDone(); };
   }
 
-  return { hero, wizard, timeline, events, openSheet, addSheet, settings, toast };
+  return { hero, wizard, timeline, events, addSheet, eventSheet, settings, toast, openSheet };
 })();
 </script>
 
