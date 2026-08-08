@@ -76,14 +76,27 @@ h1,h2,h3{font-weight:800;letter-spacing:-.02em;margin:0}
 .hero-unit{font-size:1.25rem; font-weight:800; color:var(--ink)}
 .hero-meta{color:var(--muted); font-size:.95rem; margin-top:.75rem}
 .hero-wrap{position:relative; display:grid; place-items:center; margin-block:.25rem}
-.hero-ring{display:block; width:min(78vw, 340px); height:auto; overflow:visible}
+/* The ringed wrap is sized explicitly so it can act as a query container:
+   container-type also applies inline-size containment, which collapses an
+   auto-width box to nothing. */
+.hero-wrap.has-ring{width:min(78vw, 340px); container-type:inline-size}
+.hero-ring{display:block; width:100%; height:auto; overflow:visible}
 .hero-ring circle{fill:none; stroke-linecap:round;
   transform:rotate(-90deg); transform-origin:50% 50%}
 .hero-ring .track{stroke:var(--line); stroke-width:3}
 .hero-ring .fill{stroke:var(--accent); stroke-width:3;
   transition:stroke-dashoffset .9s var(--ease)}
-.hero-wrap>.hero-inner{position:absolute; inset:0; display:flex; flex-direction:column;
-  align-items:center; justify-content:center; gap:.15rem; padding:12%}
+.hero-wrap>.hero-inner{display:flex; flex-direction:column;
+  align-items:center; justify-content:center; gap:.15rem}
+/* Only the ringed hero stacks its text on top of the circle. Without a ring
+   nothing else is in flow, so an absolutely positioned .hero-inner left the
+   wrap at 0x0 and the number, unit and date piled onto each other. */
+.hero-wrap.has-ring>.hero-inner{position:absolute; inset:0; padding:12%}
+/* Sized against the ring, not the viewport. The ring stops growing at 340px
+   while a vw-based number keeps going, so past that width a four-digit count
+   (a 36-month service is over 1000 days) grew wider than the circle it was
+   supposed to sit inside and struck the stroke on both sides. */
+.hero-wrap.has-ring>.hero-inner .hero-num{font-size:min(26cqw, 8.5rem)}
 @media (prefers-reduced-motion: reduce){ .hero-ring .fill{transition:none} }
 .scroll-hint{margin-top:2rem; color:var(--muted); opacity:.7}
 .scroll-hint svg{width:24px;height:24px}
@@ -663,6 +676,7 @@ const render = (() => {
 
     if (state.profile) {
       const pct = dates.progressPct(state.profile.enlistDate, state.profile.releaseDate, today);
+      wrap.classList.add('has-ring');
       wrap.append(ring(pct));
       wrap.append(inner);
       host.append(wrap);
