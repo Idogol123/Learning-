@@ -994,6 +994,7 @@ const render = (() => {
       <div class="row">
         <button class="btn" id="sIcs" type="button">הוסף ליומן עם תזכורת</button>
         <button class="btn" id="sShare" type="button">שתף את הספירה</button>
+        <button class="btn" id="sCard" type="button">שתף כתמונה</button>
       </div>
       <p class="ev-d">"הוסף ליומן" מוריד קובץ עם כל האירועים ותזכורת יום מראש —
         ההתראה מגיעה מהיומן של המכשיר, בלי שרת ובלי חשבון.</p>
@@ -1038,6 +1039,8 @@ const render = (() => {
         else { await navigator.clipboard.writeText(text); err.textContent = 'הועתק'; }
       } catch (e) { /* the user dismissed the share sheet */ }
     };
+
+    box.querySelector('#sCard').onclick = () => card.share(state);
 
     if (badge.supported()) {
       box.querySelector('#sBadgeRow').hidden = false;
@@ -1363,6 +1366,99 @@ const badge = (() => {
   }
 
   return { supported, paint, enable };
+})();
+</script>
+
+<script>
+/* ---------- card: a shareable image, drawn locally ---------- */
+const card = (() => {
+  const W = 1080, H = 1080;
+
+  function palette(dark) {
+    return dark
+      ? { bg: '#13140f', card: '#1c1e15', ink: '#edefe1', muted: '#9aa08c',
+          line: '#2c2f23', accent: '#e0a33c' }
+      : { bg: '#f2f1ea', card: '#fbfaf5', ink: '#1c1e16', muted: '#6b7061',
+          line: '#e0ded2', accent: '#8a5a12' };
+  }
+
+  function draw(opts) {
+    const c = document.createElement('canvas');
+    c.width = W; c.height = H;
+    const g = c.getContext('2d');
+    const p = palette(opts.dark);
+    const font = 'system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Hebrew", Arial, sans-serif';
+
+    g.fillStyle = p.bg; g.fillRect(0, 0, W, H);
+    g.fillStyle = p.card;
+    g.strokeStyle = p.line; g.lineWidth = 3;
+    g.beginPath(); g.roundRect(60, 60, W - 120, H - 120, 48); g.fill(); g.stroke();
+
+    // Progress ring, same geometry as the app's hero ring.
+    const cx = W / 2, cy = 470, r = 240;
+    g.lineWidth = 18; g.lineCap = 'round';
+    g.strokeStyle = p.line;
+    g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2); g.stroke();
+    if (opts.pct > 0) {
+      g.strokeStyle = p.accent;
+      g.beginPath();
+      g.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + (Math.PI * 2 * opts.pct) / 100);
+      g.stroke();
+    }
+
+    g.direction = 'rtl';
+    g.textAlign = 'center';
+    g.fillStyle = p.muted;
+    g.font = `600 44px ${font}`;
+    g.fillText(opts.title, cx, cy - 150);
+
+    g.fillStyle = p.accent;
+    g.font = `800 200px ${font}`;
+    g.fillText(String(opts.value), cx, cy + 60);
+
+    g.fillStyle = p.ink;
+    g.font = `800 56px ${font}`;
+    g.fillText(opts.unit, cx, cy + 145);
+
+    g.fillStyle = p.muted;
+    g.font = `400 38px ${font}`;
+    g.fillText(opts.dateText, cx, 840);
+    g.font = `700 34px ${font}`;
+    g.fillStyle = p.accent;
+    g.fillText('הספירה', cx, 940);
+    return c;
+  }
+
+  function toBlob(canvas) {
+    return new Promise(res => canvas.toBlob(res, 'image/png'));
+  }
+
+  async function share(state) {
+    const ev = store.heroEvent(state);
+    if (!ev) return;
+    const today = dates.todayISO();
+    const unit = state.unit || 'days';
+    const value = dates.unitValue(unit, today, ev.date);
+    const pct = state.profile
+      ? dates.progressPct(state.profile.enlistDate, state.profile.releaseDate, today) : 0;
+    const canvas = draw({
+      title: ev.title, value, unit: dates.unitName(unit, value),
+      dateText: dates.formatHe(ev.date), pct, dark: state.theme === 'dark',
+    });
+    const blob = await toBlob(canvas);
+    const file = new File([blob], 'ha-sfira.png', { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file] }); return; }
+      catch (e) { return; }              // the user dismissed the share sheet
+    }
+    const a = el('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'ha-sfira.png';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  return { draw, share };
 })();
 </script>
 
