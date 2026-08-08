@@ -68,7 +68,7 @@ h1,h2,h3{font-weight:800;letter-spacing:-.02em;margin:0}
 .hero-mini{
   position:fixed; inset-block-start:0; inset-inline:0; z-index:9;
   display:flex; align-items:center; justify-content:center; gap:.45rem;
-  padding:calc(.55rem + env(safe-area-inset-top)) 4.5rem .55rem;
+  padding:calc(.55rem + env(safe-area-inset-top)) 7rem .55rem;
   font-weight:800; font-size:.95rem;
   background:color-mix(in srgb, var(--bg) 84%, transparent);
   -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);
@@ -185,6 +185,7 @@ h1,h2,h3{font-weight:800;letter-spacing:-.02em;margin:0}
 <main id="app">
 <div class="hero-mini" id="heroMini" aria-hidden="true"></div>
 <div class="topbar">
+  <a class="iconbtn" href="../" aria-label="חזרה לאוסף הכלים" id="btnHome"></a>
   <button class="iconbtn" id="btnTheme" type="button" aria-label="החלף מצב תצוגה"></button>
   <button class="iconbtn" id="btnSettings" type="button" aria-label="הגדרות"></button>
 </div>
@@ -471,22 +472,29 @@ const render = (() => {
 
   // The hero is the only thing a unit switch changes; re-rendering the whole
   // page would also collapse the toast and reset the scroll position.
-  let heroState = null;
-  function refreshHero() { if (heroState) hero(heroState); }
+  let heroState = null, heroRefresh = null;
+  function refreshHero() { if (heroState) hero(heroState, heroRefresh); }
 
-  function hero(state) {
+  function hero(state, refresh) {
     const host = document.getElementById('hero');
-    heroState = state;
+    heroState = state; heroRefresh = refresh;
     host.innerHTML = '';
     const ev = store.heroEvent(state);
     const mini = document.getElementById('heroMini');
 
     if (!ev) {
       mini.innerHTML = '';
+      const start = el('button', { class: 'btn primary', type: 'button' }, 'הגדר תאריך שחרור');
+      start.onclick = () => wizard(state, refresh);
+      const add = el('button', { class: 'btn', type: 'button' }, 'הוסף אירוע');
+      add.onclick = () => addSheet(state, refresh);
+      const row = el('div', { class: 'row', style: 'justify-content:center' });
+      row.append(start, add);
       host.append(
         el('div', { class: 'chip-ico' }, icon('plus')),
         el('h1', { class: 'hero-unit' }, 'עוד אין ספירה'),
-        el('p', { class: 'hero-meta' }, 'הוסיפו תאריך שחרור או אירוע כדי להתחיל')
+        el('p', { class: 'hero-meta' }, 'התחילו מתאריך השחרור, או מכל אבן דרך אחרת'),
+        row
       );
       return;
     }
@@ -913,6 +921,7 @@ btnTheme.onclick = () => {
   paintTheme();
 };
 btnSettings.innerHTML = icon('settings');
+document.getElementById('btnHome').innerHTML = icon('home');
 btnSettings.onclick = () => render.settings(state, refresh);
 paintTheme();
 
@@ -920,7 +929,7 @@ function refresh() {
   // paintTheme is part of the refresh: a reset or an imported backup can
   // carry a different theme than the one currently on screen.
   paintTheme();
-  render.hero(state);
+  render.hero(state, refresh);
   render.timeline(state);
   render.events(state, refresh);
   motion.rollNumber();
