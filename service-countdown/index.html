@@ -128,6 +128,12 @@ h1,h2,h3{font-weight:800;letter-spacing:-.02em;margin:0}
 .tl-node.done::before{background:var(--accent)}
 .tl-node.now{color:var(--ink); font-weight:800}
 .tl-node.now::before{background:var(--accent); box-shadow:0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent)}
+.stats{display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:.6rem}
+.stat{padding:.9rem; border-radius:var(--r); background:var(--card);
+  border:1px solid var(--line); box-shadow:var(--shadow)}
+.stat-n{font-size:1.6rem; font-weight:800; color:var(--accent);
+  font-variant-numeric:tabular-nums; line-height:1.1}
+.stat-l{color:var(--muted); font-size:.85rem; margin-top:.2rem}
 .ev{display:flex; align-items:center; gap:.7rem; width:100%; text-align:start;
   padding:.85rem; margin-bottom:.6rem; border-radius:var(--r);
   background:var(--card); border:1px solid var(--line); box-shadow:var(--shadow);
@@ -232,6 +238,7 @@ h1,h2,h3{font-weight:800;letter-spacing:-.02em;margin:0}
 </div>
   <section class="hero" id="hero"></section>
   <section class="panel" id="timeline"></section>
+  <section class="panel" id="stats"></section>
   <section class="panel" id="events"></section>
 </main>
 <script>
@@ -364,6 +371,16 @@ const dates = (() => {
     return Math.max(minPx, Math.round((d / spanDays) * pxTotal));
   }
 
+  // Inclusive count of one weekday in a range, by arithmetic rather than by
+  // walking a thousand days one Date at a time.
+  function countWeekday(fromISO, toISO, dow) {
+    const total = daysBetween(fromISO, toISO) + 1;
+    if (total <= 0) return 0;
+    const offset = (dow - parse(fromISO).getDay() + 7) % 7;
+    if (offset >= total) return 0;
+    return Math.floor((total - offset - 1) / 7) + 1;
+  }
+
   function hebrewDays(n) {
     const a = Math.abs(n);
     if (a === 0) return 'היום';
@@ -385,7 +402,7 @@ const dates = (() => {
 
   return { parse, toISO, todayISO, daysBetween, addDays, addMonths, msUntilNextMidnight,
            monthsBetween, unitValue, unitName, remainderLabel, enlistWaves, axisGap,
-           progressPct, hebrewDays, remainingLabel, formatHe };
+           countWeekday, progressPct, hebrewDays, remainingLabel, formatHe };
 })();
 </script>
 
@@ -675,6 +692,32 @@ const render = (() => {
     // Measured, not computed from a percentage: the fill now ends exactly at
     // the marker, whatever the dates are.
     if (nowNode) fill.style.height = (nowNode.offsetTop + 14) + 'px';
+  }
+
+  function stats(state) {
+    const host = document.getElementById('stats');
+    host.innerHTML = '';
+    if (!state.profile) return;
+    const p = state.profile, today = dates.todayISO();
+    const served = Math.max(0, dates.daysBetween(p.enlistDate, today));
+    const left = Math.max(0, dates.daysBetween(today, p.releaseDate));
+    const upTo = served > 0 ? today : p.enlistDate;
+
+    host.append(el('h2', {}, 'כמה כבר עשית'));
+    const grid = el('div', { class: 'stats' });
+    const rows = [
+      ['ימים בשירות', String(served)],
+      ['חודשים בשירות', String(Math.max(0, dates.monthsBetween(p.enlistDate, today)))],
+      ['שבתות שעברו', String(dates.countWeekday(p.enlistDate, upTo, 6))],
+      ['ימים שנשארו', String(left)],
+    ];
+    for (const [label, value] of rows) {
+      const cell = el('div', { class: 'stat' });
+      cell.append(el('div', { class: 'stat-n' }, value));
+      cell.append(el('div', { class: 'stat-l' }, label));
+      grid.append(cell);
+    }
+    host.append(grid);
   }
 
   let toastTimer = null;
@@ -1118,7 +1161,7 @@ const render = (() => {
     box.querySelector('#wSkip').onclick = () => { dismiss(); onDone(); };
   }
 
-  return { hero, wizard, timeline, events, addSheet, eventSheet, settings, toast, openSheet };
+  return { hero, wizard, timeline, stats, events, addSheet, eventSheet, settings, toast, openSheet };
 })();
 </script>
 
@@ -1306,6 +1349,7 @@ function refresh() {
   paintTheme();
   render.hero(state, refresh);
   render.timeline(state);
+  render.stats(state);
   render.events(state, refresh);
   motion.rollNumber();
   // The badge always tracks the hero event, so the icon and the screen agree.
