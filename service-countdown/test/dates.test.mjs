@@ -129,6 +129,20 @@ t('addMonths handles the 24-month female service term', () => {
   assert.equal(dates.addMonths('2025-03-15', 24), '2027-03-15');
 });
 
+// ---- msUntilNextMidnight ----
+t('msUntilNextMidnight measures to the next LOCAL midnight', () => {
+  assert.equal(dates.msUntilNextMidnight(new Date(2026, 7, 8, 23, 59, 0, 0)), 60 * 1000);
+  assert.equal(dates.msUntilNextMidnight(new Date(2026, 7, 8, 0, 0, 0, 0)), 24 * 60 * 60 * 1000);
+});
+
+t('msUntilNextMidnight is positive across a DST change', () => {
+  // Israel 2026: clocks go back on 25 October. The night is 25 hours long, so
+  // a hardcoded 86400000 would fire the daily re-render an hour early.
+  const ms = dates.msUntilNextMidnight(new Date(2026, 9, 24, 23, 0, 0, 0));
+  assert.ok(ms > 0, 'must be positive');
+  assert.equal(ms, 60 * 60 * 1000);
+});
+
 // ---- progressPct ----
 t('progressPct clamps to 0 and 100', () => {
   assert.equal(dates.progressPct('2025-01-01', '2026-01-01', '2024-06-01'), 0);
