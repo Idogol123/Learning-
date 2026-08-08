@@ -440,7 +440,9 @@ const dates = (() => {
     const left = daysBetween(todayISO, releaseISO);
     if (left < 0) return null;
     if (left <= 100) {
-      return { key: 'last100', text: `100 הימים האחרונים — נשארו ${hebrewDays(left)}` };
+      // Through remainingLabel, not a hardcoded "נשארו": the verb has to agree
+      // with the count, and on the last day the phrase is "היום!" entirely.
+      return { key: 'last100', text: `100 הימים האחרונים — ${remainingLabel(left)}` };
     }
     const pct = progressPct(enlistISO, releaseISO, todayISO);
     if (pct >= 50) {
