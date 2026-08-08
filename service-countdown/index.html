@@ -127,6 +127,13 @@ h1,h2,h3{font-weight:800;letter-spacing:-.02em;margin:0}
 .sheet input[type=text],.sheet input[type=date]{
   width:100%; padding:.85rem; border-radius:var(--r); font-size:1rem; font-family:inherit;
   background:var(--card); color:var(--ink); border:1px solid var(--line-strong)}
+.sheet-x{position:absolute; inset-block-start:calc(.9rem + env(safe-area-inset-top));
+  inset-inline-end:.9rem; width:40px; height:40px; display:inline-flex;
+  align-items:center; justify-content:center; border-radius:12px; cursor:pointer;
+  background:transparent; border:1px solid var(--line); color:var(--muted); font:inherit;
+  transform:rotate(45deg)}
+.sheet-x svg{width:20px;height:20px}
+.sheet-x:hover{color:var(--ink); border-color:var(--line-strong)}
 
 /* ---- top bar + row actions ---- */
 .topbar{position:fixed; inset-block-start:0; inset-inline-end:0; z-index:10;
@@ -185,7 +192,7 @@ h1,h2,h3{font-weight:800;letter-spacing:-.02em;margin:0}
 <main id="app">
 <div class="hero-mini" id="heroMini" aria-hidden="true"></div>
 <div class="topbar">
-  <button class="iconbtn" id="btnTheme" type="button" aria-label="החלף מצב תצוגה"></button>
+  <button class="iconbtn" id="btnTheme" type="button" aria-label="החלף מצב תצוגה" aria-pressed="true"></button>
   <button class="iconbtn" id="btnSettings" type="button" aria-label="הגדרות"></button>
 </div>
   <section class="hero" id="hero"></section>
@@ -637,8 +644,47 @@ const render = (() => {
     }
   }
 
+  // A full-screen overlay that ignores Escape, lets the page scroll behind it
+  // and cannot be dismissed with the back gesture is not a sheet -- it is a
+  // page that traps you. This wires all three, once, for every overlay.
+  function openSheet(node, onClose) {
+    const prevOverflow = document.body.style.overflow;
+    const opener = document.activeElement;
+    document.body.style.overflow = 'hidden';
+    document.body.append(node);
+
+    const close = () => {
+      if (!node.isConnected) return;
+      document.removeEventListener('keydown', onKey);
+      window.removeEventListener('popstate', onPop);
+      document.body.style.overflow = prevOverflow;
+      node.remove();
+      if (opener && opener.focus) opener.focus();
+      if (onClose) onClose();
+    };
+    const onKey = e => { if (e.key === 'Escape') { e.preventDefault(); history.back(); } };
+    const onPop = () => close();
+
+    history.pushState({ sheet: true }, '');
+    document.addEventListener('keydown', onKey);
+    window.addEventListener('popstate', onPop);
+
+    // Closing through history.back() keeps the browser's own back gesture and
+    // our buttons on the same path, so the stack never drifts.
+    const dismiss = () => { if (node.isConnected) history.back(); };
+
+    const x = el('button', { class: 'sheet-x', type: 'button', 'aria-label': 'סגור' },
+      icon('plus'));
+    x.onclick = dismiss;
+    node.prepend(x);
+
+    const first = node.querySelector('input, button:not(.sheet-x)');
+    if (first) first.focus();
+    return dismiss;
+  }
+
   function addSheet(state, refresh) {
-    const box = el('div', { class: 'sheet' });
+    const box = el('div', { class: 'sheet', role: 'dialog', 'aria-modal': 'true' });
     box.innerHTML = `
       <h2>אירוע חדש</h2>
       <div class="tpl" id="tpl"></div>
@@ -655,7 +701,7 @@ const render = (() => {
         <button class="btn primary" id="aSave" type="button">הוסף</button>
         <button class="btn ghost" id="aCancel" type="button">ביטול</button>
       </div>`;
-    document.body.append(box);
+    const dismiss = openSheet(box);
 
     let picked = null;
     const tpl = box.querySelector('#tpl');
@@ -670,7 +716,7 @@ const render = (() => {
       tpl.append(b);
     }
 
-    box.querySelector('#aCancel').onclick = () => box.remove();
+    box.querySelector('#aCancel').onclick = () => dismiss();
     box.querySelector('#aSave').onclick = () => {
       const title = box.querySelector('#aTitle').value.trim();
       const date = box.querySelector('#aDate').value;
@@ -680,13 +726,13 @@ const render = (() => {
         title, date, icon: picked ? picked.icon : 'flag', source: picked ? 'template' : 'custom',
       });
       store.save(state);
-      box.remove();
+      dismiss();
       refresh();
     };
   }
 
   function settings(state, refresh) {
-    const box = el('div', { class: 'sheet' });
+    const box = el('div', { class: 'sheet', role: 'dialog', 'aria-modal': 'true' });
     box.innerHTML = `
       <h2>הגדרות</h2>
       <div class="row">
@@ -704,13 +750,13 @@ const render = (() => {
         <button class="btn" id="sReset" type="button">אפס הכול</button>
         <button class="btn ghost" id="sClose" type="button">סגור</button>
       </div>`;
-    document.body.append(box);
+    const dismiss = openSheet(box);
     const err = box.querySelector('#sErr');
 
-    box.querySelector('#sClose').onclick = () => box.remove();
+    box.querySelector('#sClose').onclick = () => dismiss();
 
     box.querySelector('#sProfile').onclick = () => {
-      box.remove();
+      dismiss();
       render.wizard(state, refresh);
     };
 
@@ -734,7 +780,7 @@ const render = (() => {
           const next = store.importJSON(String(r.result));
           Object.assign(state, next);        // keep the same object identity
           store.save(state);
-          box.remove();
+          dismiss();
           refresh();
         } catch (e) {
           err.textContent = 'הקובץ לא תקין: ' + e.message;
@@ -747,13 +793,13 @@ const render = (() => {
       if (!confirm('למחוק את כל הנתונים? אי אפשר לבטל.')) return;
       Object.assign(state, store.blank());
       store.save(state);
-      box.remove();
+      dismiss();
       refresh();
     };
   }
 
   function wizard(state, onDone) {
-    const box = el('div', { class: 'wizard', id: 'wizard' });
+    const box = el('div', { class: 'wizard', id: 'wizard', role: 'dialog', 'aria-modal': 'true' });
     box.innerHTML = `
       <h2>נתחיל</h2>
       <div>
@@ -773,7 +819,7 @@ const render = (() => {
         <button class="btn primary" id="wSave" type="button">שמור</button>
         <button class="btn ghost" id="wSkip" type="button">דלג</button>
       </div>`;
-    document.body.append(box);
+    const dismiss = openSheet(box);
 
     const enlist = box.querySelector('#wEnlist');
     const release = box.querySelector('#wRelease');
@@ -803,14 +849,14 @@ const render = (() => {
       state.profile = { enlistDate: enlist.value, releaseDate: release.value, gender };
       state.heroId = 'release';
       if (!store.save(state)) err.textContent = 'שים לב: הנתונים לא יישמרו במכשיר הזה';
-      box.remove();
+      dismiss();
       onDone();
     };
 
-    box.querySelector('#wSkip').onclick = () => { box.remove(); onDone(); };
+    box.querySelector('#wSkip').onclick = () => { dismiss(); onDone(); };
   }
 
-  return { hero, wizard, timeline, events, addSheet, settings, toast };
+  return { hero, wizard, timeline, events, openSheet, addSheet, settings, toast };
 })();
 </script>
 
