@@ -286,12 +286,17 @@ const store = (() => {
     return list.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
   }
 
-  // Falls back to the nearest event, then to nothing, so a deleted event or a
-  // "release" id without a profile can never blank the screen.
-  function heroEvent(state) {
+  // Falls back to the NEXT UPCOMING event, and only then to the most recent
+  // past one. Falling back to list[0] (the earliest date) made a deleted hero
+  // hand the main screen to an event that is long over -- the screen read
+  // "סוף טירונות · 424 · ימים מאז", which is not what anyone opens this for.
+  function heroEvent(state, todayISO) {
     const list = allEvents(state);
     if (list.length === 0) return null;
-    return list.find(e => e.id === state.heroId) || list[0];
+    const chosen = list.find(e => e.id === state.heroId);
+    if (chosen) return chosen;
+    const today = todayISO || dates.todayISO();
+    return list.find(e => e.date >= today) || list[list.length - 1];
   }
 
   function exportJSON(state) { return JSON.stringify(state, null, 2); }

@@ -217,11 +217,42 @@ t('heroEvent falls back when heroId points at nothing', () => {
   const s = store.blank();
   s.heroId = 'release';                 // but there is no profile
   s.events = [{ id: 'a', title: 'ראשון', date: '2026-01-01', icon: 'flag', source: 'custom' }];
-  assert.equal(store.heroEvent(s).id, 'a');
+  assert.equal(store.heroEvent(s, '2026-08-08').id, 'a');
 
   const empty = store.blank();
   empty.heroId = 'ghost';
   assert.equal(store.heroEvent(empty), null);
+});
+
+t('heroEvent falls back to the NEXT UPCOMING event, not the earliest', () => {
+  const s = store.blank();
+  s.heroId = 'deleted';
+  s.events = [
+    { id: 'past',   title: 'סוף טירונות', date: '2025-06-10', icon: 'shield', source: 'template' },
+    { id: 'soon',   title: 'מסע כומתה',   date: '2026-09-01', icon: 'star',   source: 'template' },
+    { id: 'later',  title: 'קורס מפקדים', date: '2027-02-01', icon: 'graduation-cap', source: 'template' },
+  ];
+  assert.equal(store.heroEvent(s, '2026-08-08').id, 'soon');
+});
+
+t('heroEvent falls back to the most recent past event when nothing is upcoming', () => {
+  const s = store.blank();
+  s.heroId = 'deleted';
+  s.events = [
+    { id: 'old',    title: 'סוף טירונות', date: '2025-06-10', icon: 'shield', source: 'template' },
+    { id: 'recent', title: 'מסע כומתה',   date: '2026-01-01', icon: 'star',   source: 'template' },
+  ];
+  assert.equal(store.heroEvent(s, '2026-08-08').id, 'recent');
+});
+
+t('heroEvent still honours an explicit heroId that exists', () => {
+  const s = store.blank();
+  s.heroId = 'past';
+  s.events = [
+    { id: 'past', title: 'סוף טירונות', date: '2025-06-10', icon: 'shield', source: 'template' },
+    { id: 'soon', title: 'מסע כומתה',   date: '2026-09-01', icon: 'star',   source: 'template' },
+  ];
+  assert.equal(store.heroEvent(s, '2026-08-08').id, 'past');
 });
 
 t('importJSON rejects malformed and foreign payloads', () => {
