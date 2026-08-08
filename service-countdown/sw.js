@@ -1,7 +1,7 @@
 /* Service worker: network-first for the HTML page (so updates arrive as soon
    as you're online), cache-first for static icons. Works offline after first
    load. Bump CACHE to invalidate old caches on update. */
-const CACHE = "sc-v1";
+const CACHE = "sc-v2";
 const ASSETS = [
   "./",
   "./index.html",
