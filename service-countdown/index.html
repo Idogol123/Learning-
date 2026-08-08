@@ -124,6 +124,16 @@ h1,h2,h3{font-weight:800;letter-spacing:-.02em;margin:0}
 .ev-row{display:flex; align-items:center; gap:.35rem}
 .ev-row .ev{margin-bottom:0}
 .ev-row+.ev-row{margin-top:.6rem}
+.toast{position:fixed; inset-inline:1rem; z-index:40;
+  inset-block-end:calc(1rem + env(safe-area-inset-bottom));
+  display:flex; align-items:center; gap:.75rem; padding:.85rem 1rem;
+  border-radius:var(--r); background:var(--card); color:var(--ink);
+  border:1px solid var(--line-strong); box-shadow:var(--shadow);
+  animation:toast-in .25s var(--ease)}
+.toast span{flex:1; min-width:0; font-size:.95rem}
+.toast button{background:transparent; border:0; padding:.2rem .1rem; font:inherit;
+  font-weight:800; color:var(--accent); cursor:pointer}
+@keyframes toast-in{from{transform:translateY(1rem); opacity:0} to{transform:none; opacity:1}}
 
 /* ---- onboarding wizard ---- */
 .wizard{position:fixed; inset:0; z-index:20; background:var(--bg);
@@ -299,6 +309,21 @@ const store = (() => {
     return list.find(e => e.date >= today) || list[list.length - 1];
   }
 
+  // Removal returns the row so the caller can offer an undo. Deleting a
+  // milestone is one tap next to the row's own tap target; without an undo a
+  // mis-tap is silent data loss, and there is no cloud copy to fall back on.
+  function removeEvent(state, id) {
+    const i = state.events.findIndex(e => e.id === id);
+    if (i === -1) return null;
+    return state.events.splice(i, 1)[0];
+  }
+
+  function restoreEvent(state, ev) {
+    if (!ev || state.events.some(e => e.id === ev.id)) return false;
+    state.events.push(ev);
+    return true;
+  }
+
   function exportJSON(state) { return JSON.stringify(state, null, 2); }
 
   function importJSON(text) {
@@ -308,7 +333,8 @@ const store = (() => {
     return Object.assign(blank(), s);
   }
 
-  return { KEY, blank, load, save, allEvents, heroEvent, exportJSON, importJSON };
+  return { KEY, blank, load, save, allEvents, heroEvent, removeEvent, restoreEvent,
+           exportJSON, importJSON };
 })();
 </script>
 
@@ -449,6 +475,22 @@ const render = (() => {
     host.append(tl);
   }
 
+  let toastTimer = null;
+
+  // One toast at a time: a second delete replaces the first, and the first
+  // deletion is then final. Six seconds is long enough to notice and reach.
+  function toast(message, actionLabel, onAction) {
+    document.querySelectorAll('.toast').forEach(t => t.remove());
+    if (toastTimer) clearTimeout(toastTimer);
+    const box = el('div', { class: 'toast', role: 'status' });
+    box.append(el('span', {}, message));
+    const btn = el('button', { type: 'button' }, actionLabel);
+    btn.onclick = () => { clearTimeout(toastTimer); box.remove(); onAction(); };
+    box.append(btn);
+    document.body.append(box);
+    toastTimer = setTimeout(() => box.remove(), 6000);
+  }
+
   function events(state, refresh) {
     const host = document.getElementById('events');
     host.innerHTML = '';
@@ -486,9 +528,14 @@ const render = (() => {
         const del = el('button', { class: 'ev-del', type: 'button', 'aria-label': 'מחק ' + ev.title },
           icon('trash'));
         del.onclick = () => {
-          state.events = state.events.filter(x => x.id !== ev.id);
+          const removed = store.removeEvent(state, ev.id);
           store.save(state);
           refresh();
+          toast(`"${removed.title}" נמחק`, 'ביטול', () => {
+            store.restoreEvent(state, removed);
+            store.save(state);
+            refresh();
+          });
         };
         wrap.append(del);
       }
@@ -669,7 +716,7 @@ const render = (() => {
     box.querySelector('#wSkip').onclick = () => { box.remove(); onDone(); };
   }
 
-  return { hero, wizard, timeline, events, addSheet, settings };
+  return { hero, wizard, timeline, events, addSheet, settings, toast };
 })();
 </script>
 

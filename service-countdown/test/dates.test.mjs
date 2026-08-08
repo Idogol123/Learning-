@@ -267,4 +267,26 @@ t('exportJSON output survives importJSON', () => {
   assert.deepEqual(store.importJSON(store.exportJSON(s)).profile, s.profile);
 });
 
+t('removeEvent returns the removed row and takes it out of the state', () => {
+  const s = store.blank();
+  s.events = [
+    { id: 'a', title: 'א', date: '2026-01-01', icon: 'flag', source: 'custom' },
+    { id: 'b', title: 'ב', date: '2026-02-01', icon: 'flag', source: 'custom' },
+  ];
+  const removed = store.removeEvent(s, 'a');
+  assert.equal(removed.id, 'a');
+  assert.deepEqual(store.allEvents(s).map(e => e.id), ['b']);
+  assert.equal(store.removeEvent(s, 'nope'), null);
+});
+
+t('restoreEvent puts a removed row back exactly once', () => {
+  const s = store.blank();
+  s.events = [{ id: 'a', title: 'א', date: '2026-01-01', icon: 'flag', source: 'custom' }];
+  const removed = store.removeEvent(s, 'a');
+  assert.equal(store.restoreEvent(s, removed), true);
+  assert.deepEqual(store.allEvents(s).map(e => e.id), ['a']);
+  assert.equal(store.restoreEvent(s, removed), false);   // already back
+  assert.equal(store.restoreEvent(s, null), false);
+});
+
 console.log(`${passed} passed`);
