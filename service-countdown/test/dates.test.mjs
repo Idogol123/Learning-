@@ -197,6 +197,17 @@ t('remainderLabel spells out what the unit rounds away', () => {
   assert.equal(dates.remainderLabel('months', '2026-08-08', '2026-09-08'), '');
 });
 
+// ---- enlistment waves ----
+t('enlistWaves lists recent March/August/November intakes, newest first', () => {
+  const w = dates.enlistWaves('2026-08-08', 4);
+  assert.deepEqual([...w], ['2026-08-01', '2026-03-01', '2025-11-01', '2025-08-01']);
+});
+
+t('enlistWaves never returns a future intake', () => {
+  const w = dates.enlistWaves('2026-07-31', 2);
+  assert.deepEqual([...w], ['2026-03-01', '2025-11-01']);
+});
+
 // ---- Hebrew phrasing ----
 t('hebrewDays uses the dual form for two', () => {
   assert.equal(dates.hebrewDays(0), 'היום');

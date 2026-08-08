@@ -138,6 +138,9 @@ h1,h2,h3{font-weight:800;letter-spacing:-.02em;margin:0}
 .sheet input[type=text],.sheet input[type=date]{
   width:100%; padding:.85rem; border-radius:var(--r); font-size:1rem; font-family:inherit;
   background:var(--card); color:var(--ink); border:1px solid var(--line-strong)}
+.wizard input[type=number]{width:5.5rem; padding:.85rem; border-radius:var(--r);
+  font-size:1rem; font-family:inherit; text-align:center;
+  background:var(--card); color:var(--ink); border:1px solid var(--line-strong)}
 .sheet-x{position:absolute; inset-block-start:calc(.9rem + env(safe-area-inset-top));
   inset-inline-end:.9rem; width:40px; height:40px; display:inline-flex;
   align-items:center; justify-content:center; border-radius:12px; cursor:pointer;
@@ -313,6 +316,23 @@ const dates = (() => {
     return rest === 2 ? 'ויומיים' : `ו-${rest} ${unitName('days', rest)}`;
   }
 
+  // Israeli conscription runs in waves; typing an enlistment date two years
+  // back through a native date spinner is the slowest possible way in.
+  // Months are 0-based here: 2 = March, 7 = August, 10 = November.
+  function enlistWaves(todayISO, count) {
+    const t = parse(todayISO);
+    const out = [];
+    let y = t.getFullYear();
+    while (out.length < count && y > t.getFullYear() - 12) {
+      for (const m of [10, 7, 2]) {
+        const iso = toISO(new Date(y, m, 1));
+        if (iso <= todayISO && out.length < count) out.push(iso);
+      }
+      y -= 1;
+    }
+    return out;
+  }
+
   function hebrewDays(n) {
     const a = Math.abs(n);
     if (a === 0) return 'היום';
@@ -333,7 +353,7 @@ const dates = (() => {
   }
 
   return { parse, toISO, todayISO, daysBetween, addDays, addMonths, msUntilNextMidnight,
-           monthsBetween, unitValue, unitName, remainderLabel,
+           monthsBetween, unitValue, unitName, remainderLabel, enlistWaves,
            progressPct, hebrewDays, remainingLabel, formatHe };
 })();
 </script>
@@ -880,15 +900,24 @@ const render = (() => {
       <div>
         <label for="wEnlist">תאריך גיוס</label>
         <input type="date" id="wEnlist">
+        <div class="tpl" id="wWaves"></div>
+      </div>
+      <div>
+        <label>אורך שירות</label>
+        <div class="tpl" id="wGender"></div>
+        <div class="row">
+          <input type="number" id="wMonths" min="1" max="60" step="1" value="32"
+                 inputmode="numeric" aria-label="מספר חודשי שירות">
+          <span class="ev-d">חודשים</span>
+          <button class="btn" id="wCalc" type="button">חשב תאריך שחרור</button>
+        </div>
       </div>
       <div>
         <label for="wRelease">תאריך שחרור</label>
         <input type="date" id="wRelease">
       </div>
-      <div class="row">
-        <button class="btn" id="wCalcM" type="button">חשב לי — חייל (32 ח׳)</button>
-        <button class="btn" id="wCalcF" type="button">חיילת (24 ח׳)</button>
-      </div>
+      <p class="ev-d">ברירות המחדל (32 / 24 חודשים) הן הצעה בלבד — אורך השירות
+        בחוק השתנה כמה פעמים. המקור המחייב הוא התאריך שעל הצו; אפשר לדרוס כאן הכול.</p>
       <p class="err" id="wErr"></p>
       <div class="row">
         <button class="btn primary" id="wSave" type="button">שמור</button>
@@ -907,21 +936,49 @@ const render = (() => {
       release.value = state.profile.releaseDate || '';
     }
 
-    function suggest(months, g) {
-      if (!enlist.value) { err.textContent = 'צריך קודם תאריך גיוס'; return; }
-      err.textContent = '';
-      gender = g;
-      release.value = dates.addMonths(enlist.value, months);
+    const months = box.querySelector('#wMonths');
+    if (state.profile && state.profile.months) months.value = state.profile.months;
+
+    const waves = box.querySelector('#wWaves');
+    for (const iso of dates.enlistWaves(dates.todayISO(), 6)) {
+      const b = el('button', { type: 'button' }, dates.formatHe(iso).replace(/^1 ב/, ''));
+      b.onclick = () => {
+        waves.querySelectorAll('button').forEach(x => x.classList.remove('on'));
+        b.classList.add('on');
+        enlist.value = iso;
+      };
+      waves.append(b);
     }
-    box.querySelector('#wCalcM').onclick = () => suggest(32, 'm');
-    box.querySelector('#wCalcF').onclick = () => suggest(24, 'f');
+
+    const genderBox = box.querySelector('#wGender');
+    function paintGender() {
+      genderBox.querySelectorAll('button').forEach(b =>
+        b.classList.toggle('on', b.dataset.g === gender));
+    }
+    for (const g of [{ g: 'm', label: 'חייל', months: 32 }, { g: 'f', label: 'חיילת', months: 24 }]) {
+      const b = el('button', { type: 'button', 'data-g': g.g }, g.label);
+      b.onclick = () => { gender = g.g; months.value = g.months; paintGender(); };
+      genderBox.append(b);
+    }
+    paintGender();
+
+    box.querySelector('#wCalc').onclick = () => {
+      if (!enlist.value) { err.textContent = 'צריך קודם תאריך גיוס'; return; }
+      const n = Number(months.value);
+      if (!Number.isInteger(n) || n < 1 || n > 60) {
+        err.textContent = 'מספר חודשים לא הגיוני'; return;
+      }
+      err.textContent = '';
+      release.value = dates.addMonths(enlist.value, n);
+    };
 
     box.querySelector('#wSave').onclick = () => {
       if (!enlist.value || !release.value) { err.textContent = 'צריך שני תאריכים'; return; }
       if (dates.daysBetween(enlist.value, release.value) <= 0) {
         err.textContent = 'תאריך השחרור חייב להיות אחרי הגיוס'; return;
       }
-      state.profile = { enlistDate: enlist.value, releaseDate: release.value, gender };
+      state.profile = { enlistDate: enlist.value, releaseDate: release.value,
+                        gender, months: Number(months.value) || null };
       state.heroId = 'release';
       if (!store.save(state)) err.textContent = 'שים לב: הנתונים לא יישמרו במכשיר הזה';
       dismiss();
