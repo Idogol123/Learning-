@@ -48,6 +48,9 @@ h1,h2,h3{font-weight:800;letter-spacing:-.02em;margin:0}
   letter-spacing:-.05em; color:var(--accent);
   font-variant-numeric:tabular-nums;
 }
+.hero-num{background:none; border:0; padding:0; font-family:inherit; cursor:pointer;
+  display:block; margin-inline:auto}
+.hero-num:focus-visible{outline:2px solid var(--accent); outline-offset:6px; border-radius:8px}
 .hero-unit{font-size:1.25rem; font-weight:800; color:var(--ink)}
 .hero-meta{color:var(--muted); font-size:.95rem; margin-top:.75rem}
 .hero-ring{width:min(72vw,320px); height:4px; border-radius:999px;
@@ -256,6 +259,40 @@ const dates = (() => {
     return Math.max(0, Math.min(100, Math.round((done / total) * 100)));
   }
 
+  // Whole calendar months. Walks the calendar rather than dividing days by 30:
+  // 32 months of service is not 960 days, and the headline may not disagree
+  // with the release date printed under it.
+  function monthsBetween(fromISO, toISO) {
+    const a = parse(fromISO), b = parse(toISO);
+    let m = (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth());
+    if (b.getDate() < a.getDate()) m -= 1;
+    return m;
+  }
+
+  function unitValue(unit, fromISO, toISO) {
+    if (unit === 'weeks')  return Math.trunc(Math.abs(daysBetween(fromISO, toISO)) / 7);
+    if (unit === 'months') return Math.abs(monthsBetween(fromISO, toISO));
+    return Math.abs(daysBetween(fromISO, toISO));
+  }
+
+  function unitName(unit, n) {
+    const a = Math.abs(n);
+    if (unit === 'weeks')  return a === 1 ? 'שבוע'  : a === 2 ? 'שבועיים'  : 'שבועות';
+    if (unit === 'months') return a === 1 ? 'חודש'  : a === 2 ? 'חודשיים' : 'חודשים';
+    return a === 1 ? 'יום' : a === 2 ? 'יומיים' : 'ימים';
+  }
+
+  // "15 חודשים" alone hides a week; this is the tail the unit rounded away.
+  function remainderLabel(unit, fromISO, toISO) {
+    if (unit === 'days') return '';
+    const [a, b] = daysBetween(fromISO, toISO) < 0 ? [toISO, fromISO] : [fromISO, toISO];
+    let rest;
+    if (unit === 'months') rest = daysBetween(addMonths(a, monthsBetween(a, b)), b);
+    else                   rest = Math.abs(daysBetween(a, b)) % 7;
+    if (rest === 0) return '';
+    return rest === 2 ? 'ויומיים' : `ו-${rest} ${unitName('days', rest)}`;
+  }
+
   function hebrewDays(n) {
     const a = Math.abs(n);
     if (a === 0) return 'היום';
@@ -276,6 +313,7 @@ const dates = (() => {
   }
 
   return { parse, toISO, todayISO, daysBetween, addDays, addMonths, msUntilNextMidnight,
+           monthsBetween, unitValue, unitName, remainderLabel,
            progressPct, hebrewDays, remainingLabel, formatHe };
 })();
 </script>
@@ -286,7 +324,7 @@ const store = (() => {
   const KEY = 'service-countdown.v1';
 
   function blank() {
-    return { v: 1, profile: null, events: [], heroId: 'release', theme: 'dark' };
+    return { v: 1, profile: null, events: [], heroId: 'release', theme: 'dark', unit: 'days' };
   }
 
   // Never throws. A corrupt or foreign payload is treated as "no data yet"
@@ -431,8 +469,14 @@ const render = (() => {
     return out.sort((a, b) => (a.date < b.date ? -1 : 1));
   }
 
+  // The hero is the only thing a unit switch changes; re-rendering the whole
+  // page would also collapse the toast and reset the scroll position.
+  let heroState = null;
+  function refreshHero() { if (heroState) hero(heroState); }
+
   function hero(state) {
     const host = document.getElementById('hero');
+    heroState = state;
     host.innerHTML = '';
     const ev = store.heroEvent(state);
     const mini = document.getElementById('heroMini');
@@ -455,9 +499,22 @@ const render = (() => {
     // its own title, or the screen reads "discharged" for a beret march.
     host.append(el('div', { class: 'hero-label' },
       past && ev.id === 'release' ? 'משוחרר' : ev.title));
-    host.append(el('div', { class: 'hero-num', id: 'heroNum' }, String(Math.abs(left))));
+    const unit = state.unit || 'days';
+    const value = dates.unitValue(unit, today, ev.date);
+    const num = el('button', { class: 'hero-num', id: 'heroNum', type: 'button',
+      'aria-live': 'polite', 'aria-label': 'החלף יחידת ספירה' }, String(value));
+    num.onclick = () => {
+      const order = ['days', 'weeks', 'months'];
+      state.unit = order[(order.indexOf(unit) + 1) % order.length];
+      store.save(state);
+      refreshHero();
+    };
+    host.append(num);
+    const rest = dates.remainderLabel(unit, today, ev.date);
     host.append(el('div', { class: 'hero-unit' },
-      past ? `ימים מאז ${ev.title}` : (left === 0 ? 'היום!' : 'ימים')));
+      past ? `${dates.unitName(unit, value)} מאז ${ev.title}`
+           : (value === 0 && unit === 'days' ? 'היום!'
+              : `${dates.unitName(unit, value)}${rest ? ' ' + rest : ''}`)));
 
     if (state.profile) {
       const pct = dates.progressPct(state.profile.enlistDate, state.profile.releaseDate, today);

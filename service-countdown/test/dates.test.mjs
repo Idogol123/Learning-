@@ -158,6 +158,45 @@ t('progressPct returns 100 when the range is empty or inverted', () => {
   assert.equal(dates.progressPct('2026-06-01', '2026-01-01', '2026-03-01'), 100);
 });
 
+// ---- units ----
+t('monthsBetween counts whole calendar months', () => {
+  assert.equal(dates.monthsBetween('2025-03-15', '2027-11-15'), 32);
+  assert.equal(dates.monthsBetween('2025-03-15', '2025-04-14'), 0);
+  assert.equal(dates.monthsBetween('2025-03-15', '2025-04-15'), 1);
+  assert.equal(dates.monthsBetween('2027-11-15', '2025-03-15'), -32);
+});
+
+t('monthsBetween handles an end-of-month start', () => {
+  assert.equal(dates.monthsBetween('2025-01-31', '2025-02-28'), 0);
+  assert.equal(dates.monthsBetween('2025-01-31', '2025-03-31'), 2);
+});
+
+t('unitValue converts the same span into each unit', () => {
+  assert.equal(dates.unitValue('days',   '2026-08-08', '2027-11-15'), 464);
+  assert.equal(dates.unitValue('weeks',  '2026-08-08', '2027-11-15'), 66);
+  assert.equal(dates.unitValue('months', '2026-08-08', '2027-11-15'), 15);
+  assert.equal(dates.unitValue('days',   '2027-11-15', '2026-08-08'), 464);
+});
+
+t('unitName uses Hebrew singular, dual and plural', () => {
+  assert.equal(dates.unitName('days', 1), 'יום');
+  assert.equal(dates.unitName('days', 2), 'יומיים');
+  assert.equal(dates.unitName('days', 5), 'ימים');
+  assert.equal(dates.unitName('weeks', 1), 'שבוע');
+  assert.equal(dates.unitName('weeks', 2), 'שבועיים');
+  assert.equal(dates.unitName('weeks', 5), 'שבועות');
+  assert.equal(dates.unitName('months', 1), 'חודש');
+  assert.equal(dates.unitName('months', 2), 'חודשיים');
+  assert.equal(dates.unitName('months', 5), 'חודשים');
+});
+
+t('remainderLabel spells out what the unit rounds away', () => {
+  assert.equal(dates.remainderLabel('months', '2026-08-08', '2027-11-15'), 'ו-7 ימים');
+  assert.equal(dates.remainderLabel('weeks',  '2026-08-08', '2027-11-15'), 'ויומיים');
+  assert.equal(dates.remainderLabel('days',   '2026-08-08', '2027-11-15'), '');
+  assert.equal(dates.remainderLabel('months', '2026-08-08', '2026-09-08'), '');
+});
+
 // ---- Hebrew phrasing ----
 t('hebrewDays uses the dual form for two', () => {
   assert.equal(dates.hebrewDays(0), 'היום');
