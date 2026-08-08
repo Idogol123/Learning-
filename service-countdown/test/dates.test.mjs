@@ -248,6 +248,19 @@ t('axisGap tolerates a zero-length span', () => {
   assert.equal(dates.axisGap('2026-01-01', '2026-01-01', 0, 400, 14), 14);
 });
 
+// ---- weekday counting ----
+t('countWeekday counts inclusive occurrences of one weekday', () => {
+  // 2026-01-03 is a Saturday.
+  assert.equal(dates.countWeekday('2026-01-03', '2026-01-03', 6), 1);
+  assert.equal(dates.countWeekday('2026-01-04', '2026-01-09', 6), 0);
+  assert.equal(dates.countWeekday('2026-01-04', '2026-01-10', 6), 1);
+  assert.equal(dates.countWeekday('2026-01-04', '2026-01-17', 6), 2);
+});
+
+t('countWeekday returns zero for an inverted range', () => {
+  assert.equal(dates.countWeekday('2026-02-01', '2026-01-01', 6), 0);
+});
+
 // ---- store ----
 t('blank state is valid and empty', () => {
   const s = store.blank();
