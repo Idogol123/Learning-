@@ -701,6 +701,15 @@ const render = (() => {
         <button class="btn" id="sProfile" type="button">ערוך תאריכי שירות</button>
       </div>
       <div class="row">
+        <button class="btn" id="sIcs" type="button">הוסף ליומן עם תזכורת</button>
+        <button class="btn" id="sShare" type="button">שתף את הספירה</button>
+      </div>
+      <p class="ev-d">"הוסף ליומן" מוריד קובץ עם כל האירועים ותזכורת יום מראש —
+        ההתראה מגיעה מהיומן של המכשיר, בלי שרת ובלי חשבון.</p>
+      <div class="row" id="sBadgeRow" hidden>
+        <button class="btn" id="sBadge" type="button">הצג ימים על אייקון האפליקציה</button>
+      </div>
+      <div class="row">
         <button class="btn" id="sExport" type="button">ייצא גיבוי</button>
         <button class="btn" id="sImport" type="button">ייבא גיבוי</button>
         <input type="file" id="sFile" accept="application/json" hidden>
@@ -716,6 +725,37 @@ const render = (() => {
     const err = box.querySelector('#sErr');
 
     box.querySelector('#sClose').onclick = () => box.remove();
+
+    box.querySelector('#sIcs').onclick = () => {
+      const rows = store.allEvents(state).map(e => ({ title: e.title, date: e.date }));
+      if (rows.length === 0) { err.textContent = 'אין עדיין אירועים לייצא'; return; }
+      const blob = new Blob([ics.build(rows, 1)], { type: 'text/calendar' });
+      const a = el('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = ics.filename();
+      a.click();
+      URL.revokeObjectURL(a.href);
+    };
+
+    box.querySelector('#sShare').onclick = async () => {
+      const ev = store.heroEvent(state);
+      if (!ev) { err.textContent = 'אין עדיין ספירה לשתף'; return; }
+      const left = dates.daysBetween(dates.todayISO(), ev.date);
+      const text = `${ev.title}: ${dates.remainingLabel(left)} (${dates.formatHe(ev.date)})`;
+      try {
+        if (navigator.share) await navigator.share({ text });
+        else { await navigator.clipboard.writeText(text); err.textContent = 'הועתק'; }
+      } catch (e) { /* the user dismissed the share sheet */ }
+    };
+
+    if (badge.supported()) {
+      box.querySelector('#sBadgeRow').hidden = false;
+      box.querySelector('#sBadge').onclick = async () => {
+        const ok = await badge.enable();
+        err.textContent = ok ? 'התג יופיע על האייקון' : 'ההרשאה נדחתה — אין תג';
+        if (ok) refresh();
+      };
+    }
 
     box.querySelector('#sProfile').onclick = () => {
       box.remove();
@@ -906,6 +946,75 @@ const clock = (() => {
 </script>
 
 <script>
+/* ---------- ics: a calendar file is the only offline path to a real reminder ---------- */
+const ics = (() => {
+  // A PWA cannot schedule a local notification without a push server. What it
+  // CAN do is hand the OS calendar an event with an alarm attached -- Apple
+  // Calendar and Google Calendar both honour VALARM -- so the reminder comes
+  // from the system, with no server and no permission prompt.
+  function esc(s) {
+    return String(s).replace(/\\/g, '\\\\').replace(/;/g, '\\;')
+                    .replace(/,/g, '\\,').replace(/\n/g, '\\n');
+  }
+
+  function stamp(iso) { return iso.replace(/-/g, ''); }
+
+  function build(events, alarmDays) {
+    const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//hasfira//service-countdown//HE',
+                   'CALSCALE:GREGORIAN', 'METHOD:PUBLISH'];
+    let seq = 0;
+    for (const ev of events) {
+      lines.push('BEGIN:VEVENT');
+      lines.push(`UID:${stamp(ev.date)}-${seq++}@hasfira.local`);
+      lines.push(`DTSTAMP:${stamp(dates.todayISO())}T000000Z`);
+      // All-day events use an exclusive DTEND: the day after the event.
+      lines.push(`DTSTART;VALUE=DATE:${stamp(ev.date)}`);
+      lines.push(`DTEND;VALUE=DATE:${stamp(dates.addDays(ev.date, 1))}`);
+      lines.push(`SUMMARY:${esc(ev.title)}`);
+      lines.push('TRANSP:TRANSPARENT');
+      if (alarmDays > 0) {
+        lines.push('BEGIN:VALARM');
+        lines.push(`TRIGGER;RELATED=START:-P${alarmDays}D`);
+        lines.push('ACTION:DISPLAY');
+        lines.push(`DESCRIPTION:${esc(ev.title)}`);
+        lines.push('END:VALARM');
+      }
+      lines.push('END:VEVENT');
+    }
+    lines.push('END:VCALENDAR');
+    return lines.join('\r\n') + '\r\n';
+  }
+
+  function filename() { return 'ha-sfira.ics'; }
+
+  return { build, filename };
+})();
+
+/* ---------- badge: the only "widget" a PWA gets ---------- */
+const badge = (() => {
+  // navigator.setAppBadge works on installed home-screen web apps from
+  // iOS/iPadOS 16.4 and on Chrome/Edge, but only once notification permission
+  // has been granted. It is the closest thing we have to the competitor's
+  // home-screen widget: the days left, readable without opening anything.
+  function supported() { return 'setAppBadge' in navigator; }
+
+  function paint(n) {
+    if (!supported()) return;
+    if (typeof n === 'number' && n > 0) navigator.setAppBadge(n).catch(() => {});
+    else navigator.clearAppBadge().catch(() => {});
+  }
+
+  async function enable() {
+    if (!supported() || !('Notification' in window)) return false;
+    try { return (await Notification.requestPermission()) === 'granted'; }
+    catch (e) { return false; }
+  }
+
+  return { supported, paint, enable };
+})();
+</script>
+
+<script>
 let state = store.load();
 
 const btnTheme = document.getElementById('btnTheme');
@@ -933,6 +1042,9 @@ function refresh() {
   render.timeline(state);
   render.events(state, refresh);
   motion.rollNumber();
+  // The badge always tracks the hero event, so the icon and the screen agree.
+  const shown = store.heroEvent(state);
+  badge.paint(shown ? dates.daysBetween(dates.todayISO(), shown.date) : null);
 }
 
 if (!state.profile && state.events.length === 0) {
