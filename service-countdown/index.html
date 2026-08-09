@@ -148,6 +148,23 @@ h1,h2,h3{font-weight:800;letter-spacing:-.02em;margin:0}
 .stat-n{font-size:1.6rem; font-weight:800; color:var(--accent);
   font-variant-numeric:tabular-nums; line-height:1.1}
 .stat-l{color:var(--muted); font-size:.85rem; margin-top:.2rem}
+/* One dot per day of service. auto-fill with a minimum keeps the row count
+   sane from 320px to 640px without a media query, and aspect-ratio keeps the
+   dots round however many land in a row. */
+.pgrid{display:grid; grid-template-columns:repeat(auto-fill, minmax(7px, 1fr));
+  gap:3px; padding:.9rem; border-radius:var(--r);
+  background:var(--card); border:1px solid var(--line); box-shadow:var(--shadow)}
+.pgrid i{display:block; aspect-ratio:1; border-radius:50%;
+  background:var(--line-strong); opacity:.55}
+.pgrid i.done{background:var(--accent); opacity:.85}
+.pgrid i.ev{background:var(--accent); opacity:1;
+  box-shadow:0 0 0 1.5px color-mix(in srgb, var(--accent) 35%, transparent)}
+.pgrid i.now{background:var(--ink); opacity:1;
+  box-shadow:0 0 0 2.5px color-mix(in srgb, var(--ink) 25%, transparent)}
+.pgrid-legend{display:flex; flex-wrap:wrap; gap:.9rem; margin-top:.7rem;
+  color:var(--muted); font-size:.8rem}
+.pgrid-legend span{display:inline-flex; align-items:center; gap:.35rem}
+.pgrid-legend i{width:8px; height:8px; border-radius:50%; display:inline-block}
 .ev{display:flex; align-items:center; gap:.7rem; width:100%; text-align:start;
   padding:.85rem; margin-bottom:.6rem; border-radius:var(--r);
   background:var(--card); border:1px solid var(--line); box-shadow:var(--shadow);
@@ -309,6 +326,7 @@ html{scroll-padding-block-start:5rem}
   <section class="hero" id="hero"></section>
   <section class="panel" id="timeline"></section>
   <section class="panel" id="stats"></section>
+  <section class="panel" id="grid"></section>
   <section class="panel" id="events"></section>
 </main>
 <script>
@@ -951,6 +969,39 @@ const render = (() => {
     host.append(grid);
   }
 
+  // 970-odd dots is a lot of nodes, but they are leaf <i> elements with no
+  // listeners and the panel is rendered once per refresh -- cheaper than a
+  // canvas that would have to be redrawn on every theme switch.
+  function grid(state) {
+    const host = document.getElementById('grid');
+    host.innerHTML = '';
+    if (!state.profile) return;
+    const p = state.profile, today = dates.todayISO();
+    const total = dates.daysBetween(p.enlistDate, p.releaseDate);
+    if (total <= 0 || total > 4000) return;   // a nonsense range draws nothing
+
+    const marks = new Set(store.allEvents(state).map(e => e.date));
+    host.append(el('h2', {}, 'רשת הפז״מ'));
+    const box = el('div', { class: 'pgrid', role: 'img',
+      'aria-label': `רשת של ${total} ימי שירות, ${Math.max(0, dates.daysBetween(p.enlistDate, today))} מהם מאחוריך` });
+    for (let i = 0; i <= total; i++) {
+      const iso = dates.addDays(p.enlistDate, i);
+      let cls = iso < today ? 'done' : '';
+      if (marks.has(iso)) cls = 'ev';
+      if (iso === today) cls = 'now';
+      box.append(el('i', cls ? { class: cls } : {}));
+    }
+    host.append(box);
+    const legend = el('div', { class: 'pgrid-legend' });
+    for (const [cls, label] of [['done', 'נעשה'], ['now', 'היום'],
+                                ['ev', 'אירוע'], ['', 'לפנינו']]) {
+      const s = el('span', {});
+      s.append(el('i', cls ? { class: cls } : {}), el('span', {}, label));
+      legend.append(s);
+    }
+    host.append(legend);
+  }
+
   let toastTimer = null;
 
   // One toast at a time: a second delete replaces the first, and the first
@@ -1471,7 +1522,7 @@ const render = (() => {
     box.querySelector('#wSkip').onclick = () => { dismiss(); onDone(); };
   }
 
-  return { hero, ring, wizard, timeline, stats, events, addSheet, eventSheet, settings,
+  return { hero, ring, wizard, timeline, stats, grid, events, addSheet, eventSheet, settings,
            toast, openSheet };
 })();
 </script>
@@ -1861,6 +1912,7 @@ function refresh() {
   render.hero(state, refresh);
   render.timeline(state);
   render.stats(state);
+  render.grid(state);
   render.events(state, refresh);
   motion.rollNumber();
   // The badge always tracks the hero event, so the icon and the screen agree.
