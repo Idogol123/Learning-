@@ -339,6 +339,12 @@ html{scroll-padding-block-start:5rem}
   background:var(--card); color:var(--ink); font:inherit; font-weight:700; cursor:pointer}
 .btn.primary{background:var(--accent); border-color:var(--accent); color:var(--bg)}
 .btn.ghost{background:transparent; border-color:transparent; color:var(--muted)}
+.btn.danger{color:#c0392b; border-color:color-mix(in srgb, #c0392b 35%, var(--line))}
+:root[data-theme="dark"] .btn.danger{color:#ff8a75;
+  border-color:color-mix(in srgb, #ff8a75 30%, var(--line))}
+.sheet h3{font-size:.9rem; font-weight:800; color:var(--muted);
+  letter-spacing:.02em; margin:.6rem 0 -.3rem}
+.sheet hr{border:0; border-block-start:1px solid var(--line); margin:.4rem 0}
 .err{color:#c0392b; font-size:.9rem; min-height:1.2em}
 :root[data-theme="dark"] .err{color:#ff8a75}
 
@@ -956,8 +962,12 @@ const render = (() => {
       host.append(row);
     }
 
-    host.append(el('div', { class: 'hero-hint' },
-      'לחיצה על המספר מחליפה יחידה · לחיצה ארוכה לספירה חיה'));
+    const hintRow = el('div', { class: 'row', style: 'justify-content:center' });
+    const liveBtn = el('button', { class: 'btn ghost', type: 'button' }, 'ספירה חיה');
+    liveBtn.onclick = () => live.open(ev.title, ev.date);
+    hintRow.append(liveBtn);
+    host.append(hintRow);
+    host.append(el('div', { class: 'hero-hint' }, 'לחיצה על המספר מחליפה יחידה'));
 
     host.append(el('div', { class: 'scroll-hint' }, icon('chevron-down')));
 
@@ -1379,6 +1389,8 @@ const render = (() => {
     const box = el('div', { class: 'sheet', role: 'dialog', 'aria-modal': 'true' });
     box.innerHTML = `
       <h2>הגדרות</h2>
+
+      <h3>הספירה</h3>
       <div class="row">
         <button class="btn" id="sProfile" type="button">ערוך תאריכי שירות</button>
         <button class="btn" id="sPostpone" type="button">דחיית שחרור</button>
@@ -1387,32 +1399,46 @@ const render = (() => {
         <label>צבע</label>
         <div class="row" id="sAccent"></div>
       </div>
+
+      <hr>
+      <h3>לראות את המספר בלי לפתוח</h3>
       <div class="row">
         <button class="btn" id="sIcs" type="button">הוסף ליומן עם תזכורת</button>
         <button class="btn" id="sDaily" type="button">יומן ספירה יומי</button>
-        <button class="btn" id="sShare" type="button">שתף את הספירה</button>
-        <button class="btn" id="sCard" type="button">שתף כתמונה</button>
+      </div>
+      <div class="row">
         <button class="btn" id="sWall" type="button">טפט למסך נעילה</button>
       </div>
-      <p class="ev-d">"הוסף ליומן" מוריד את כל האירועים עם תזכורת יום מראש.
-        "יומן ספירה יומי" מוסיף שורה לכל אחד מ-100 הימים הבאים, שהכותרת שלה היא
-        המספר עצמו — כך רואים את הספירה בכל בוקר בלי לפתוח כלום. הכול מהיומן של
-        המכשיר, בלי שרת ובלי חשבון.</p>
       <div class="row" id="sBadgeRow" hidden>
         <button class="btn" id="sBadge" type="button">הצג ימים על אייקון האפליקציה</button>
       </div>
+      <p class="ev-d">"הוסף ליומן" מוריד את כל האירועים עם תזכורת יום מראש.
+        "יומן ספירה יומי" מוסיף שורה לכל אחד מ-100 הימים הבאים, שהכותרת שלה היא
+        המספר עצמו. הטפט מצויר כאן במכשיר. הכול אופליין, בלי שרת ובלי חשבון.</p>
+
+      <hr>
+      <h3>שיתוף</h3>
+      <div class="row">
+        <button class="btn" id="sShare" type="button">שתף את הספירה</button>
+        <button class="btn" id="sCard" type="button">שתף כתמונה</button>
+      </div>
+
+      <hr>
+      <h3>נתונים</h3>
       <div class="row">
         <button class="btn" id="sExport" type="button">ייצא גיבוי</button>
-        <button class="btn" id="sLink" type="button">קישור העברה</button>
         <button class="btn" id="sImport" type="button">ייבא גיבוי</button>
+        <button class="btn" id="sLink" type="button">קישור העברה</button>
         <input type="file" id="sFile" accept="application/json" hidden>
       </div>
-      <p class="ev-d">הגיבוי נשמר כקובץ במכשיר. אין ענן ואין חשבון — אם תחליף מכשיר,
-        זו הדרך להעביר את הנתונים.</p>
+      <p class="ev-d">הגיבוי נשמר כקובץ במכשיר. אין ענן ואין חשבון — אם תחליף
+        מכשיר, זו הדרך להעביר את הנתונים.</p>
       <p class="err" id="sErr"></p>
+
+      <hr>
       <div class="row">
-        <button class="btn" id="sReset" type="button">אפס הכול</button>
-        <button class="btn ghost" id="sClose" type="button">סגור</button>
+        <button class="btn primary" id="sClose" type="button">סגור</button>
+        <button class="btn danger" id="sReset" type="button">אפס הכול</button>
       </div>`;
     const dismiss = openSheet(box);
     const err = box.querySelector('#sErr');
