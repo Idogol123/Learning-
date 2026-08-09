@@ -154,17 +154,23 @@ h1,h2,h3{font-weight:800;letter-spacing:-.02em;margin:0}
 .pgrid{display:grid; grid-template-columns:repeat(auto-fill, minmax(7px, 1fr));
   gap:3px; padding:.9rem; border-radius:var(--r);
   background:var(--card); border:1px solid var(--line); box-shadow:var(--shadow)}
-.pgrid i{display:block; aspect-ratio:1; border-radius:50%;
-  background:var(--line-strong); opacity:.55}
-.pgrid i.done{background:var(--accent); opacity:.85}
-.pgrid i.ev{background:var(--accent); opacity:1;
-  box-shadow:0 0 0 1.5px color-mix(in srgb, var(--accent) 35%, transparent)}
-.pgrid i.now{background:var(--ink); opacity:1;
-  box-shadow:0 0 0 2.5px color-mix(in srgb, var(--ink) 25%, transparent)}
+.pgrid i{display:block; aspect-ratio:1}
 .pgrid-legend{display:flex; flex-wrap:wrap; gap:.9rem; margin-top:.7rem;
   color:var(--muted); font-size:.8rem}
 .pgrid-legend span{display:inline-flex; align-items:center; gap:.35rem}
-.pgrid-legend i{width:8px; height:8px; border-radius:50%; display:inline-block}
+.pgrid-legend i{width:8px; height:8px; flex:none; display:inline-block}
+/* The swatch colours are shared by the grid and its legend. Scoping them to
+   .pgrid alone left the legend swatches transparent -- the legend is a sibling
+   of the grid, not a child. The event state is `mark`, NOT `ev`: `.ev` is the
+   event ROW from the list below, and its padding/border/cursor leaked into the
+   dots and blew them up to 29px, tearing the grid into blocks. */
+.pgrid i, .pgrid-legend i{border-radius:50%;
+  background:var(--line-strong); opacity:.55}
+.pgrid i.done, .pgrid-legend i.done{background:var(--accent); opacity:.85}
+.pgrid i.mark, .pgrid-legend i.mark{background:var(--accent); opacity:1}
+.pgrid i.now, .pgrid-legend i.now{background:var(--ink); opacity:1}
+.pgrid i.mark{box-shadow:0 0 0 1.5px color-mix(in srgb, var(--accent) 35%, transparent)}
+.pgrid i.now{box-shadow:0 0 0 2.5px color-mix(in srgb, var(--ink) 25%, transparent)}
 .ev{display:flex; align-items:center; gap:.7rem; width:100%; text-align:start;
   padding:.85rem; margin-bottom:.6rem; border-radius:var(--r);
   background:var(--card); border:1px solid var(--line); box-shadow:var(--shadow);
@@ -987,14 +993,14 @@ const render = (() => {
     for (let i = 0; i <= total; i++) {
       const iso = dates.addDays(p.enlistDate, i);
       let cls = iso < today ? 'done' : '';
-      if (marks.has(iso)) cls = 'ev';
+      if (marks.has(iso)) cls = 'mark';
       if (iso === today) cls = 'now';
       box.append(el('i', cls ? { class: cls } : {}));
     }
     host.append(box);
     const legend = el('div', { class: 'pgrid-legend' });
     for (const [cls, label] of [['done', 'נעשה'], ['now', 'היום'],
-                                ['ev', 'אירוע'], ['', 'לפנינו']]) {
+                                ['mark', 'אירוע'], ['', 'לפנינו']]) {
       const s = el('span', {});
       s.append(el('i', cls ? { class: cls } : {}), el('span', {}, label));
       legend.append(s);
