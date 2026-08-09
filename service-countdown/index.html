@@ -1182,9 +1182,13 @@ const render = (() => {
     box.querySelector('#sClose').onclick = () => dismiss();
 
     box.querySelector('#sIcs').onclick = () => {
-      const rows = store.allEvents(state).map(e => ({ title: e.title, date: e.date }));
+      // baseDate, not the rolled occurrence: the recurrence has to start where
+      // the user actually set it, or the calendar's series is off by a cycle.
+      const rows = store.allEvents(state).map(e => ({
+        title: e.title, date: e.baseDate || e.date, every: e.every || 0 }));
       if (rows.length === 0) { err.textContent = 'אין עדיין אירועים לייצא'; return; }
-      const blob = new Blob([ics.build(rows, 1)], { type: 'text/calendar' });
+      const until = state.profile ? state.profile.releaseDate : null;
+      const blob = new Blob([ics.build(rows, 1, until)], { type: 'text/calendar' });
       const a = el('a');
       a.href = URL.createObjectURL(blob);
       a.download = ics.filename();
@@ -1498,9 +1502,9 @@ const ics = (() => {
 
   function stamp(iso) { return iso.replace(/-/g, ''); }
 
-  function build(events, alarmDays) {
+  function build(events, alarmDays, untilISO) {
     const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//hasfira//service-countdown//HE',
-                   'CALSCALE:GREGORIAN', 'METHOD:PUBLISH'];
+                   'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'X-WR-CALNAME:הספירה'];
     let seq = 0;
     for (const ev of events) {
       lines.push('BEGIN:VEVENT');
@@ -1509,6 +1513,12 @@ const ics = (() => {
       // All-day events use an exclusive DTEND: the day after the event.
       lines.push(`DTSTART;VALUE=DATE:${stamp(ev.date)}`);
       lines.push(`DTEND;VALUE=DATE:${stamp(dates.addDays(ev.date, 1))}`);
+      // A repeating event has to leave here as a recurrence, not as the single
+      // rolled-forward occurrence the app happens to be showing today.
+      if (ev.every > 0) {
+        lines.push(`RRULE:FREQ=DAILY;INTERVAL=${ev.every}` +
+                   (untilISO ? `;UNTIL=${stamp(untilISO)}` : ''));
+      }
       lines.push(`SUMMARY:${esc(ev.title)}`);
       lines.push('TRANSP:TRANSPARENT');
       if (alarmDays > 0) {
