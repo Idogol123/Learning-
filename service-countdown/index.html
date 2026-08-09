@@ -677,6 +677,23 @@ const store = (() => {
     return true;
   }
 
+  // A postponement is a fact about the service, not a correction of a typo:
+  // it gets recorded, so the tool can say "your release moved by 30 days"
+  // instead of quietly showing a different number than it did yesterday.
+  function postponeRelease(state, newISO) {
+    if (!state.profile || !newISO) return false;
+    const prev = state.profile.releaseDate;
+    if (!prev || newISO === prev) return false;
+    state.profile.releaseDate = newISO;
+    state.profile.history = (state.profile.history || []).concat({ from: prev, to: newISO });
+    return true;
+  }
+
+  function postponedDays(state) {
+    const h = (state.profile && state.profile.history) || [];
+    return h.reduce((sum, m) => sum + dates.daysBetween(m.from, m.to), 0);
+  }
+
   // The sheet used to accept any date at all: an event dated 1999 sat happily
   // in a 2025-2027 service and pushed the axis into nonsense.
   function validateEvent(state, draft) {
@@ -719,7 +736,8 @@ const store = (() => {
   }
 
   return { KEY, blank, load, save, allEvents, heroEvent, groupedEvents, removeEvent, restoreEvent,
-           validateEvent, exportJSON, importJSON, encodeState, decodeState };
+           validateEvent, postponeRelease, postponedDays,
+           exportJSON, importJSON, encodeState, decodeState };
 })();
 </script>
 
@@ -911,6 +929,13 @@ const render = (() => {
           motion.celebrate();
         }
       }
+    }
+
+    const moved = store.postponedDays(state);
+    if (moved !== 0 && ev.id === 'release') {
+      host.append(el('div', { class: 'hero-hint' },
+        moved > 0 ? `השחרור נדחה ב-${dates.hebrewDays(moved)}`
+                  : `השחרור הוקדם ב-${dates.hebrewDays(moved)}`));
     }
 
     // The tool followed this person for the whole service; when it is over it
@@ -1351,6 +1376,7 @@ const render = (() => {
       <h2>הגדרות</h2>
       <div class="row">
         <button class="btn" id="sProfile" type="button">ערוך תאריכי שירות</button>
+        <button class="btn" id="sPostpone" type="button">דחיית שחרור</button>
       </div>
       <div>
         <label>צבע</label>
@@ -1449,6 +1475,11 @@ const render = (() => {
       dismiss(() => render.wizard(state, refresh));
     };
 
+    box.querySelector('#sPostpone').onclick = () => {
+      if (!state.profile) { err.textContent = 'צריך קודם תאריכי שירות'; return; }
+      dismiss(() => postponeSheet(state, refresh));
+    };
+
     box.querySelector('#sExport').onclick = () => {
       const blob = new Blob([store.exportJSON(state)], { type: 'application/json' });
       const a = el('a');
@@ -1490,6 +1521,49 @@ const render = (() => {
     box.querySelector('#sReset').onclick = () => {
       if (!confirm('למחוק את כל הנתונים? אי אפשר לבטל.')) return;
       Object.assign(state, store.blank());
+      store.save(state);
+      dismiss();
+      refresh();
+    };
+  }
+
+  function postponeSheet(state, refresh) {
+    const box = el('div', { class: 'sheet', role: 'dialog', 'aria-modal': 'true' });
+    box.innerHTML = `
+      <h2>דחיית שחרור</h2>
+      <p class="ev-d">התאריך הנוכחי נשמר בהיסטוריה, כדי שהכלי יוכל להגיד בכמה הוא זז.</p>
+      <div>
+        <label for="pDate">תאריך שחרור חדש</label>
+        <input type="date" id="pDate">
+        <div class="tpl" id="pQuick"></div>
+      </div>
+      <p class="err" id="pErr"></p>
+      <div class="row">
+        <button class="btn primary" id="pSave" type="button">שמור</button>
+        <button class="btn ghost" id="pCancel" type="button">ביטול</button>
+      </div>`;
+    const dismiss = openSheet(box);
+    const input = box.querySelector('#pDate');
+    input.value = state.profile.releaseDate;
+    const quick = box.querySelector('#pQuick');
+    for (const n of [7, 14, 30, 60]) {
+      const b = el('button', { type: 'button' }, `+${dates.hebrewDays(n)}`);
+      b.onclick = () => {
+        quick.querySelectorAll('button').forEach(x => x.classList.remove('on'));
+        b.classList.add('on');
+        input.value = dates.addDays(state.profile.releaseDate, n);
+      };
+      quick.append(b);
+    }
+    box.querySelector('#pCancel').onclick = () => dismiss();
+    box.querySelector('#pSave').onclick = () => {
+      const v = input.value;
+      if (!v || dates.daysBetween(state.profile.enlistDate, v) <= 0) {
+        box.querySelector('#pErr').textContent = 'התאריך חייב להיות אחרי הגיוס'; return;
+      }
+      if (!store.postponeRelease(state, v)) {
+        box.querySelector('#pErr').textContent = 'זה כבר התאריך הנוכחי'; return;
+      }
       store.save(state);
       dismiss();
       refresh();
@@ -1594,7 +1668,7 @@ const render = (() => {
   }
 
   return { hero, ring, wizard, timeline, stats, grid, events, addSheet, eventSheet, settings,
-           toast, openSheet };
+           postponeSheet, toast, openSheet };
 })();
 </script>
 

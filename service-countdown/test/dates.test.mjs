@@ -537,4 +537,31 @@ t('occurrencesUntil returns zero when nothing fits', () => {
   assert.equal(dates.occurrencesUntil('2026-08-01', 21, '2026-11-02', '2026-08-09'), 0);
 });
 
+t('postponeRelease moves the date and records the move', () => {
+  const s = store.blank();
+  s.profile = { enlistDate: '2025-03-02', releaseDate: '2027-11-02' };
+  assert.equal(store.postponeRelease(s, '2027-12-02'), true);
+  assert.equal(s.profile.releaseDate, '2027-12-02');
+  assert.equal(s.profile.history.length, 1);
+  assert.equal(s.profile.history[0].from, '2027-11-02');
+  assert.equal(s.profile.history[0].to, '2027-12-02');
+});
+
+t('postponeRelease refuses a no-op or a missing profile', () => {
+  const s = store.blank();
+  assert.equal(store.postponeRelease(s, '2027-12-02'), false);
+  s.profile = { enlistDate: '2025-03-02', releaseDate: '2027-11-02' };
+  assert.equal(store.postponeRelease(s, '2027-11-02'), false);
+  assert.equal(store.postponeRelease(s, ''), false);
+});
+
+t('postponedDays sums every move, including one that pulled the date in', () => {
+  const s = store.blank();
+  s.profile = { enlistDate: '2025-03-02', releaseDate: '2027-11-02' };
+  store.postponeRelease(s, '2027-12-02');   // +30
+  store.postponeRelease(s, '2027-11-22');   // -10
+  assert.equal(store.postponedDays(s), 20);
+  assert.equal(store.postponedDays(store.blank()), 0);
+});
+
 console.log(`${passed} passed`);
