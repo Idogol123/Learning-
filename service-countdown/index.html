@@ -1108,6 +1108,7 @@ const render = (() => {
       <div>
         <label for="aDate">תאריך</label>
         <input type="date" id="aDate">
+        <div class="tpl" id="aDateQuick"></div>
       </div>
       <div>
         <label for="aEvery">חוזר כל</label>
@@ -1137,6 +1138,21 @@ const render = (() => {
     }
 
     const every = box.querySelector('#aEvery');
+    // Most things in the service are set relative to today, not read off a
+    // calendar -- the wizard already learned this with the enlistment waves.
+    const dateInput = box.querySelector('#aDate');
+    const dateQuick = box.querySelector('#aDateQuick');
+    for (const q of [{ n: 1, label: 'מחר' }, { n: 7, label: 'בעוד שבוע' },
+                     { n: 14, label: 'בעוד שבועיים' }, { n: 30, label: 'בעוד חודש' },
+                     { n: 100, label: 'בעוד 100 ימים' }]) {
+      const b = el('button', { type: 'button' }, q.label);
+      b.onclick = () => {
+        dateQuick.querySelectorAll('button').forEach(x => x.classList.remove('on'));
+        b.classList.add('on');
+        dateInput.value = dates.addDays(dates.todayISO(), q.n);
+      };
+      dateQuick.append(b);
+    }
     if (existing && existing.every) every.value = existing.every;
     const quick = box.querySelector('#aEveryQuick');
     for (const q of [{ n: 7, label: 'כל שבוע' }, { n: 14, label: 'כל שבועיים' },
@@ -1381,8 +1397,10 @@ const render = (() => {
         <label for="wRelease">תאריך שחרור</label>
         <input type="date" id="wRelease">
       </div>
-      <p class="ev-d">ברירות המחדל (32 / 24 חודשים) הן הצעה בלבד — אורך השירות
-        בחוק השתנה כמה פעמים. המקור המחייב הוא התאריך שעל הצו; אפשר לדרוס כאן הכול.</p>
+      <p class="ev-d">ברירת המחדל לגברים היא 32 חודשים — ביולי 2026 הכנסת אישרה
+        שהשירות הסדיר יישאר 32 חודשים לכל המתגייסים עד יולי 2029. לנשים ברירת
+        המחדל היא 24. אלה ברירות מחדל בלבד: המקור המחייב הוא התאריך שעל הצו,
+        ואפשר לדרוס כאן הכול.</p>
       <p class="err" id="wErr"></p>
       <div class="row">
         <button class="btn primary" id="wSave" type="button">שמור</button>
