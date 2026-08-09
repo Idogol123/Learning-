@@ -2232,7 +2232,20 @@ function refresh() {
 // back except a reload. Behind it now sits the empty state, which offers both
 // "set a release date" and "add an event".
 refresh();
-if (!state.profile && state.events.length === 0) {
+
+// Manifest shortcuts land on a hash. Handled after the first render, so the
+// sheet always opens on top of a drawn page (the wizard bug of v2). A shortcut
+// also suppresses the first-run wizard: two sheets open at once would leave
+// #app un-inerted as soon as the top one closed, and the person who tapped
+// "הוסף אירוע" asked for that sheet, not for the wizard.
+const shortcut = location.hash === '#add' || location.hash === '#settings';
+if (shortcut) {
+  const open = location.hash === '#add' ? render.eventSheet : render.settings;
+  history.replaceState(null, '', location.pathname);
+  open(state, refresh);
+}
+
+if (!shortcut && !state.profile && state.events.length === 0) {
   render.wizard(state, refresh);
 }
 
