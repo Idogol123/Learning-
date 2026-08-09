@@ -75,6 +75,10 @@ h1,h2,h3{font-weight:800;letter-spacing:-.02em;margin:0}
 .hero-num:focus-visible{outline:2px solid var(--accent); outline-offset:6px; border-radius:8px}
 .hero-unit{font-size:1.25rem; font-weight:800; color:var(--ink)}
 .hero-meta{color:var(--muted); font-size:.95rem; margin-top:.75rem}
+/* Was .hero-meta at opacity .6 -- an effective rgb(100,104,90) on #13140f,
+   3.28:1 at 12.8px. This is the line that teaches both hidden gestures, so it
+   is the last line that may be hard to read. */
+.hero-hint{color:var(--muted); font-size:.85rem; margin-top:.75rem; max-width:22rem}
 .hero-wrap{position:relative; display:grid; place-items:center; margin-block:.25rem}
 /* The ringed wrap is sized explicitly so it can act as a query container:
    container-type also applies inline-size containment, which collapses an
@@ -908,7 +912,7 @@ const render = (() => {
       host.append(row);
     }
 
-    host.append(el('div', { class: 'hero-meta', style: 'opacity:.6;font-size:.8rem' },
+    host.append(el('div', { class: 'hero-hint' },
       'לחיצה על המספר מחליפה יחידה · לחיצה ארוכה לספירה חיה'));
 
     host.append(el('div', { class: 'scroll-hint' }, icon('chevron-down')));
@@ -1127,18 +1131,36 @@ const render = (() => {
     document.body.style.overflow = 'hidden';
     document.body.append(node);
 
+    // aria-modal is a promise the DOM has to keep: without inert, Tab walks
+    // straight out of the sheet into the page behind it (measured: escape on
+    // the 15th Tab). `inert` also removes the background from the a11y tree.
+    const app = document.getElementById('app');
+    if (app) app.inert = true;
+
     const close = () => {
       if (!node.isConnected) return;
       document.removeEventListener('keydown', onKey);
       window.removeEventListener('popstate', onPop);
       document.body.style.overflow = prevOverflow;
       node.remove();
+      if (app) app.inert = false;
       if (opener && opener.focus) opener.focus();
       if (onClose) onClose();
       // Run the hand-off only now, once our own history entry is gone.
       if (after) { const fn = after; after = null; fn(); }
     };
-    const onKey = e => { if (e.key === 'Escape') { e.preventDefault(); history.back(); } };
+    const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), ' +
+                      'select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    const onKey = e => {
+      if (e.key === 'Escape') { e.preventDefault(); history.back(); return; }
+      if (e.key !== 'Tab') return;
+      const items = [...node.querySelectorAll(FOCUSABLE)]
+        .filter(n => n.offsetParent !== null || n === document.activeElement);
+      if (items.length === 0) return;
+      const first = items[0], last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    };
     const onPop = () => close();
 
     history.pushState({ sheet: true }, '');
