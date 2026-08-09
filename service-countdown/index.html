@@ -1138,14 +1138,19 @@ const render = (() => {
 
   // One toast at a time: a second delete replaces the first, and the first
   // deletion is then final. Six seconds is long enough to notice and reach.
+  // The action is optional -- a plain confirmation ("saved", "copied") has
+  // nothing to undo, and an actionless toast used to still append an empty
+  // button: two pixels wide, invisible, and in the tab order.
   function toast(message, actionLabel, onAction) {
     document.querySelectorAll('.toast').forEach(t => t.remove());
     if (toastTimer) clearTimeout(toastTimer);
     const box = el('div', { class: 'toast', role: 'status' });
     box.append(el('span', {}, message));
-    const btn = el('button', { type: 'button' }, actionLabel);
-    btn.onclick = () => { clearTimeout(toastTimer); box.remove(); onAction(); };
-    box.append(btn);
+    if (actionLabel && onAction) {
+      const btn = el('button', { type: 'button' }, actionLabel);
+      btn.onclick = () => { clearTimeout(toastTimer); box.remove(); onAction(); };
+      box.append(btn);
+    }
     document.body.append(box);
     toastTimer = setTimeout(() => box.remove(), 6000);
   }
@@ -1481,7 +1486,16 @@ const render = (() => {
         <button class="btn danger" id="sReset" type="button">אפס הכול</button>
       </div>`;
     const dismiss = openSheet(box);
+    // #sErr is styled as error text and says only error things. Confirmations
+    // go to the toast, which is what this tool already uses to report that
+    // something happened, and which clears itself.
     const err = box.querySelector('#sErr');
+    // Capture phase, so the previous outcome is gone before the button's own
+    // handler runs. Without this a failure from one command sat on screen
+    // under the next command's toast, and read as if it had just happened.
+    box.addEventListener('click', e => {
+      if (e.target.closest('button')) err.textContent = '';
+    }, true);
 
     box.querySelector('#sClose').onclick = () => dismiss();
 
@@ -1511,7 +1525,7 @@ const render = (() => {
       a.download = 'ha-sfira-daily.ics';
       a.click();
       URL.revokeObjectURL(a.href);
-      err.textContent = `נוספו ${rows.length} ימים ליומן`;
+      toast(`נוספו ${rows.length} ימים ליומן`);
     };
 
     box.querySelector('#sShare').onclick = async () => {
@@ -1521,7 +1535,7 @@ const render = (() => {
       const text = `${ev.title}: ${dates.remainingLabel(left)} (${dates.formatHe(ev.date)})`;
       try {
         if (navigator.share) await navigator.share({ text });
-        else { await navigator.clipboard.writeText(text); err.textContent = 'הועתק'; }
+        else { await navigator.clipboard.writeText(text); toast('הועתק'); }
       } catch (e) { /* the user dismissed the share sheet */ }
     };
 
@@ -1529,16 +1543,16 @@ const render = (() => {
 
     box.querySelector('#sWall').onclick = async () => {
       const ok = await wallpaper.download(state);
-      err.textContent = ok
-        ? 'נשמר. קבעו כטפט מסך נעילה — כך רואים את המספר בלי לפתוח כלום.'
-        : 'אין עדיין ספירה';
+      if (ok) toast('נשמר. קבעו כטפט מסך נעילה.');
+      else err.textContent = 'אין עדיין ספירה';
     };
 
     if (badge.supported()) {
       box.querySelector('#sBadgeRow').hidden = false;
       box.querySelector('#sBadge').onclick = async () => {
         const ok = await badge.enable();
-        err.textContent = ok ? 'התג יופיע על האייקון' : 'ההרשאה נדחתה — אין תג';
+        if (ok) toast('התג יופיע על האייקון');
+        else err.textContent = 'ההרשאה נדחתה — אין תג';
         if (ok) refresh();
       };
     }
@@ -1590,7 +1604,7 @@ const render = (() => {
       if (url.length > 8000) { err.textContent = 'יותר מדי אירועים לקישור — השתמשו בגיבוי'; return; }
       try {
         if (navigator.share) await navigator.share({ text: url });
-        else { await navigator.clipboard.writeText(url); err.textContent = 'הקישור הועתק'; }
+        else { await navigator.clipboard.writeText(url); toast('הקישור הועתק'); }
       } catch (e) { /* dismissed */ }
     };
 
