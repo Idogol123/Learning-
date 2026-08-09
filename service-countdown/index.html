@@ -267,7 +267,16 @@ h1,h2,h3{font-weight:800;letter-spacing:-.02em;margin:0}
           .7rem calc(.9rem + env(safe-area-inset-left));
   background:transparent; border-block-end:1px solid transparent;
   transition:background .2s var(--ease), border-color .2s var(--ease);
+  /* inset-inline:0 makes this a full-width transparent band ~67px tall sitting
+     over the top of the hero, and it caught the pointer everywhere -- measured:
+     elementFromPoint on a bare stretch of the band returned .appbar, not what
+     is drawn under it. Nothing up there is tappable today, so this cost
+     nothing yet; the first control placed near the top of the hero would have
+     been mysteriously dead. The bar hands the pointer back and its own
+     controls take it again below. */
+  pointer-events:none;
 }
+.appbar-actions{pointer-events:auto}
 .appbar.on{
   background:color-mix(in srgb, var(--bg) 84%, transparent);
   -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);
