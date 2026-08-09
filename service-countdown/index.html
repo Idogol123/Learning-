@@ -705,6 +705,8 @@ const TEMPLATES = [
   { title: 'דרגה חדשה',        icon: 'star' },
   { title: 'רגילה הבאה',       icon: 'home' },
   { title: 'הביתה',            icon: 'home' },
+  { title: 'מילואים',       icon: 'shield' },
+  { title: 'סוף מילואים',   icon: 'flag' },
 ];
 
 const render = (() => {
@@ -848,6 +850,19 @@ const render = (() => {
           motion.celebrate();
         }
       }
+    }
+
+    // The tool followed this person for the whole service; when it is over it
+    // owes them a closing line and exactly one next step, not a frozen screen.
+    if (state.profile && ev.id === 'release' && past) {
+      const servedAll = dates.daysBetween(state.profile.enlistDate, state.profile.releaseDate);
+      host.append(el('div', { class: 'moment' },
+        `סיימת ${dates.hebrewDays(servedAll)} של שירות`));
+      const next = el('button', { class: 'btn', type: 'button' }, 'התחל ספירה למילואים');
+      next.onclick = () => eventSheet(state, refresh);
+      const row = el('div', { class: 'row', style: 'justify-content:center' });
+      row.append(next);
+      host.append(row);
     }
 
     host.append(el('div', { class: 'hero-meta', style: 'opacity:.6;font-size:.8rem' },
