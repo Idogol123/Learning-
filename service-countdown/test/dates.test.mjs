@@ -430,6 +430,28 @@ t('serviceSummary does not call the release day itself "released"', () => {
   assert.equal(sum.leftDays, 0);
 });
 
+t('heroEvent rolls a repeating event against the date it was GIVEN', () => {
+  // heroEvent took todayISO and then called allEvents() without it, so the
+  // occurrence was rolled forward against the machine clock while the rest of
+  // the function reasoned about the injected date. Production never noticed --
+  // both fall back to dates.todayISO() -- but the two disagree the moment a
+  // caller supplies a date, which is exactly what a test does.
+  const s = store.blank();
+  s.heroId = 'cycle';
+  s.events = [{ id: 'cycle', title: 'רגילה', date: '2026-01-01',
+                icon: 'home', source: 'custom', every: 21 }];
+
+  const far = '2027-06-15';
+  assert.equal(store.heroEvent(s, far).date, dates.nextOccurrence('2026-01-01', 21, far));
+  assert.equal(store.heroEvent(s, far).date, '2027-07-01');
+  // The stored row is untouched: the roll is a display concern.
+  assert.equal(store.heroEvent(s, far).baseDate, '2026-01-01');
+  assert.equal(s.events[0].date, '2026-01-01');
+
+  const near = '2026-02-10';
+  assert.equal(store.heroEvent(s, near).date, '2026-02-12');
+});
+
 t('importJSON rejects malformed and foreign payloads', () => {
   assert.throws(() => store.importJSON('not json{'));
   assert.throws(() => store.importJSON('{"v":999}'));

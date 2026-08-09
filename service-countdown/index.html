@@ -664,12 +664,17 @@ const store = (() => {
   // past one. Falling back to list[0] (the earliest date) made a deleted hero
   // hand the main screen to an event that is long over -- the screen read
   // "סוף טירונות · 424 · ימים מאז", which is not what anyone opens this for.
+  // The date is resolved once and passed down, the way groupedEvents does it.
+  // Calling allEvents() bare here rolled a repeating event forward against the
+  // machine clock while the rest of this function reasoned about todayISO --
+  // identical in production, where both fall back to the same value, and wrong
+  // the moment a caller supplies a date.
   function heroEvent(state, todayISO) {
-    const list = allEvents(state);
+    const today = todayISO || dates.todayISO();
+    const list = allEvents(state, today);
     if (list.length === 0) return null;
     const chosen = list.find(e => e.id === state.heroId);
     if (chosen) return chosen;
-    const today = todayISO || dates.todayISO();
     return list.find(e => e.date >= today) || list[list.length - 1];
   }
 
