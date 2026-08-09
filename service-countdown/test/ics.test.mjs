@@ -82,4 +82,24 @@ t('build returns an empty calendar for no events', () => {
   assert.ok(out.includes('END:VCALENDAR'));
 });
 
+t('build writes an RRULE for a repeating event', () => {
+  const out = ics.build([{ title: 'רגילה', date: '2026-08-01', every: 21 }], 1);
+  assert.ok(out.includes('RRULE:FREQ=DAILY;INTERVAL=21'), out);
+});
+
+t('build bounds the recurrence when an end date is given', () => {
+  const out = ics.build([{ title: 'רגילה', date: '2026-08-01', every: 21 }], 1, '2027-11-02');
+  assert.ok(out.includes('RRULE:FREQ=DAILY;INTERVAL=21;UNTIL=20271102'), out);
+});
+
+t('build writes no RRULE for a one-off event', () => {
+  const out = ics.build([{ title: 'שחרור', date: '2027-11-02' }], 1);
+  assert.ok(!out.includes('RRULE'), out);
+});
+
+t('build names the calendar', () => {
+  const out = ics.build([{ title: 'שחרור', date: '2027-11-02' }], 1);
+  assert.ok(out.includes('X-WR-CALNAME:הספירה'), out);
+});
+
 console.log(`${passed} passed`);
