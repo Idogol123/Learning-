@@ -1169,11 +1169,14 @@ const render = (() => {
       </div>
       <div class="row">
         <button class="btn" id="sIcs" type="button">הוסף ליומן עם תזכורת</button>
+        <button class="btn" id="sDaily" type="button">יומן ספירה יומי</button>
         <button class="btn" id="sShare" type="button">שתף את הספירה</button>
         <button class="btn" id="sCard" type="button">שתף כתמונה</button>
       </div>
-      <p class="ev-d">"הוסף ליומן" מוריד קובץ עם כל האירועים ותזכורת יום מראש —
-        ההתראה מגיעה מהיומן של המכשיר, בלי שרת ובלי חשבון.</p>
+      <p class="ev-d">"הוסף ליומן" מוריד את כל האירועים עם תזכורת יום מראש.
+        "יומן ספירה יומי" מוסיף שורה לכל אחד מ-100 הימים הבאים, שהכותרת שלה היא
+        המספר עצמו — כך רואים את הספירה בכל בוקר בלי לפתוח כלום. הכול מהיומן של
+        המכשיר, בלי שרת ובלי חשבון.</p>
       <div class="row" id="sBadgeRow" hidden>
         <button class="btn" id="sBadge" type="button">הצג ימים על אייקון האפליקציה</button>
       </div>
@@ -1208,6 +1211,20 @@ const render = (() => {
       a.download = ics.filename();
       a.click();
       URL.revokeObjectURL(a.href);
+    };
+
+    box.querySelector('#sDaily').onclick = () => {
+      const ev = store.heroEvent(state);
+      if (!ev) { err.textContent = 'אין עדיין ספירה'; return; }
+      const rows = ics.countdownRows(ev.title, ev.date, dates.todayISO(), 100);
+      if (rows.length === 0) { err.textContent = 'האירוע כבר עבר'; return; }
+      const blob = new Blob([ics.build(rows, 0)], { type: 'text/calendar' });
+      const a = el('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'ha-sfira-daily.ics';
+      a.click();
+      URL.revokeObjectURL(a.href);
+      err.textContent = `נוספו ${rows.length} ימים ליומן`;
     };
 
     box.querySelector('#sShare').onclick = async () => {
@@ -1549,9 +1566,24 @@ const ics = (() => {
     return lines.join('\r\n') + '\r\n';
   }
 
+  // One all-day row per day, whose SUMMARY is the count itself. A PWA cannot
+  // schedule a local notification -- Notification Triggers never shipped and
+  // Web Push needs a server -- but the system calendar will happily show
+  // "שחרור · נשארו 449 ימים" every morning, offline and with no permission.
+  function countdownRows(title, targetISO, fromISO, days) {
+    const rows = [];
+    for (let i = 0; i < days; i++) {
+      const day = dates.addDays(fromISO, i);
+      const left = dates.daysBetween(day, targetISO);
+      if (left < 0) break;
+      rows.push({ title: `${title} · ${dates.remainingLabel(left)}`, date: day });
+    }
+    return rows;
+  }
+
   function filename() { return 'ha-sfira.ics'; }
 
-  return { build, filename };
+  return { build, countdownRows, filename };
 })();
 
 /* ---------- badge: the only "widget" a PWA gets ---------- */

@@ -102,4 +102,25 @@ t('build names the calendar', () => {
   assert.ok(out.includes('X-WR-CALNAME:הספירה'), out);
 });
 
+t('countdownRows emits one row per day, counting down', () => {
+  const rows = ics.countdownRows('שחרור', '2026-08-14', '2026-08-09', 3);
+  assert.equal(rows.length, 3);
+  // Spread into the host realm first -- a sandbox array fails deepEqual against
+  // a host literal even when the contents match.
+  assert.deepEqual([...rows.map(r => r.date)], ['2026-08-09', '2026-08-10', '2026-08-11']);
+  assert.equal(rows[0].title, 'שחרור · נשארו 5 ימים');
+  assert.equal(rows[2].title, 'שחרור · נשארו 3 ימים');
+});
+
+t('countdownRows stops on the target day itself', () => {
+  const rows = ics.countdownRows('שחרור', '2026-08-11', '2026-08-09', 30);
+  assert.equal(rows.length, 3);
+  assert.equal(rows[2].title, 'שחרור · היום!');
+});
+
+t('countdownRows returns nothing for a target already passed', () => {
+  const rows = ics.countdownRows('שחרור', '2026-08-01', '2026-08-09', 30);
+  assert.equal(rows.length, 0);
+});
+
 console.log(`${passed} passed`);
