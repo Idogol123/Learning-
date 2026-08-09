@@ -115,20 +115,6 @@ h1,h2,h3{font-weight:800;letter-spacing:-.02em;margin:0}
   0%{filter:none} 35%{filter:drop-shadow(0 0 14px var(--accent))} 100%{filter:none}
 }
 .celebrate{animation:celebrate 1.1s var(--ease)}
-.hero-mini{
-  position:fixed; inset-block-start:0; inset-inline:0; z-index:9;
-  display:flex; align-items:center; justify-content:center; gap:.45rem;
-  padding:calc(.55rem + env(safe-area-inset-top)) 7rem .55rem;
-  font-weight:800; font-size:.95rem;
-  background:color-mix(in srgb, var(--bg) 84%, transparent);
-  -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);
-  border-block-end:1px solid var(--line);
-  opacity:0; transform:translateY(-101%); pointer-events:none;
-  transition:opacity .2s var(--ease), transform .2s var(--ease);
-}
-.hero-mini.on{opacity:1; transform:none}
-.hero-mini b{color:var(--accent); font-variant-numeric:tabular-nums}
-.hero-mini em{font-style:normal; color:var(--muted); font-weight:400}
 
 /* ---- shared ---- */
 .ico{display:inline-flex; width:20px; height:20px}
@@ -221,10 +207,36 @@ h1,h2,h3{font-weight:800;letter-spacing:-.02em;margin:0}
 .live-lab{color:var(--muted); font-size:.8rem; margin-top:.3rem}
 
 /* ---- top bar + row actions ---- */
-.topbar{position:fixed; inset-block-start:0; inset-inline-end:0; z-index:10;
-  padding:calc(.9rem + env(safe-area-inset-top)) calc(.9rem + env(safe-area-inset-right)) .9rem .9rem;
-  display:flex; gap:.4rem}
-.iconbtn{width:40px; height:40px; display:inline-flex; align-items:center;
+/* One fixed layer, not two. The old .topbar and .hero-mini were both
+   position:fixed on the same row and fought over it: the title was drawn
+   UNDER the buttons, and at 320px it had 96px for text that needs 129px. */
+.appbar{
+  position:fixed; inset-block-start:0; inset-inline:0; z-index:10;
+  display:flex; align-items:center; gap:.5rem;
+  padding:calc(.7rem + env(safe-area-inset-top)) calc(.9rem + env(safe-area-inset-right))
+          .7rem calc(.9rem + env(safe-area-inset-left));
+  background:transparent; border-block-end:1px solid transparent;
+  transition:background .2s var(--ease), border-color .2s var(--ease);
+}
+.appbar.on{
+  background:color-mix(in srgb, var(--bg) 84%, transparent);
+  -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);
+  border-block-end-color:var(--line);
+}
+.appbar-title{
+  flex:1 1 auto; min-width:0; font-weight:800; font-size:.95rem;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  opacity:0; transform:translateY(-.4rem); pointer-events:none;
+  transition:opacity .2s var(--ease), transform .2s var(--ease);
+}
+.appbar.on .appbar-title{opacity:1; transform:none}
+.appbar-title b{color:var(--accent); font-variant-numeric:tabular-nums}
+.appbar-title em{font-style:normal; color:var(--muted); font-weight:400}
+.appbar-actions{display:flex; gap:.4rem; flex:0 0 auto}
+/* Anything scrolled to must clear the bar. */
+html{scroll-padding-block-start:5rem}
+.panel h2{scroll-margin-block-start:5rem}
+.iconbtn{width:44px; height:44px; display:inline-flex; align-items:center;
   justify-content:center; border-radius:12px; cursor:pointer; font:inherit;
   background:color-mix(in srgb, var(--card) 80%, transparent);
   border:1px solid var(--line); color:var(--ink);
@@ -276,12 +288,14 @@ h1,h2,h3{font-weight:800;letter-spacing:-.02em;margin:0}
 </head>
 <body>
 <main id="app">
-<div class="hero-mini" id="heroMini" aria-hidden="true"></div>
-<div class="topbar">
-  <a class="iconbtn" href="../" aria-label="חזרה לאוסף הכלים" id="btnHome"></a>
-  <button class="iconbtn" id="btnTheme" type="button" aria-label="החלף מצב תצוגה" aria-pressed="true"></button>
-  <button class="iconbtn" id="btnSettings" type="button" aria-label="הגדרות"></button>
-</div>
+<header class="appbar" id="appbar">
+  <div class="appbar-title" id="heroMini" aria-hidden="true"></div>
+  <div class="appbar-actions">
+    <a class="iconbtn" href="../" aria-label="חזרה לאוסף הכלים" id="btnHome"></a>
+    <button class="iconbtn" id="btnTheme" type="button" aria-label="החלף מצב תצוגה" aria-pressed="true"></button>
+    <button class="iconbtn" id="btnSettings" type="button" aria-label="הגדרות"></button>
+  </div>
+</header>
   <section class="hero" id="hero"></section>
   <section class="panel" id="timeline"></section>
   <section class="panel" id="stats"></section>
@@ -1410,11 +1424,12 @@ const motion = (() => {
       requestAnimationFrame(() => {
         const t = Math.min(1, window.scrollY / (window.innerHeight * 0.6));
         if (animate) hero.style.setProperty('--t', t.toFixed(3));
+        const bar = document.getElementById('appbar');
         const mini = document.getElementById('heroMini');
-        if (mini) {
+        if (bar) {
           const on = t > 0.72;
-          mini.classList.toggle('on', on);
-          mini.setAttribute('aria-hidden', on ? 'false' : 'true');
+          bar.classList.toggle('on', on);
+          if (mini) mini.setAttribute('aria-hidden', on ? 'false' : 'true');
         }
         ticking = false;
       });
