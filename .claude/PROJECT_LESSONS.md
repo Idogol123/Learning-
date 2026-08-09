@@ -19,6 +19,14 @@
   לאייקון ריבועי צריך סקריפט Playwright קצר ב-scratchpad עם `viewport:{width:size,height:size}`,
   `deviceScaleFactor:1` ו-`screenshot()` **בלי** `fullPage` — ה-viewport עצמו הוא האייקון.
   (דוגמה עובדת: `service-countdown/icon-*.png`, 512/192/180 + maskable עם גליף קטן יותר לספיית-בטיחות.)
+- **זריעת מצב ל-`service-countdown` בבדיקות — דרך ה-URL, לא דרך `addInitScript`.**
+  לכלי יש קישור העברה `#t=<base64url של ה-JSON>` שהדף מייבא אוטומטית לפני הרינדור
+  הראשון. כלומר `screenshot.mjs` (שלא יודע לזרוע `localStorage`) עובד על מצב מזורע
+  כמו שהוא: `node .claude/tools/screenshot.mjs "http://localhost:8777/service-countdown/#t=..." out.png dark 320`.
+  לבניית ה-hash: `Buffer.from(JSON.stringify(state)).toString("base64")` + החלפת
+  `+`→`-`, `/`→`_`, וקיצוץ `=`. **שים לב:** ה-state נושא `theme`, והוא **גובר** על
+  `colorScheme` של הדפדפן — לצילום במצב אור צריך hash נפרד עם `"theme":"light"`,
+  אחרת מקבלים מסך כהה ולא שמים לב.
 - **אל תקרא את `file-search/index.html` במלואו** — יש בו blob מוטמע של ~3.3MB.
   קרא רק את בלוק ה-`<style>` ואת ה-markup (header/body), למשל עם Grep/offset.
 - **פלט `mcp__github__actions_list` ענק** (מאות אלפי תווים) — סנן עם python/jq על
