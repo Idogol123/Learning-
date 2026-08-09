@@ -522,4 +522,19 @@ t('groupedEvents counts today as upcoming', () => {
   assert.equal(past.length, 0);
 });
 
+t('occurrencesUntil counts the cycles left in a range', () => {
+  // 22/08, 12/09, 03/10, 24/10 -- the next one (14/11) is past the end.
+  assert.equal(dates.occurrencesUntil('2026-08-01', 21, '2026-08-09', '2026-11-02'), 4);
+});
+
+t('occurrencesUntil counts an occurrence that lands on the last day', () => {
+  assert.equal(dates.occurrencesUntil('2026-08-01', 21, '2026-08-09', '2026-08-22'), 1);
+});
+
+t('occurrencesUntil returns zero when nothing fits', () => {
+  assert.equal(dates.occurrencesUntil('2026-08-01', 21, '2026-08-09', '2026-08-21'), 0);
+  assert.equal(dates.occurrencesUntil('2026-08-01', 0,  '2026-08-09', '2026-11-02'), 0);
+  assert.equal(dates.occurrencesUntil('2026-08-01', 21, '2026-11-02', '2026-08-09'), 0);
+});
+
 console.log(`${passed} passed`);

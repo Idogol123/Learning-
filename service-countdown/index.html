@@ -523,6 +523,19 @@ const dates = (() => {
     return addDays(startISO, Math.ceil(behind / everyDays) * everyDays);
   }
 
+  // How many times a fixed cycle lands inside [fromISO, toISO], inclusive.
+  // Built on nextOccurrence so a cycle crossing a DST boundary keeps its
+  // weekday, and on daysBetween so the span is calendar days, not milliseconds.
+  function occurrencesUntil(startISO, everyDays, fromISO, toISO) {
+    if (!everyDays || everyDays <= 0) return 0;
+    const span = daysBetween(fromISO, toISO);
+    if (span < 0) return 0;
+    const first = nextOccurrence(startISO, everyDays, fromISO);
+    const reach = daysBetween(first, toISO);
+    if (reach < 0) return 0;
+    return Math.floor(reach / everyDays) + 1;
+  }
+
   // The three moments people actually count toward. Returns the most advanced
   // one that has already happened, or null when there is nothing to say --
   // a banner that is always on stops being a banner.
@@ -562,7 +575,8 @@ const dates = (() => {
 
   return { parse, toISO, todayISO, daysBetween, addDays, addMonths, msUntilNextMidnight,
            monthsBetween, unitValue, unitName, remainderLabel, enlistWaves, axisGap,
-           countWeekday, msUntilDate, splitDuration, nextOccurrence, momentFor,
+           countWeekday, msUntilDate, splitDuration, nextOccurrence, occurrencesUntil,
+           momentFor,
            progressPct, hebrewDays, remainingLabel, formatHe };
 })();
 </script>
@@ -979,16 +993,25 @@ const render = (() => {
     const p = state.profile, today = dates.todayISO();
     const served = Math.max(0, dates.daysBetween(p.enlistDate, today));
     const left = Math.max(0, dates.daysBetween(today, p.releaseDate));
-    const upTo = served > 0 ? today : p.enlistDate;
 
     host.append(el('h2', {}, 'כמה כבר עשית'));
     const grid = el('div', { class: 'stats' });
+    const pct = dates.progressPct(p.enlistDate, p.releaseDate, today);
     const rows = [
       ['ימים בשירות', String(served)],
-      ['חודשים בשירות', String(Math.max(0, dates.monthsBetween(p.enlistDate, today)))],
-      ['שבתות שעברו', String(dates.countWeekday(p.enlistDate, upTo, 6))],
       ['ימים שנשארו', String(left)],
+      ['מהפז״מ מאחוריך', `${pct}%`],
     ];
+    // The one number a soldier actually computes in their head, and no
+    // competitor shows: how many times they still go home. Derived from the
+    // user's own repeating event -- no assumption about their unit's cycle.
+    const cycle = state.events.find(e => e.every > 0);
+    if (cycle) {
+      rows.push([`עוד ${cycle.title}`,
+        String(dates.occurrencesUntil(cycle.date, cycle.every, today, p.releaseDate))]);
+    } else {
+      rows.push(['עוד שבתות', String(dates.countWeekday(today, p.releaseDate, 6))]);
+    }
     for (const [label, value] of rows) {
       const cell = el('div', { class: 'stat' });
       cell.append(el('div', { class: 'stat-n' }, value));
