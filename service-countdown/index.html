@@ -36,7 +36,10 @@
 :root[data-theme="dark"][data-accent="maroon"] { --accent:#d98878 }
 :root[data-theme="dark"][data-accent="steel"]  { --accent:#5f9a9a }
 :root[data-theme="dark"][data-accent="navy"]   { --accent:#8593c4 }
-.swatch{width:36px; height:36px; border-radius:50%; border:2px solid var(--line-strong);
+/* 44px, not 36: these are the last sub-target buttons left in the tool, and
+   five of them sit in one row a thumb-width apart. Five 44px circles plus the
+   row gap still fit inside 320px. */
+.swatch{width:44px; height:44px; border-radius:50%; border:2px solid var(--line-strong);
   cursor:pointer; padding:0}
 .swatch.on{border-color:var(--ink); box-shadow:0 0 0 3px color-mix(in srgb, var(--ink) 15%, transparent)}
 *{box-sizing:border-box}
