@@ -171,21 +171,36 @@ h1,h2,h3{font-weight:800;letter-spacing:-.02em;margin:0}
 .pgrid i.now, .pgrid-legend i.now{background:var(--ink); opacity:1}
 .pgrid i.mark{box-shadow:0 0 0 1.5px color-mix(in srgb, var(--accent) 35%, transparent)}
 .pgrid i.now{box-shadow:0 0 0 2.5px color-mix(in srgb, var(--ink) 25%, transparent)}
-.ev{display:flex; align-items:center; gap:.7rem; width:100%; text-align:start;
-  padding:.85rem; margin-bottom:.6rem; border-radius:var(--r);
+/* Grid, not wrapping flex: at 320px the three flex children could not share a
+   row, so the icon sat alone on line 1, the text on line 2 and the count on
+   line 3. The grid keeps the icon and title on one row and lets only the count
+   drop, which is the one thing that may. */
+.ev{display:grid; grid-template-columns:auto minmax(0,1fr) auto; gap:.25rem .7rem;
+  align-items:center; width:100%; text-align:start;
+  padding:.85rem; border-radius:var(--r);
   background:var(--card); border:1px solid var(--line); box-shadow:var(--shadow);
-  color:inherit; font:inherit; cursor:pointer; flex-wrap:wrap;
+  color:inherit; font:inherit; cursor:pointer;
   transition:transform .18s var(--ease), border-color .18s var(--ease)}
 .ev:hover{transform:translateY(-1px); border-color:var(--line-strong)}
 .ev:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
 .ev.soon{border-color:color-mix(in srgb, var(--accent) 45%, var(--line))}
 /* Title and date are block-level inside their own column: as inline spans they
    wrapped mid-phrase at 320px ("סוף / טירונות", "10 / ביוני / 2025"). */
-.ev-grow{display:flex; flex-direction:column; gap:.15rem; flex:1 1 7rem; min-width:0}
+.ev-grow{display:flex; flex-direction:column; gap:.15rem; min-width:0}
+/* .ev-grow is also the "אירועים" heading in the section header, where it used
+   to carry the flex:1 that pushed "הוסף אירוע" to the far edge. Inside .ev the
+   grid column handles growth, so the flex only belongs in the header row. */
+.row>.ev-grow{flex:1 1 auto}
 .ev-t{font-weight:800; overflow-wrap:anywhere}
 .ev-d{color:var(--muted); font-size:.85rem}
 .ev-days{font-weight:800; color:var(--accent); font-variant-numeric:tabular-nums;
-  white-space:nowrap; flex:0 0 auto; margin-inline-start:auto}
+  white-space:nowrap; justify-self:end}
+/* Under ~360px the count moves to its own full-width row instead of squeezing
+   the title into two characters per line. */
+@media (max-width: 359px){
+  .ev{grid-template-columns:auto minmax(0,1fr)}
+  .ev-days{grid-column:1 / -1; justify-self:start; padding-inline-start:calc(38px + .7rem)}
+}
 .sheet{position:fixed; inset:0; z-index:30; background:var(--bg); overflow-y:auto;
   padding:calc(1.25rem + env(safe-area-inset-top)) 1.25rem calc(1.25rem + env(safe-area-inset-bottom));
   display:flex; flex-direction:column; gap:.9rem}
@@ -265,15 +280,19 @@ html{scroll-padding-block-start:5rem}
   border:1px solid var(--line); color:var(--ink);
   -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px)}
 .iconbtn svg{width:20px;height:20px}
-.ev-del{flex:none; width:40px; height:40px; display:inline-flex; align-items:center;
-  justify-content:center; border-radius:10px; border:1px solid transparent;
-  background:transparent; color:var(--muted); cursor:pointer; font:inherit; opacity:.6;
+.ev-del{flex:none; width:44px; height:44px; display:inline-flex; align-items:center;
+  justify-content:center; border-radius:12px; border:1px solid transparent;
+  background:transparent; color:var(--muted); cursor:pointer; font:inherit; opacity:.65;
   transition:opacity .18s var(--ease), border-color .18s var(--ease)}
 .ev-del:hover,.ev-del:focus-visible{opacity:1; border-color:var(--line-strong); color:var(--ink)}
-.ev-del svg{width:17px;height:17px}
-.ev-row{display:flex; align-items:center; gap:.35rem}
-.ev-row .ev{margin-bottom:0}
+.ev-del svg{width:18px;height:18px}
+/* The actions used to sit outside the card, flush to the screen edge, ~120px
+   away from the row they act on. They now hug it. */
+.ev-row{display:flex; align-items:stretch; gap:.35rem}
+.ev-row .ev{flex:1 1 auto; min-width:0}
 .ev-row+.ev-row{margin-top:.6rem}
+.ev-actions{display:flex; flex-direction:column; justify-content:center; gap:.2rem;
+  flex:0 0 auto}
 .ev-past{margin-block-start:1.1rem}
 .ev-past>summary{
   list-style:none; cursor:pointer; color:var(--muted); font-size:.9rem;
@@ -1067,7 +1086,6 @@ const render = (() => {
         const edit = el('button', { class: 'ev-del', type: 'button',
           'aria-label': 'ערוך ' + ev.title }, icon('settings'));
         edit.onclick = () => eventSheet(state, refresh, state.events.find(x => x.id === ev.id));
-        wrap.append(edit);
         const del = el('button', { class: 'ev-del', type: 'button', 'aria-label': 'מחק ' + ev.title },
           icon('trash'));
         del.onclick = () => {
@@ -1080,7 +1098,9 @@ const render = (() => {
             refresh();
           });
         };
-        wrap.append(del);
+        const actions = el('div', { class: 'ev-actions' });
+        actions.append(edit, del);
+        wrap.append(actions);
       }
       return wrap;
     };
