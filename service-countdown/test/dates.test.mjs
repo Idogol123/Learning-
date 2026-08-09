@@ -381,6 +381,55 @@ t('heroEvent still honours an explicit heroId that exists', () => {
   assert.equal(store.heroEvent(s, '2026-08-08').id, 'past');
 });
 
+// ---- serviceSummary: the numbers the stats panel is allowed to show ----
+t('serviceSummary needs a profile', () => {
+  assert.equal(store.serviceSummary(store.blank(), '2026-08-09'), null);
+});
+
+t('serviceSummary counts up to today while the service is running', () => {
+  const s = store.blank();
+  s.profile = { enlistDate: '2025-03-02', releaseDate: '2027-11-02', gender: 'm' };
+  const sum = store.serviceSummary(s, '2026-08-09');
+  assert.equal(sum.released, false);
+  assert.equal(sum.servedDays, dates.daysBetween('2025-03-02', '2026-08-09'));
+  assert.equal(sum.leftDays, dates.daysBetween('2026-08-09', '2027-11-02'));
+  assert.equal(sum.sinceRelease, 0);
+});
+
+t('serviceSummary stops counting service at the release date', () => {
+  // The bug this pins: the hero said "you finished 976 days of service"
+  // while the stats panel said 1256 days in service, about the same fact,
+  // on the same screen. Service accounting ends at the discharge.
+  const s = store.blank();
+  s.profile = { enlistDate: '2023-03-02', releaseDate: '2025-11-02', gender: 'm' };
+  const sum = store.serviceSummary(s, '2026-08-09');
+  assert.equal(sum.released, true);
+  assert.equal(sum.servedDays, 976);
+  assert.equal(sum.servedDays, dates.daysBetween('2023-03-02', '2025-11-02'));
+  assert.equal(sum.servedMonths, 32);
+  assert.equal(sum.leftDays, 0);
+});
+
+t('serviceSummary keeps the days SINCE release as the number that grows', () => {
+  const s = store.blank();
+  s.profile = { enlistDate: '2023-03-02', releaseDate: '2025-11-02', gender: 'm' };
+  assert.equal(store.serviceSummary(s, '2026-08-09').sinceRelease, 280);
+  assert.equal(store.serviceSummary(s, '2026-08-10').sinceRelease, 281);
+  // ...while the served total does not move with it.
+  assert.equal(store.serviceSummary(s, '2026-08-10').servedDays, 976);
+});
+
+t('serviceSummary does not call the release day itself "released"', () => {
+  // The hero reads "היום!" on the release day, not "משוחרר"; the panel
+  // has to agree with it rather than close the service a day early.
+  const s = store.blank();
+  s.profile = { enlistDate: '2023-03-02', releaseDate: '2025-11-02', gender: 'm' };
+  const sum = store.serviceSummary(s, '2025-11-02');
+  assert.equal(sum.released, false);
+  assert.equal(sum.servedDays, 976);
+  assert.equal(sum.leftDays, 0);
+});
+
 t('importJSON rejects malformed and foreign payloads', () => {
   assert.throws(() => store.importJSON('not json{'));
   assert.throws(() => store.importJSON('{"v":999}'));

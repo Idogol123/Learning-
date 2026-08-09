@@ -708,6 +708,28 @@ const store = (() => {
     return h.reduce((sum, m) => sum + dates.daysBetween(m.from, m.to), 0);
   }
 
+  // Service accounting stops at the discharge. Left running against today, the
+  // panel said "1256 days in service" next to a hero that said "you finished
+  // 976 days of service" -- two numbers for one fact, on one screen. Anything
+  // that legitimately keeps growing after the release is `sinceRelease`, which
+  // gets to say so under its own label.
+  function serviceSummary(state, todayISO) {
+    if (!state.profile) return null;
+    const p = state.profile;
+    const today = todayISO || dates.todayISO();
+    // Not `>=`: on the release day the hero reads "היום!", not "משוחרר".
+    const released = today > p.releaseDate;
+    const asOf = released ? p.releaseDate : today;
+    return {
+      released, asOf,
+      servedDays:   Math.max(0, dates.daysBetween(p.enlistDate, asOf)),
+      servedMonths: Math.max(0, dates.monthsBetween(p.enlistDate, asOf)),
+      leftDays:     Math.max(0, dates.daysBetween(today, p.releaseDate)),
+      sinceRelease: Math.max(0, dates.daysBetween(p.releaseDate, today)),
+      pct:          dates.progressPct(p.enlistDate, p.releaseDate, today),
+    };
+  }
+
   // The sheet used to accept any date at all: an event dated 1999 sat happily
   // in a 2025-2027 service and pushed the axis into nonsense.
   function validateEvent(state, draft) {
@@ -750,7 +772,7 @@ const store = (() => {
   }
 
   return { KEY, blank, load, save, allEvents, heroEvent, groupedEvents, removeEvent, restoreEvent,
-           validateEvent, postponeRelease, postponedDays,
+           validateEvent, postponeRelease, postponedDays, serviceSummary,
            exportJSON, importJSON, encodeState, decodeState };
 })();
 </script>
@@ -1034,27 +1056,38 @@ const render = (() => {
     host.innerHTML = '';
     if (!state.profile) return;
     const p = state.profile, today = dates.todayISO();
-    const served = Math.max(0, dates.daysBetween(p.enlistDate, today));
-    const left = Math.max(0, dates.daysBetween(today, p.releaseDate));
-
-    host.append(el('h2', {}, 'כמה כבר עשית'));
-    const grid = el('div', { class: 'stats' });
-    const pct = dates.progressPct(p.enlistDate, p.releaseDate, today);
-    const rows = [
-      ['ימים בשירות', String(served)],
-      ['ימים שנשארו', String(left)],
-      ['מהפז״מ מאחוריך', `${pct}%`],
-    ];
-    // The one number a soldier actually computes in their head, and no
-    // competitor shows: how many times they still go home. Derived from the
-    // user's own repeating event -- no assumption about their unit's cycle.
+    const sum = store.serviceSummary(state, today);
     const cycle = state.events.find(e => e.every > 0);
-    if (cycle) {
-      rows.push([`עוד ${cycle.title}`,
-        String(dates.occurrencesUntil(cycle.date, cycle.every, today, p.releaseDate))]);
-    } else {
-      rows.push(['עוד שבתות', String(dates.countWeekday(today, p.releaseDate, 6))]);
-    }
+
+    // Once the service is over, "days left" is 0 and "% behind you" is 100
+    // forever -- two cells that have stopped saying anything. The panel turns
+    // into a record of what happened instead, and the only number still moving
+    // ("since discharge") gets to move under a label that admits what it is.
+    const rows = sum.released ? [
+      ['ימים בשירות', String(sum.servedDays)],
+      ['חודשים בשירות', String(sum.servedMonths)],
+      // Whole-service totals, so the closing record counts the service and not
+      // the leftovers of a countdown that already reached zero.
+      cycle
+        ? [`${cycle.title} בשירות`,
+           String(dates.occurrencesUntil(cycle.date, cycle.every, p.enlistDate, p.releaseDate))]
+        : ['שבתות בשירות', String(dates.countWeekday(p.enlistDate, p.releaseDate, 6))],
+      ['מאז השחרור', String(sum.sinceRelease)],
+    ] : [
+      ['ימים בשירות', String(sum.servedDays)],
+      ['ימים שנשארו', String(sum.leftDays)],
+      ['מהפז״מ מאחוריך', `${sum.pct}%`],
+      // The one number a soldier actually computes in their head, and no
+      // competitor shows: how many times they still go home. Derived from the
+      // user's own repeating event -- no assumption about their unit's cycle.
+      cycle
+        ? [`עוד ${cycle.title}`,
+           String(dates.occurrencesUntil(cycle.date, cycle.every, today, p.releaseDate))]
+        : ['עוד שבתות', String(dates.countWeekday(today, p.releaseDate, 6))],
+    ];
+
+    host.append(el('h2', {}, sum.released ? 'השירות שלך' : 'כמה כבר עשית'));
+    const grid = el('div', { class: 'stats' });
     for (const [label, value] of rows) {
       const cell = el('div', { class: 'stat' });
       cell.append(el('div', { class: 'stat-n' }, value));
@@ -1077,8 +1110,12 @@ const render = (() => {
 
     const marks = new Set(store.allEvents(state).map(e => e.date));
     host.append(el('h2', {}, 'רשת הפז״מ'));
+    // Capped at the grid's own size. Uncapped it read "a grid of 976 service
+    // days, 1256 of them behind you" -- a sentence that contradicts itself,
+    // and the only description a screen reader gets of this panel.
+    const done = Math.min(total, Math.max(0, dates.daysBetween(p.enlistDate, today)));
     const box = el('div', { class: 'pgrid', role: 'img',
-      'aria-label': `רשת של ${total} ימי שירות, ${Math.max(0, dates.daysBetween(p.enlistDate, today))} מהם מאחוריך` });
+      'aria-label': `רשת של ${total} ימי שירות, ${done} מהם מאחוריך` });
     for (let i = 0; i <= total; i++) {
       const iso = dates.addDays(p.enlistDate, i);
       let cls = iso < today ? 'done' : '';
