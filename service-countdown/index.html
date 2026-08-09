@@ -251,6 +251,16 @@ html{scroll-padding-block-start:5rem}
 .ev-row{display:flex; align-items:center; gap:.35rem}
 .ev-row .ev{margin-bottom:0}
 .ev-row+.ev-row{margin-top:.6rem}
+.ev-past{margin-block-start:1.1rem}
+.ev-past>summary{
+  list-style:none; cursor:pointer; color:var(--muted); font-size:.9rem;
+  font-weight:700; padding:.7rem .2rem; display:flex; align-items:center; gap:.4rem;
+  min-height:44px;
+}
+.ev-past>summary::-webkit-details-marker{display:none}
+.ev-past>summary .ico{width:16px; height:16px; transition:transform .18s var(--ease)}
+.ev-past[open]>summary .ico{transform:rotate(180deg)}
+.ev-past .ev{opacity:.72}
 .toast{position:fixed; inset-inline:1rem; z-index:40;
   inset-block-end:calc(1rem + env(safe-area-inset-bottom));
   display:flex; align-items:center; gap:.75rem; padding:.85rem 1rem;
@@ -579,6 +589,18 @@ const store = (() => {
     return list.find(e => e.date >= today) || list[list.length - 1];
   }
 
+  // Upcoming first, nearest first; the past goes into its own bucket, newest
+  // first. allEvents sorts ascending, which for a soldier mid-service means
+  // the screen opened on "425 days ago" -- the opposite of what a countdown is.
+  function groupedEvents(state, todayISO) {
+    const today = todayISO || dates.todayISO();
+    const all = allEvents(state, today);
+    return {
+      upcoming: all.filter(e => e.date >= today),
+      past: all.filter(e => e.date < today).reverse(),
+    };
+  }
+
   // Removal returns the row so the caller can offer an undo. Deleting a
   // milestone is one tap next to the row's own tap target; without an undo a
   // mis-tap is silent data loss, and there is no cloud copy to fall back on.
@@ -635,7 +657,7 @@ const store = (() => {
     return importJSON(new TextDecoder().decode(bytes));
   }
 
-  return { KEY, blank, load, save, allEvents, heroEvent, removeEvent, restoreEvent,
+  return { KEY, blank, load, save, allEvents, heroEvent, groupedEvents, removeEvent, restoreEvent,
            validateEvent, exportJSON, importJSON, encodeState, decodeState };
 })();
 </script>
@@ -934,7 +956,8 @@ const render = (() => {
     const host = document.getElementById('events');
     host.innerHTML = '';
     const today = dates.todayISO();
-    const list = store.allEvents(state);
+    const { upcoming, past } = store.groupedEvents(state, today);
+    const list = upcoming.concat(past);
 
     const head = el('div', { class: 'row' });
     head.append(el('h2', { class: 'ev-grow' }, 'אירועים'));
@@ -948,7 +971,8 @@ const render = (() => {
       return;
     }
 
-    for (const ev of list) {
+    // `row(ev)` is the exact body the old loop had; only the call sites moved.
+    const buildRow = ev => {
       const left = dates.daysBetween(today, ev.date);
       const soon = left >= 0 && left <= 7;
       const row = el('button', { class: 'ev' + (soon ? ' soon' : ''), type: 'button' });
@@ -986,7 +1010,19 @@ const render = (() => {
         };
         wrap.append(del);
       }
-      host.append(wrap);
+      return wrap;
+    };
+
+    for (const ev of upcoming) host.append(buildRow(ev));
+
+    if (past.length > 0) {
+      const box = el('details', { class: 'ev-past' });
+      const sum = el('summary', {});
+      sum.append(el('span', { class: 'ico' }, icon('chevron-down')));
+      sum.append(el('span', {}, `מה שכבר עבר · ${past.length}`));
+      box.append(sum);
+      for (const ev of past) box.append(buildRow(ev));
+      host.append(box);
     }
   }
 

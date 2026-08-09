@@ -487,4 +487,39 @@ t('allEvents rolls a repeating event to its next occurrence', () => {
   assert.equal(s.events[0].date, '2026-08-01');
 });
 
+t('groupedEvents puts the nearest upcoming event first', () => {
+  const s = store.blank();
+  s.profile = { enlistDate: '2025-03-02', releaseDate: '2027-11-02' };
+  s.events = [
+    { id: 'a', title: 'סוף טירונות', date: '2025-06-10', icon: 'shield' },
+    { id: 'b', title: 'קורס',        date: '2026-09-15', icon: 'flag' },
+    { id: 'c', title: 'רגילה',       date: '2026-08-14', icon: 'home' },
+  ];
+  const { upcoming, past } = store.groupedEvents(s, '2026-08-09');
+  // Spread into the host realm before comparing: an array built inside the vm
+  // sandbox carries the sandbox's Array.prototype, and assert.deepEqual then
+  // fails with "same structure but not reference-equal" even when it is right.
+  assert.deepEqual([...upcoming.map(e => e.id)], ['c', 'b', 'release']);
+  assert.deepEqual([...past.map(e => e.id)], ['a']);
+});
+
+t('groupedEvents lists the most recent past event first', () => {
+  const s = store.blank();
+  s.events = [
+    { id: 'a', title: 'ישן',  date: '2025-06-10', icon: 'flag' },
+    { id: 'b', title: 'חדש',  date: '2026-01-01', icon: 'flag' },
+  ];
+  const { upcoming, past } = store.groupedEvents(s, '2026-08-09');
+  assert.equal(upcoming.length, 0);
+  assert.deepEqual([...past.map(e => e.id)], ['b', 'a']);
+});
+
+t('groupedEvents counts today as upcoming', () => {
+  const s = store.blank();
+  s.events = [{ id: 'a', title: 'היום', date: '2026-08-09', icon: 'flag' }];
+  const { upcoming, past } = store.groupedEvents(s, '2026-08-09');
+  assert.deepEqual([...upcoming.map(e => e.id)], ['a']);
+  assert.equal(past.length, 0);
+});
+
 console.log(`${passed} passed`);
