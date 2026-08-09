@@ -92,6 +92,21 @@ t('build bounds the recurrence when an end date is given', () => {
   assert.ok(out.includes('RRULE:FREQ=DAILY;INTERVAL=21;UNTIL=20271102'), out);
 });
 
+t('build still bounds the recurrence when no end date is given', () => {
+  // Without a profile the caller has no release date to pass, and an
+  // unbounded FREQ=DAILY is an infinite series in the user's real calendar.
+  // The fallback is five years from the event -- longer than any conscript
+  // service, short enough not to choke a calendar.
+  const out = ics.build([{ title: 'רגילה', date: '2026-08-01', every: 21 }], 1);
+  assert.ok(out.includes('RRULE:FREQ=DAILY;INTERVAL=21;UNTIL=20310731'), out);
+});
+
+t('an explicit end date still wins over the fallback bound', () => {
+  const out = ics.build([{ title: 'רגילה', date: '2026-08-01', every: 21 }], 1, '2027-11-02');
+  assert.ok(out.includes('UNTIL=20271102'), out);
+  assert.ok(!out.includes('UNTIL=20310731'), out);
+});
+
 t('build writes no RRULE for a one-off event', () => {
   const out = ics.build([{ title: 'שחרור', date: '2027-11-02' }], 1);
   assert.ok(!out.includes('RRULE'), out);

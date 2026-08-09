@@ -1841,6 +1841,17 @@ const ics = (() => {
 
   function stamp(iso) { return iso.replace(/-/g, ''); }
 
+  // A recurrence with no UNTIL is an infinite daily series in someone's real
+  // calendar, and the caller has no release date to pass whenever the wizard
+  // was dismissed. The bound lives here rather than in the caller because this
+  // is the function that knows how to write an RRULE, and it has to be safe on
+  // its own. Five years: longer than any conscript service or reserve cycle,
+  // short enough that a 21-day cycle stays under a hundred rows.
+  const FALLBACK_YEARS = 5;
+  function boundedUntil(startISO, untilISO) {
+    return untilISO || dates.addDays(startISO, FALLBACK_YEARS * 365);
+  }
+
   function build(events, alarmDays, untilISO) {
     const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//hasfira//service-countdown//HE',
                    'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'X-WR-CALNAME:הספירה'];
@@ -1856,7 +1867,7 @@ const ics = (() => {
       // rolled-forward occurrence the app happens to be showing today.
       if (ev.every > 0) {
         lines.push(`RRULE:FREQ=DAILY;INTERVAL=${ev.every}` +
-                   (untilISO ? `;UNTIL=${stamp(untilISO)}` : ''));
+                   `;UNTIL=${stamp(boundedUntil(ev.date, untilISO))}`);
       }
       lines.push(`SUMMARY:${esc(ev.title)}`);
       lines.push('TRANSP:TRANSPARENT');
