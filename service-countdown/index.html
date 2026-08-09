@@ -18,12 +18,22 @@
 :root{
   --bg:#f2f1ea; --card:#fbfaf5; --ink:#1c1e16; --muted:#6b7061;
   --line:#e0ded2; --line-strong:#d0cebf; --accent:#8a5a12;
-  --ease:cubic-bezier(.16,1,.3,1); --r:16px;
+  --ease:cubic-bezier(.16,1,.3,1);
+  /* One radius system, three steps, applied by role and never mixed:
+     --r-sm = controls (icon buttons, segments), --r = surfaces (cards, inputs),
+     999px = anything pill-shaped. A square card next to a round button on the
+     same row is the thing that made the old rows read as assembled. */
+  --r:16px; --r-sm:12px;
+  /* The light the progress arc casts. Kept as a token so the accent switcher
+     moves it too: a hard-coded amber glow under an olive ring is the one place
+     the five accents could have come apart. Weaker on paper than on black. */
+  --glow:color-mix(in srgb, var(--accent) 22%, transparent);
   --shadow:0 1px 2px rgba(28,30,22,.05), 0 8px 24px rgba(28,30,22,.06);
 }
 :root[data-theme="dark"]{
   --bg:#13140f; --card:#1c1e15; --ink:#edefe1; --muted:#9aa08c;
   --line:#2c2f23; --line-strong:#3a3d2e; --accent:#e0a33c;
+  --glow:color-mix(in srgb, var(--accent) 26%, transparent);
   --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
 }
 /* A closed set, all from the collection's muted family. The default stays
@@ -67,7 +77,12 @@ h1,h2,h3{font-weight:800;letter-spacing:-.02em;margin:0}
   transform-origin:top center;
   will-change:transform, opacity;
 }
-.hero-label{color:var(--muted); font-size:1rem; letter-spacing:.02em}
+/* An overline, not a heading. The event title is context for the number, and
+   at 1rem in the same colour family it competed with it: two lines of similar
+   weight stacked over the ring read as a title and a subtitle rather than as
+   one object. */
+.hero-label{color:var(--muted); font-size:.82rem; font-weight:700;
+  letter-spacing:.08em; text-transform:none}
 .hero-num{
   font-size:clamp(4rem, 16vw, 8.5rem); font-weight:800; line-height:.9;
   letter-spacing:-.05em; color:var(--accent);
@@ -83,6 +98,16 @@ h1,h2,h3{font-weight:800;letter-spacing:-.02em;margin:0}
    is the last line that may be hard to read. */
 .hero-hint{color:var(--muted); font-size:.85rem; margin-top:.75rem; max-width:22rem}
 .hero-wrap{position:relative; display:grid; place-items:center; margin-block:.25rem}
+/* The one piece of depth in the tool. A ring drawn in a flat accent on a flat
+   background is a shape; the same ring standing in its own light is an object,
+   and this screen is looked at for two seconds a day. Behind the SVG, outside
+   the pointer, and tinted from the accent so it follows the swatch. */
+/* A radial halo was tried here as a second element behind the ring, and both a
+   filled disk and a tuned band read as a smudge: a gradient centred on the
+   wrap glows all the way round, including the 46% of the circle that is not
+   drawn yet. The light belongs to the stroke, so it is a drop-shadow on the
+   stroke (below) and there is no phantom disk. */
+.hero-wrap.has-ring>*{position:relative}
 /* The ringed wrap is sized explicitly so it can act as a query container:
    container-type also applies inline-size containment, which collapses an
    auto-width box to nothing. */
@@ -90,8 +115,12 @@ h1,h2,h3{font-weight:800;letter-spacing:-.02em;margin:0}
 .hero-ring{display:block; width:100%; height:auto; overflow:visible}
 .hero-ring circle{fill:none; stroke-linecap:round;
   transform:rotate(-90deg); transform-origin:50% 50%}
-.hero-ring .track{stroke:var(--line); stroke-width:3}
-.hero-ring .fill{stroke:var(--accent); stroke-width:3;
+/* The track reads as the unserved part of the service, so it is quieter than a
+   border: at --line it was the same weight as the fill and the ring looked
+   half-drawn rather than part-filled. */
+.hero-ring .track{stroke:color-mix(in srgb, var(--line) 70%, var(--bg)); stroke-width:2.5}
+.hero-ring .fill{stroke:var(--accent); stroke-width:4;
+  filter:drop-shadow(0 0 7px var(--glow));
   transition:stroke-dashoffset .9s var(--ease)}
 .hero-wrap>.hero-inner{display:flex; flex-direction:column;
   align-items:center; justify-content:center; gap:.15rem}
@@ -105,8 +134,37 @@ h1,h2,h3{font-weight:800;letter-spacing:-.02em;margin:0}
    supposed to sit inside and struck the stroke on both sides. */
 .hero-wrap.has-ring>.hero-inner .hero-num{font-size:min(26cqw, 8.5rem)}
 @media (prefers-reduced-motion: reduce){ .hero-ring .fill{transition:none} }
-.scroll-hint{margin-top:2rem; color:var(--muted); opacity:.7}
-.scroll-hint svg{width:24px;height:24px}
+/* The unit switcher used to be a sentence ("לחיצה על המספר מחליפה יחידה")
+   under a hidden gesture. A control that shows its three states needs no
+   sentence, and it takes the same room the instruction took. The number stays
+   tappable for whoever already learned the gesture. */
+.seg{display:inline-flex; padding:4px; gap:2px; border-radius:999px;
+  background:color-mix(in srgb, var(--card) 55%, var(--bg));
+  border:1px solid var(--line)}
+/* Every segment carries the border, transparent until it is the selected one:
+   adding a border on selection alone moved the other two by a pixel each time
+   the unit changed. */
+.seg button{min-height:44px; padding:0 .9rem; border-radius:999px;
+  border:1px solid transparent;
+  background:transparent; color:var(--muted); font:inherit; font-size:.85rem;
+  font-weight:700; cursor:pointer; white-space:nowrap;
+  transition:color .2s var(--ease), background-color .2s var(--ease),
+             border-color .2s var(--ease)}
+.seg button[aria-pressed="true"]{background:var(--card); color:var(--ink);
+  border-color:var(--line-strong); box-shadow:var(--shadow)}
+.seg button:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+/* Was a decorative chevron sitting at the bottom of a full-screen hero with
+   nothing behind it. It is the only route to the rest of the page on a phone,
+   so it is a button that takes you there. */
+.hero-jump{margin-top:1.6rem; width:44px; height:44px; border-radius:50%;
+  display:inline-flex; align-items:center; justify-content:center;
+  border:1px solid transparent; background:transparent; color:var(--muted);
+  cursor:pointer; font:inherit;
+  animation:bob 2.6s var(--ease) infinite}
+.hero-jump svg{width:24px;height:24px}
+.hero-jump:hover,.hero-jump:focus-visible{color:var(--ink); border-color:var(--line)}
+@keyframes bob{0%,72%,100%{transform:none} 84%{transform:translateY(4px)}}
+@media (prefers-reduced-motion: reduce){ .hero-jump{animation:none} }
 .hero-num{transition:color .3s var(--ease)}
 @keyframes roll{
   from{transform:translateY(.35em); opacity:0}
@@ -114,7 +172,8 @@ h1,h2,h3{font-weight:800;letter-spacing:-.02em;margin:0}
 }
 .rolling{animation:roll .45s var(--ease)}
 .moment{display:inline-flex; align-items:center; gap:.5rem; margin-top:.9rem;
-  padding:.5rem .8rem; border-radius:999px; font-size:.88rem; font-weight:700;
+  padding:.45rem .85rem; border-radius:999px; font-size:.85rem; font-weight:700;
+  line-height:1.35; text-align:center; max-width:min(26rem, 88vw);
   color:var(--accent); background:color-mix(in srgb, var(--accent) 12%, var(--card));
   border:1px solid color-mix(in srgb, var(--accent) 26%, transparent)}
 .moment .ico{width:16px; height:16px}
@@ -128,39 +187,68 @@ h1,h2,h3{font-weight:800;letter-spacing:-.02em;margin:0}
 .ico svg{width:100%;height:100%}
 .chip-ico{
   display:inline-flex; align-items:center; justify-content:center;
-  width:38px; height:38px; border-radius:12px; color:var(--accent);
+  width:38px; height:38px; border-radius:var(--r-sm); color:var(--accent);
   background:color-mix(in srgb, var(--accent) 12%, var(--card));
   border:1px solid color-mix(in srgb, var(--accent) 24%, transparent);
 }
 .chip-ico svg{width:20px;height:20px}
 /* ---- timeline + event strip ---- */
-.panel{padding:1.25rem; max-width:640px; margin-inline:auto}
-.panel:last-of-type{padding-block-end:calc(1.25rem + env(safe-area-inset-bottom))}
-.panel h2{font-size:1.15rem; margin-bottom:.9rem}
+/* Four sections used to run into each other at identical weight and identical
+   1.25rem padding, so the page read as one long column with headings in it.
+   The rhythm is now: one hairline between neighbours, and room around each.
+   :empty matters -- without a profile three of the four render nothing, and an
+   empty section still drew its padding and its separator. */
+.panel{padding:2rem 1.25rem; max-width:640px; margin-inline:auto}
+.panel:empty{display:none}
+.panel+.panel{border-block-start:1px solid var(--line)}
+.panel:last-of-type{padding-block-end:calc(2rem + env(safe-area-inset-bottom))}
+.panel h2{font-size:1.05rem; margin-bottom:1rem; letter-spacing:-.01em}
 .tl{position:relative; padding-inline-start:1.25rem; margin:0;
   border-inline-start:2px solid var(--line); list-style:none}
 .tl-fill{position:absolute; inset-block-start:0; inset-inline-start:-2px; width:2px;
   background:var(--accent); border-radius:2px}
-.tl-node{position:relative; color:var(--muted); font-size:.9rem}
+/* Thirteen nodes at one weight and one colour read as a log. Two tiers do the
+   sorting instead: what is still ahead is in ink, what is behind is muted, and
+   the date is always the quieter half of the line. Dot geometry is untouched
+   on purpose -- render.timeline measures the fill against it with a constant. */
+.tl-node{position:relative; color:var(--ink); font-size:.9rem; font-weight:600}
+.tl-node .tl-d{color:var(--muted); font-weight:400}
+.tl-node.done{color:var(--muted); font-weight:400}
 .tl-node::before{content:""; position:absolute; inset-inline-start:-1.6rem; top:.2rem;
   width:9px; height:9px; border-radius:50%; background:var(--line-strong)}
 .tl-node.ev-node::before{background:transparent;
   border:2px solid color-mix(in srgb, var(--accent) 60%, var(--line-strong))}
 .tl-node.done::before{background:var(--accent)}
-.tl-node.now{color:var(--ink); font-weight:800}
 .tl-node.now::before{background:var(--accent); box-shadow:0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent)}
-.stats{display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:.6rem}
-.stat{padding:.9rem; border-radius:var(--r); background:var(--card);
-  border:1px solid var(--line); box-shadow:var(--shadow)}
-.stat-n{font-size:1.6rem; font-weight:800; color:var(--accent);
-  font-variant-numeric:tabular-nums; line-height:1.1}
-.stat-l{color:var(--muted); font-size:.85rem; margin-top:.2rem}
+/* "You are here" is the only line on the axis that is about now, so it is the
+   only one wearing a chip. The chip is a child, not the <li>: the list item
+   carries the dot and the measured offset the fill ends at. */
+.tl-now{display:inline-flex; align-items:center; gap:.4rem;
+  padding:.3rem .7rem; border-radius:999px; font-weight:800; font-size:.85rem;
+  color:var(--accent); background:color-mix(in srgb, var(--accent) 12%, var(--card));
+  border:1px solid color-mix(in srgb, var(--accent) 26%, transparent)}
+/* Four bordered, shadowed cards to hold four short numbers is chrome around
+   nothing. Hairlines separate them just as well, the numbers get the room the
+   padding was spending on borders, and the panel stops looking like a
+   dashboard. The numbers are also ink, not accent: the accent belongs to the
+   count you opened the app for, and spending it on every figure on the page is
+   what left nothing standing out. */
+.stats{display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:0;
+  border-block:1px solid var(--line)}
+.stat{padding:1.05rem .2rem}
+.stat:nth-child(even){border-inline-start:1px solid var(--line); padding-inline-start:1rem}
+.stat:nth-child(n+3){border-block-start:1px solid var(--line)}
+.stat-n{font-size:1.85rem; font-weight:800; color:var(--ink);
+  font-variant-numeric:tabular-nums; letter-spacing:-.03em; line-height:1.05}
+.stat-l{color:var(--muted); font-size:.82rem; margin-top:.25rem}
 /* One dot per day of service. auto-fill with a minimum keeps the row count
    sane from 320px to 640px without a media query, and aspect-ratio keeps the
    dots round however many land in a row. */
-.pgrid{display:grid; grid-template-columns:repeat(auto-fill, minmax(7px, 1fr));
-  gap:3px; padding:.9rem; border-radius:var(--r);
-  background:var(--card); border:1px solid var(--line); box-shadow:var(--shadow)}
+/* Unboxed. A thousand dots are already a shape; a card, a border and a shadow
+   around them only added a second one, and the panel above now separates
+   sections with a hairline instead of a container. */
+.pgrid{display:grid; grid-template-columns:repeat(auto-fill, minmax(8px, 1fr));
+  gap:3px; padding:0; background:transparent; border:0; box-shadow:none}
 .pgrid i{display:block; aspect-ratio:1}
 .pgrid-legend{display:flex; flex-wrap:wrap; gap:.9rem; margin-top:.7rem;
   color:var(--muted); font-size:.8rem}
@@ -182,15 +270,17 @@ h1,h2,h3{font-weight:800;letter-spacing:-.02em;margin:0}
    row, so the icon sat alone on line 1, the text on line 2 and the count on
    line 3. The grid keeps the icon and title on one row and lets only the count
    drop, which is the one thing that may. */
+/* The row is one object now. It used to be a card with two loose icon buttons
+   floating beside it, so a single event was three boxes with three outlines --
+   the list read as scaffolding rather than as events. The card moved out to
+   .ev-row, .ev is the transparent content button inside it, and the actions
+   are a column behind one hairline. */
 .ev{display:grid; grid-template-columns:auto minmax(0,1fr) auto; gap:.25rem .7rem;
   align-items:center; width:100%; text-align:start;
-  padding:.85rem; border-radius:var(--r);
-  background:var(--card); border:1px solid var(--line); box-shadow:var(--shadow);
-  color:inherit; font:inherit; cursor:pointer;
-  transition:transform .18s var(--ease), border-color .18s var(--ease)}
-.ev:hover{transform:translateY(-1px); border-color:var(--line-strong)}
-.ev:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
-.ev.soon{border-color:color-mix(in srgb, var(--accent) 45%, var(--line))}
+  padding:.85rem; border:0; border-radius:0; background:transparent; box-shadow:none;
+  color:inherit; font:inherit; cursor:pointer}
+.ev:focus-visible{outline:2px solid var(--accent); outline-offset:-3px; border-radius:var(--r)}
+.ev:active{background:color-mix(in srgb, var(--ink) 5%, transparent)}
 /* Title and date are block-level inside their own column: as inline spans they
    wrapped mid-phrase at 320px ("סוף / טירונות", "10 / ביוני / 2025"). */
 .ev-grow{display:flex; flex-direction:column; gap:.15rem; min-width:0}
@@ -198,15 +288,23 @@ h1,h2,h3{font-weight:800;letter-spacing:-.02em;margin:0}
    to carry the flex:1 that pushed "הוסף אירוע" to the far edge. Inside .ev the
    grid column handles growth, so the flex only belongs in the header row. */
 .row>.ev-grow{flex:1 1 auto}
-.ev-t{font-weight:800; overflow-wrap:anywhere}
+.ev-t{font-weight:700; overflow-wrap:anywhere}
 .ev-d{color:var(--muted); font-size:.85rem}
-.ev-days{font-weight:800; color:var(--accent); font-variant-numeric:tabular-nums;
-  white-space:nowrap; justify-self:end}
-/* Under ~360px the count moves to its own full-width row instead of squeezing
-   the title into two characters per line. */
+/* "נשארו 12 ימים" set as one run of bold accent text made the row's least
+   scannable element -- the sentence -- its loudest. The number is the answer,
+   so the number is the size, and the word under it is the caption. */
+.ev-days{display:flex; flex-direction:column; align-items:center; gap:.1rem;
+  justify-self:end; line-height:1; white-space:nowrap}
+.ev-n{font-size:1.45rem; font-weight:800; color:var(--accent);
+  font-variant-numeric:tabular-nums; letter-spacing:-.03em}
+.ev-u{font-size:.7rem; font-weight:600; color:var(--muted)}
+/* Under ~360px the count moves to its own row rather than squeezing the title
+   into two characters per line, and lies down flat while it is there. */
 @media (max-width: 359px){
   .ev{grid-template-columns:auto minmax(0,1fr)}
-  .ev-days{grid-column:1 / -1; justify-self:start; padding-inline-start:calc(38px + .7rem)}
+  .ev-days{grid-column:1 / -1; justify-self:start; flex-direction:row;
+    align-items:baseline; gap:.3rem; padding-inline-start:calc(38px + .7rem)}
+  .ev-n{font-size:1.15rem}
 }
 .sheet{position:fixed; inset:0; z-index:30; background:var(--bg); overflow-y:auto;
   padding:calc(1.25rem + env(safe-area-inset-top)) 1.25rem calc(1.25rem + env(safe-area-inset-bottom));
@@ -225,15 +323,15 @@ h1,h2,h3{font-weight:800;letter-spacing:-.02em;margin:0}
   justify-content:center; padding:0}
 #icons svg{width:20px;height:20px}
 .sheet input[type=text],.sheet input[type=date]{
-  width:100%; padding:.85rem; border-radius:var(--r); font-size:1rem; font-family:inherit;
+  width:100%; padding:.85rem; border-radius:var(--r-sm); font-size:1rem; font-family:inherit;
   background:var(--card); color:var(--ink); border:1px solid var(--line-strong)}
 .wizard input[type=number],.sheet input[type=number]{
-  width:5.5rem; padding:.85rem; border-radius:var(--r);
+  width:5.5rem; padding:.85rem; border-radius:var(--r-sm);
   font-size:1rem; font-family:inherit; text-align:center;
   background:var(--card); color:var(--ink); border:1px solid var(--line-strong)}
 .sheet-x{position:absolute; inset-block-start:calc(.9rem + env(safe-area-inset-top));
-  inset-inline-end:.9rem; width:40px; height:40px; display:inline-flex;
-  align-items:center; justify-content:center; border-radius:12px; cursor:pointer;
+  inset-inline-end:.9rem; width:44px; height:44px; display:inline-flex;
+  align-items:center; justify-content:center; border-radius:var(--r-sm); cursor:pointer;
   background:transparent; border:1px solid var(--line); color:var(--muted); font:inherit;
   transform:rotate(45deg)}
 .sheet-x svg{width:20px;height:20px}
@@ -295,25 +393,46 @@ h1,h2,h3{font-weight:800;letter-spacing:-.02em;margin:0}
 /* Anything scrolled to must clear the bar. */
 html{scroll-padding-block-start:5rem}
 .panel h2{scroll-margin-block-start:5rem}
+/* Three outlined boxes floating over the top of the hero were the first thing
+   the eye landed on, ahead of the number. They are transparent while the hero
+   owns the screen and take a surface once the bar itself has one. */
 .iconbtn{width:44px; height:44px; display:inline-flex; align-items:center;
-  justify-content:center; border-radius:12px; cursor:pointer; font:inherit;
-  background:color-mix(in srgb, var(--card) 80%, transparent);
-  border:1px solid var(--line); color:var(--ink);
-  -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px)}
+  justify-content:center; border-radius:var(--r-sm); cursor:pointer; font:inherit;
+  background:transparent; border:1px solid transparent; color:var(--ink);
+  transition:background-color .2s var(--ease), border-color .2s var(--ease)}
+.appbar.on .iconbtn{background:color-mix(in srgb, var(--card) 70%, transparent);
+  border-color:var(--line)}
+.iconbtn:hover,.iconbtn:focus-visible{background:color-mix(in srgb, var(--ink) 7%, transparent);
+  border-color:var(--line)}
 .iconbtn svg{width:20px;height:20px}
+/* 44 square, not 44x40: two of them stacked is the densest pair of targets in
+   the tool, and the project floor is 44 in both directions. */
 .ev-del{flex:none; width:44px; height:44px; display:inline-flex; align-items:center;
-  justify-content:center; border-radius:12px; border:1px solid transparent;
-  background:transparent; color:var(--muted); cursor:pointer; font:inherit; opacity:.65;
-  transition:opacity .18s var(--ease), border-color .18s var(--ease)}
-.ev-del:hover,.ev-del:focus-visible{opacity:1; border-color:var(--line-strong); color:var(--ink)}
+  justify-content:center; border:0; border-radius:0;
+  background:transparent; color:var(--muted); cursor:pointer; font:inherit; opacity:.7;
+  transition:opacity .18s var(--ease), background-color .18s var(--ease)}
+.ev-del+.ev-del{border-block-start:1px solid var(--line)}
+.ev-del:hover,.ev-del:focus-visible{opacity:1; color:var(--ink);
+  background:color-mix(in srgb, var(--ink) 6%, transparent)}
+.ev-del:focus-visible{outline:2px solid var(--accent); outline-offset:-3px}
 .ev-del svg{width:18px;height:18px}
-/* The actions used to sit outside the card, flush to the screen edge, ~120px
-   away from the row they act on. They now hug it. */
-.ev-row{display:flex; align-items:stretch; gap:.35rem}
+/* The card lives here, not on .ev: the row and its two actions are one
+   surface, split by hairlines, so an event is a single object with an edge
+   rather than three boxes sitting near each other. */
+.ev-row{display:flex; align-items:stretch; gap:0; overflow:hidden;
+  border-radius:var(--r); background:var(--card); border:1px solid var(--line);
+  box-shadow:var(--shadow);
+  transition:transform .18s var(--ease), border-color .18s var(--ease)}
+.ev-row:hover{transform:translateY(-1px); border-color:var(--line-strong)}
+/* The next thing coming up gets an edge, not a tinted outline: a border in a
+   washed accent on a card that already has a border just made the whole shape
+   fuzzy. */
+.ev-row.soon{border-color:color-mix(in srgb, var(--accent) 35%, var(--line))}
+.ev-row.soon::before{content:""; flex:none; width:3px; background:var(--accent)}
 .ev-row .ev{flex:1 1 auto; min-width:0}
 .ev-row+.ev-row{margin-top:.6rem}
-.ev-actions{display:flex; flex-direction:column; justify-content:center; gap:.2rem;
-  flex:0 0 auto}
+.ev-actions{display:flex; flex-direction:column; justify-content:center; gap:0;
+  flex:0 0 auto; border-inline-start:1px solid var(--line)}
 .ev-past{margin-block-start:1.1rem}
 .ev-past>summary{
   list-style:none; cursor:pointer; color:var(--muted); font-size:.9rem;
@@ -342,13 +461,20 @@ html{scroll-padding-block-start:5rem}
 .wizard h2{font-size:1.5rem}
 .wizard label{display:block; color:var(--muted); font-size:.9rem; margin-bottom:.35rem}
 .wizard input[type=date]{
-  width:100%; padding:.85rem; border-radius:var(--r); font-size:1rem;
+  width:100%; padding:.85rem; border-radius:var(--r-sm); font-size:1rem;
   background:var(--card); color:var(--ink); border:1px solid var(--line-strong);
   font-family:inherit;
 }
 .row{display:flex; gap:.5rem; align-items:center; flex-wrap:wrap}
-.btn{padding:.8rem 1.1rem; border-radius:var(--r); border:1px solid var(--line-strong);
-  background:var(--card); color:var(--ink); font:inherit; font-weight:700; cursor:pointer}
+.btn{padding:.8rem 1.1rem; border-radius:var(--r-sm); border:1px solid var(--line-strong);
+  background:var(--card); color:var(--ink); font:inherit; font-weight:700; cursor:pointer;
+  transition:transform .12s var(--ease), border-color .18s var(--ease)}
+/* Every control on the page gives back a millimetre when pressed. Nothing else
+   confirms a tap on a screen with no cursor. */
+.btn:active,.iconbtn:active,.tpl button:active,.seg button:active{transform:scale(.97)}
+.btn:hover{border-color:var(--ink)}
+.btn.ghost:hover{border-color:transparent; color:var(--ink)}
+.btn.with-ico{display:inline-flex; align-items:center; gap:.45rem}
 .btn.primary{background:var(--accent); border-color:var(--accent); color:var(--bg)}
 .btn.ghost{background:transparent; border-color:transparent; color:var(--muted)}
 .btn.danger{color:#c0392b; border-color:color-mix(in srgb, #c0392b 35%, var(--line))}
@@ -802,6 +928,7 @@ const ICONS = {
   'shield': '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
   'star': '<path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.12 2.12 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.12 2.12 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.12 2.12 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.12 2.12 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.12 2.12 0 0 0 1.597-1.16z"/>',
   'plus': '<path d="M5 12h14"/><path d="M12 5v14"/>',
+  'timer': '<line x1="10" x2="14" y1="2" y2="2"/><line x1="12" x2="15" y1="14" y2="11"/><circle cx="12" cy="14" r="8"/>',
   'trash': '<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
   'sun': '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>',
   'moon': '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9"/>',
@@ -923,8 +1050,16 @@ const render = (() => {
       past && ev.id === 'release' ? 'משוחרר' : ev.title));
     const unit = state.unit || 'days';
     const value = dates.unitValue(unit, today, ev.date);
+    // The label used to be "החלף יחידת ספירה" alone, which is what an
+    // aria-label does: it replaces the content. The single number this whole
+    // screen exists to show was unreadable, and the aria-live announcement on
+    // every change read out the instruction instead of the new count. The
+    // value leads; the switcher is visible below now, so the gesture is a
+    // shortcut rather than the only way through.
     const num = el('button', { class: 'hero-num', id: 'heroNum', type: 'button',
-      'aria-live': 'polite', 'aria-label': 'החלף יחידת ספירה' }, String(value));
+      'aria-live': 'polite',
+      'aria-label': `${value} ${dates.unitName(unit, value)}, החלף יחידת ספירה` },
+      String(value));
     num.onclick = () => {
       const order = ['days', 'weeks', 'months'];
       state.unit = order[(order.indexOf(unit) + 1) % order.length];
@@ -1001,14 +1136,39 @@ const render = (() => {
       host.append(row);
     }
 
-    const hintRow = el('div', { class: 'row', style: 'justify-content:center' });
-    const liveBtn = el('button', { class: 'btn ghost', type: 'button' }, 'ספירה חיה');
-    liveBtn.onclick = () => live.open(ev.title, ev.date);
-    hintRow.append(liveBtn);
-    host.append(hintRow);
-    host.append(el('div', { class: 'hero-hint' }, 'לחיצה על המספר מחליפה יחידה'));
+    // The hero used to close with a button, a sentence explaining a hidden
+    // gesture, and a chevron that did nothing: three elements, one of which
+    // was a control. It closes with two controls now, and the sentence is gone
+    // because the switcher says the same thing by existing.
+    const seg = el('div', { class: 'seg', role: 'group',
+      'aria-label': 'יחידת ספירה' });
+    for (const [key, label] of [['days', 'ימים'], ['weeks', 'שבועות'], ['months', 'חודשים']]) {
+      const b = el('button', { type: 'button', 'aria-pressed': String(key === unit) }, label);
+      b.onclick = () => { state.unit = key; store.save(state); refreshHero(); };
+      seg.append(b);
+    }
+    const controls = el('div', { class: 'row', style: 'justify-content:center' });
+    controls.append(seg);
+    host.append(controls);
 
-    host.append(el('div', { class: 'scroll-hint' }, icon('chevron-down')));
+    const liveRow = el('div', { class: 'row', style: 'justify-content:center' });
+    const liveBtn = el('button', { class: 'btn ghost with-ico', type: 'button' });
+    liveBtn.append(el('span', { class: 'ico' }, icon('timer')), el('span', {}, 'ספירה חיה'));
+    liveBtn.onclick = () => live.open(ev.title, ev.date);
+    liveRow.append(liveBtn);
+    host.append(liveRow);
+
+    // Aims at the first section that actually rendered something. Without a
+    // profile the timeline, the stats and the grid are all empty and hidden,
+    // and a chevron that scrolls to a display:none section goes nowhere.
+    const jump = el('button', { class: 'hero-jump', type: 'button',
+      'aria-label': 'לשאר העמוד' }, icon('chevron-down'));
+    jump.onclick = () => {
+      const target = [...document.querySelectorAll('.panel')]
+        .find(p => p.firstElementChild);
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+    host.append(jump);
 
     // The sticky bar carries the same number AND the same unit the hero shows.
     // It was written before the unit switcher existed and reported raw days, so
@@ -1051,8 +1211,16 @@ const render = (() => {
     for (const n of nodes) {
       const cls = n.kind === 'now' ? 'tl-node now'
                 : n.date <= today ? 'tl-node done' : 'tl-node';
-      const node = el('li', { class: cls + (n.kind === 'event' ? ' ev-node' : '') },
-        n.kind === 'now' ? n.title : `${n.title} · ${dates.formatHe(n.date)}`);
+      // Title and date are separate elements so the date can be the quiet half
+      // of the line. As one interpolated string they were one colour, one
+      // weight, thirteen times.
+      const node = el('li', { class: cls + (n.kind === 'event' ? ' ev-node' : '') });
+      if (n.kind === 'now') {
+        node.append(el('span', { class: 'tl-now' }, n.title));
+      } else {
+        node.append(el('span', {}, n.title));
+        node.append(el('span', { class: 'tl-d' }, ' · ' + dates.formatHe(n.date)));
+      }
       node.style.marginBlockStart = dates.axisGap(prev, n.date, span, 420, 14) + 'px';
       tl.append(node);
       if (n.kind === 'now') nowNode = node;
@@ -1178,7 +1346,8 @@ const render = (() => {
 
     const head = el('div', { class: 'row' });
     head.append(el('h2', { class: 'ev-grow' }, 'אירועים'));
-    const add = el('button', { class: 'btn', type: 'button' }, 'הוסף אירוע');
+    const add = el('button', { class: 'btn with-ico', type: 'button' });
+    add.append(el('span', { class: 'ico' }, icon('plus')), el('span', {}, 'הוסף אירוע'));
     add.onclick = () => addSheet(state, refresh);
     head.append(add);
     host.append(head);
@@ -1192,7 +1361,10 @@ const render = (() => {
     const buildRow = ev => {
       const left = dates.daysBetween(today, ev.date);
       const soon = left >= 0 && left <= 7;
-      const row = el('button', { class: 'ev' + (soon ? ' soon' : ''), type: 'button' });
+      // The visual count is split into a number and a caption, so the whole
+      // row is labelled once instead of being read out of three fragments.
+      const row = el('button', { class: 'ev', type: 'button',
+        'aria-label': `${ev.title}, ${dates.formatHe(ev.date)}, ${dates.remainingLabel(left)}` });
       row.append(el('span', { class: 'chip-ico' }, icon(ev.icon)));
       const mid = el('span', { class: 'ev-grow' });
       mid.append(el('span', { class: 'ev-t' }, ev.title));
@@ -1202,11 +1374,19 @@ const render = (() => {
           `חוזר כל ${dates.hebrewDays(state.events.find(x => x.id === ev.id).every)}`));
       }
       row.append(mid);
-      row.append(el('span', { class: 'ev-days' }, dates.remainingLabel(left)));
+      const days = el('span', { class: 'ev-days', 'aria-hidden': 'true' });
+      if (left === 0) {
+        days.append(el('b', { class: 'ev-n' }, 'היום'));
+      } else {
+        days.append(el('b', { class: 'ev-n' }, String(Math.abs(left))));
+        days.append(el('span', { class: 'ev-u' },
+          (Math.abs(left) === 1 ? 'יום' : 'ימים') + (left < 0 ? ' שעברו' : '')));
+      }
+      row.append(days);
       row.onclick = () => { state.heroId = ev.id; store.save(state); refresh();
         window.scrollTo({ top: 0, behavior: 'smooth' }); };
 
-      const wrap = el('div', { class: 'ev-row' });
+      const wrap = el('div', { class: 'ev-row' + (soon ? ' soon' : '') });
       wrap.append(row);
       if (!ev.virtual) {                       // release comes from the profile
         const edit = el('button', { class: 'ev-del', type: 'button',
@@ -1852,6 +2032,12 @@ const motion = (() => {
     if (navigator.vibrate) { try { navigator.vibrate([12, 60, 12]); } catch (e) {} }
   }
 
+  // A scroll-reveal for the four panels was built here and taken back out. It
+  // works, but it parks the whole page below the hero at opacity 0 until an
+  // observer says otherwise, and everything that renders without scrolling --
+  // the headless quality gate, a print, a page restored before the observer
+  // runs -- sees a blank document. A countdown that promises to work offline
+  // does not get to make its content conditional on a callback.
   return { init, rollNumber, celebrate };
 })();
 </script>
