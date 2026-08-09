@@ -1391,6 +1391,7 @@ const render = (() => {
         <button class="btn" id="sIcs" type="button">הוסף ליומן עם תזכורת</button>
         <button class="btn" id="sShare" type="button">שתף את הספירה</button>
         <button class="btn" id="sCard" type="button">שתף כתמונה</button>
+        <button class="btn" id="sWall" type="button">טפט למסך נעילה</button>
       </div>
       <p class="ev-d">"הוסף ליומן" מוריד קובץ עם כל האירועים ותזכורת יום מראש —
         ההתראה מגיעה מהיומן של המכשיר, בלי שרת ובלי חשבון.</p>
@@ -1442,6 +1443,13 @@ const render = (() => {
     };
 
     box.querySelector('#sCard').onclick = () => card.share(state);
+
+    box.querySelector('#sWall').onclick = async () => {
+      const ok = await wallpaper.download(state);
+      err.textContent = ok
+        ? 'נשמר. קבעו כטפט מסך נעילה — כך רואים את המספר בלי לפתוח כלום.'
+        : 'אין עדיין ספירה';
+    };
 
     if (badge.supported()) {
       box.querySelector('#sBadgeRow').hidden = false;
@@ -1944,6 +1952,96 @@ const card = (() => {
   }
 
   return { draw, share };
+})();
+
+/* ---------- wallpaper: the closest a PWA gets to a lock-screen widget ---------- */
+const wallpaper = (() => {
+  // Same palette values as `card`, kept local because card does not export it.
+  function palette(dark) {
+    return dark
+      ? { bg: '#13140f', ink: '#edefe1', muted: '#9aa08c', line: '#2c2f23', accent: '#e0a33c' }
+      : { bg: '#f2f1ea', ink: '#1c1e16', muted: '#6b7061', line: '#e0ded2', accent: '#8a5a12' };
+  }
+
+  // iOS paints the clock across the top ~28% of the lock screen and the
+  // shortcuts across the bottom ~12%. Everything we draw lives between them.
+  function draw(opts) {
+    const W = opts.w, H = opts.h;
+    const c = document.createElement('canvas');
+    c.width = W; c.height = H;
+    const g = c.getContext('2d');
+    const p = palette(opts.dark);
+    const font = 'system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Hebrew", Arial, sans-serif';
+
+    g.fillStyle = p.bg; g.fillRect(0, 0, W, H);
+    g.direction = 'rtl';
+    g.textAlign = 'center';
+
+    const cy = Math.round(H * 0.52);
+    const r = Math.round(Math.min(W, H) * 0.26);
+    g.lineWidth = Math.max(6, Math.round(W * 0.014));
+    g.lineCap = 'round';
+    g.strokeStyle = p.line;
+    g.beginPath(); g.arc(W / 2, cy, r, 0, Math.PI * 2); g.stroke();
+    if (opts.pct > 0) {
+      g.strokeStyle = p.accent;
+      g.beginPath();
+      g.arc(W / 2, cy, r, -Math.PI / 2, -Math.PI / 2 + (Math.PI * 2 * opts.pct) / 100);
+      g.stroke();
+    }
+
+    g.fillStyle = p.muted;
+    g.font = `600 ${Math.round(W * 0.045)}px ${font}`;
+    g.fillText(opts.title, W / 2, cy - r - Math.round(W * 0.05), W * 0.8);
+
+    g.fillStyle = p.accent;
+    g.font = `800 ${Math.round(W * 0.22)}px ${font}`;
+    g.fillText(String(opts.value), W / 2, cy + Math.round(W * 0.07), 2 * r - W * 0.08);
+
+    g.fillStyle = p.ink;
+    g.font = `800 ${Math.round(W * 0.055)}px ${font}`;
+    g.fillText(opts.unit, W / 2, cy + Math.round(W * 0.17), 2 * r - W * 0.08);
+
+    g.fillStyle = p.muted;
+    g.font = `400 ${Math.round(W * 0.035)}px ${font}`;
+    g.fillText(opts.dateText, W / 2, Math.round(H * 0.84));
+    return c;
+  }
+
+  function size() {
+    const dpr = Math.min(3, window.devicePixelRatio || 1);
+    const w = Math.round((window.screen.width || 390) * dpr);
+    const h = Math.round((window.screen.height || 844) * dpr);
+    // Guard against a desktop screen producing a 5120px-wide phone wallpaper.
+    return { w: Math.min(w, 1600), h: Math.min(h, 3600) };
+  }
+
+  async function download(state) {
+    const ev = store.heroEvent(state);
+    if (!ev) return false;
+    const today = dates.todayISO();
+    const unit = state.unit || 'days';
+    const value = dates.unitValue(unit, today, ev.date);
+    const pct = state.profile
+      ? dates.progressPct(state.profile.enlistDate, state.profile.releaseDate, today) : 0;
+    const { w, h } = size();
+    const canvas = draw({ w, h, title: ev.title, value, unit: dates.unitName(unit, value),
+      dateText: dates.formatHe(ev.date), pct, dark: state.theme === 'dark' });
+    const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+    const file = new File([blob], 'ha-sfira-wallpaper.png', { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file] }); return true; }
+      catch (e) { return true; }            // the user dismissed the share sheet
+    }
+    const a = el('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'ha-sfira-wallpaper.png';
+    a.click();
+    URL.revokeObjectURL(a.href);
+    return true;
+  }
+
+  return { draw, size, download };
 })();
 </script>
 
