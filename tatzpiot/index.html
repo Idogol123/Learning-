@@ -264,6 +264,26 @@ pre.out{white-space:pre-wrap;font:inherit;font-size:15px;margin:0;line-height:1.
 .toast{position:fixed;left:50%;bottom:calc(84px + var(--safe-b));transform:translate(-50%,20px);z-index:60;background:var(--ink);color:var(--bg);
   padding:10px 16px;border-radius:12px;font-size:14px;font-weight:600;opacity:0;transition:all .25s var(--ease);pointer-events:none;max-width:calc(100% - 32px);text-align:center}
 .toast.on{opacity:1;transform:translate(-50%,0)}
+.toast .tbtn{margin-inline-start:10px;background:none;border:0;color:var(--bg);font-weight:800;text-decoration:underline;min-height:32px;padding:0 4px}
+/* next step */
+.next{display:flex;gap:12px;align-items:flex-start;margin-top:12px;padding:14px;border-radius:var(--r);
+  background:color-mix(in srgb,var(--accent) 9%,var(--card));border:1px solid color-mix(in srgb,var(--accent) 28%,transparent)}
+.next .lbl{font-size:12px;font-weight:800;color:var(--accent);letter-spacing:.02em}
+.next .txt{font-weight:700;font-size:15px;margin:2px 0 10px}
+.li .meta .ns{color:var(--accent);font-weight:600}
+.li .meta{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+/* guide */
+.guide ol{margin:8px 0 0;padding-inline-start:20px}
+.guide li{margin:4px 0}
+/* team */
+.cvr{padding:10px 0;border-top:1px solid var(--line)}
+.cvr:first-child{border-top:0;padding-top:0}
+.cvr .row{font-size:15px}
+.cvr .track{flex:none;width:84px;height:6px;border-radius:99px;background:var(--line);overflow:hidden}
+.cvr .fill{height:100%;background:var(--accent)}
+.cvr.blind .fill{background:var(--muted)}
+.cvr .miss{font-size:13px;color:var(--muted);margin-top:2px}
+.cvr.blind .nm{font-weight:800}
 
 /* lock */
 .lock{min-height:100vh;min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:24px 16px calc(24px + var(--safe-b))}
@@ -366,6 +386,7 @@ const logic = (() => {
         staleDays: Number(s.staleDays) > 0 ? Number(s.staleDays) : 5,
         bgLockSec: Number.isFinite(Number(s.bgLockSec)) && s.bgLockSec !== null && s.bgLockSec !== undefined ? Number(s.bgLockSec) : 60,
         lastBackupAt: s.lastBackupAt || null,
+        guideDone: !!s.guideDone,
       },
       trainees: d.trainees || [],
       exercises: d.exercises || [],
@@ -374,6 +395,7 @@ const logic = (() => {
       talks: d.talks || [],
       notes: d.notes || [],
       dismissedObs: d.dismissedObs || [],
+      pending: d.pending || null,   // draft/round saved at auto-lock, restored on unlock
     };
   }
 
@@ -526,18 +548,82 @@ const logic = (() => {
     return out.sort((a, b) => b.overdue - a.overdue);
   }
 
+  // A phenomenon that was discussed, but nobody has looked at that
+  // competency since: the loop is silently broken. 7 days = flag it.
+  const EVIDENCE_GAP = 7;
+  function evidenceGaps(S, now) {
+    const out = [];
+    for (const p of S.phenomena) {
+      if (p.status !== 'discussed' && p.status !== 'working') continue;
+      const t = S.trainees.find(x => x.id === p.traineeId);
+      if (!t || t.active === false) continue;
+      const moved = (p.statusLog || []).find(x => x.status !== 'identified');
+      const marks = [moved ? ts(moved.at) : ts(p.createdAt) || 0]
+        .concat(S.talks.filter(k => (k.phenomenonIds || []).includes(p.id)).map(k => ts(k.at)));
+      const since = Math.max(...marks);
+      const ev = obsOf(S, p.traineeId).filter(o => o.competencyId === p.competencyId && ts(o.at) > since).map(o => ts(o.at));
+      const last = ev.length ? Math.max(...ev) : since;
+      const days = calDays(last, now);
+      if (days >= EVIDENCE_GAP) out.push({ t, p, days, hadAny: ev.length > 0 });
+    }
+    return out.sort((a, b) => b.days - a.days);
+  }
+
   function attention(S, now) {
     const items = [];
     for (const f of dueFollowups(S, now)) items.push({ type: 'followup', prio: 1, ...f });
+    for (const g of evidenceGaps(S, now)) items.push({ type: 'evidence', prio: 2, ...g });
     for (const t of S.trainees) {
       if (t.active === false) continue;
-      for (const s of patternSuggestions(S, t.id, now)) items.push({ type: 'pattern', prio: 2, t, s });
+      for (const s of patternSuggestions(S, t.id, now)) items.push({ type: 'pattern', prio: 3, t, s });
     }
     for (const t of S.trainees) {
       if (t.active === false) continue;
-      for (const w of biasWarnings(S, t.id)) items.push({ type: 'bias', prio: 3, t, w });
+      for (const w of biasWarnings(S, t.id)) items.push({ type: 'bias', prio: 4, t, w });
     }
     return items.sort((a, b) => a.prio - b.prio);
+  }
+
+  // ONE recommended action per trainee, so the mentor never has to work out
+  // what the loop needs next. Order = how badly the loop breaks without it.
+  function nextStep(S, tid, now) {
+    const k = lastTalk(S, tid);
+    if (k && k.followUpAt && !k.followUpDone && ts(k.followUpAt) <= now) {
+      return { kind: 'followup', text: `מעקב על מה שסוכם: ${k.agreements || k.summary || ''}`.trim(), talkId: k.id };
+    }
+    const gap = evidenceGaps(S, now).find(g => g.p.traineeId === tid);
+    if (gap) return { kind: 'evidence', text: `חפש ראיה: ${gap.p.goal || gap.p.title}`, pid: gap.p.id, days: gap.days };
+    const pat = patternSuggestions(S, tid, now)[0];
+    if (pat) return { kind: 'pattern', text: `${pat.obsIds.length} תצפיות ${pat.kind === 'gap' ? '⊖' : '⊕'} ב"${compName(S, pat.competencyId)}" — לאפיין כתופעה?`, pattern: pat };
+    const waiting = S.phenomena.filter(p => p.traineeId === tid && p.status === 'identified');
+    if (waiting.length) return { kind: 'talk', text: waiting.length === 1 ? `ממתין לשיחה: ${waiting[0].title}` : `${waiting.length} תופעות ממתינות לשיחת משוב` };
+    const s = stats(S, tid, now);
+    if (s.stale) return { kind: 'observe', text: s.last === null ? 'טרם נצפה — התחל בתצפית' : `לא נצפה ${s.daysSince} ימים` };
+    return null;
+  }
+
+  // The mentor's blind spots (last 21 days): which competencies, and which
+  // trainee×competency pairs, the mentor simply is not looking at.
+  // Coverage of OBSERVATION, deliberately not a comparison of trainees.
+  function teamCoverage(S, now) {
+    const tr = S.trainees.filter(t => t.active !== false);
+    const ids = new Set(tr.map(t => t.id));
+    const recent = S.observations.filter(o => ids.has(o.traineeId) && (now - ts(o.at)) / DAY < WIN);
+    const comps = S.settings.competencies.map(c => {
+      const l = recent.filter(o => o.competencyId === c.id);
+      const seen = new Set(l.map(o => o.traineeId));
+      return { c, n: l.length, covered: tr.filter(t => seen.has(t.id)), missing: tr.filter(t => !seen.has(t.id)) };
+    });
+    const trainees = tr.map(t => {
+      const l = recent.filter(o => o.traineeId === t.id);
+      const seen = new Set(l.map(o => o.competencyId));
+      return { t, n: l.length, seen: S.settings.competencies.filter(c => seen.has(c.id)).length,
+               unseen: S.settings.competencies.filter(c => !seen.has(c.id)) };
+    });
+    // Only the worst few: a warning that flags everything says nothing.
+    const blind = tr.length ? comps.filter(x => x.n <= 1 || x.covered.length <= Math.floor(tr.length / 4))
+      .sort((a, b) => a.covered.length - b.covered.length || a.n - b.n).slice(0, 3) : [];
+    return { comps, trainees, blind, total: recent.length, size: tr.length };
   }
 
   function topComps(S, tid, val, n) {
@@ -552,11 +638,15 @@ const logic = (() => {
       .slice(0, n);
   }
 
+  // Situation → Behavior → Impact: the order a feedback sentence is spoken in.
+  // "←" reads forward in RTL.
+  const sbi = o => `${o.situation ? o.situation + ' ← ' : ''}${o.behavior}${o.impact ? ' ← ' + o.impact : ''}`;
+
   function prepText(S, tid, now, opts) {
     const includePrivate = !!(opts && opts.includePrivate);
     const t = S.trainees.find(x => x.id === tid);
     if (!t) return '';
-    const L = [`הכנה לשיחה — ${t.nickname}${t.team ? ` (${t.team})` : ''}`, fmtDY(now), ''];
+    const L = [`הכנה לשיחה — ${t.nickname}${t.team ? ` (${t.team})` : ''}`, fmtDY(now), 'מבנה כל משוב: מצב ← מה ראיתי ← השפעה ← "איך אתה ראית את זה?"', ''];
     const obs = obsOf(S, tid);
     const last = lastTalk(S, tid);
     if (last) {
@@ -568,7 +658,7 @@ const logic = (() => {
         const since = obs.filter(o => ts(o.at) > ts(last.at) && cids.has(o.competencyId)).sort(byAtDesc);
         const c = countPM(since);
         L.push(`מאז, באותן כשירויות: ⊕${c.p} ⊖${c.m}${since.length ? '' : ' — עוד לא נצפה. לבדוק לפני השיחה.'}`);
-        for (const o of since.slice(0, 3)) L.push(`  ${fmtD(o.at)} ${sym(o.valence)} ${o.behavior}`);
+        for (const o of since.slice(0, 3)) L.push(`  ${fmtD(o.at)} ${sym(o.valence)} ${sbi(o)}`);
       }
       L.push('');
     } else {
@@ -581,7 +671,7 @@ const logic = (() => {
         L.push(`• [${KIND[p.kind]}] ${p.title} — ${STATUS[p.status]}`);
         if (p.goal) L.push(`  יעד: ${p.goal}`);
         const ev = obs.filter(o => (o.phenomenonIds || []).includes(p.id)).sort(byAtDesc)[0];
-        if (ev) L.push(`  ראיה: ${fmtD(ev.at)} — ${ev.behavior}`);
+        if (ev) L.push(`  ראיה: ${fmtD(ev.at)} — ${sbi(ev)}`);
       }
       L.push('');
     }
@@ -590,7 +680,7 @@ const logic = (() => {
       L.push('חוזקות:');
       for (const x of s) {
         L.push(`• ${compName(S, x.cid)} (⊕${x.l.length})`);
-        for (const o of x.l.slice(0, 2)) L.push(`  ${fmtD(o.at)} — ${o.behavior}`);
+        for (const o of x.l.slice(0, 2)) L.push(`  ${fmtD(o.at)} — ${sbi(o)}`);
       }
       L.push('');
     }
@@ -598,14 +688,14 @@ const logic = (() => {
       L.push('נקודות לשיפור:');
       for (const x of g) {
         L.push(`• ${compName(S, x.cid)} (⊖${x.l.length})`);
-        for (const o of x.l.slice(0, 2)) L.push(`  ${fmtD(o.at)} — ${o.behavior}`);
+        for (const o of x.l.slice(0, 2)) L.push(`  ${fmtD(o.at)} — ${sbi(o)}`);
       }
       L.push('');
     }
     L.push('שאלות פתיחה:');
     if (last && last.agreements) L.push('• "מה עשית מאז השיחה הקודמת עם מה שסיכמנו?"');
     const ex = g[0] && g[0].l[0];
-    if (ex) L.push(`• "אני רוצה לחזור ל-${fmtD(ex.at)}: ${ex.behavior}. איך אתה ראית את זה?"`);
+    if (ex) L.push(`• "ב-${fmtD(ex.at)}${ex.situation ? `, ${ex.situation},` : ''} ראיתי: ${ex.behavior}.${ex.impact ? ` ההשפעה: ${ex.impact}.` : ''} איך אתה ראית את זה?"`);
     L.push('• "במה אתה מרגיש שהתקדמת, ובמה אתה עוד מתקשה?"');
     if (s[0]) L.push(`• "ב${compName(S, s[0].cid)} אתה חזק. איפה עוד זה יכול לשרת אותך?"`);
     const notes = S.notes.filter(n => n.traineeId === tid && (includePrivate || !n.private)).sort(byAtDesc).slice(0, 3);
@@ -653,7 +743,8 @@ const logic = (() => {
   return { DAY, WIN, DEFAULT_COMPETENCIES, DEFAULT_CONDITIONS, STATUS, STATUS_ORDER, KIND,
            ts, parseISO, calDays, ymd, fmtD, fmtDY, fmtT, sym, tod, normalize, compName, obsOf, byAtDesc, countPM,
            stats, coverageOrder, trend, competencyTable, biasWarnings, patternSuggestions,
-           phenomenonProgress, breakdown, lastTalk, dueFollowups, attention, topComps, prepText, summaryText };
+           phenomenonProgress, breakdown, lastTalk, dueFollowups, evidenceGaps, attention, nextStep, teamCoverage,
+           topComps, sbi, prepText, summaryText };
 })();
 
 /* ======================================================================
@@ -745,6 +836,7 @@ const IC = {
   pin: '<path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/>',
   check: '<path d="M20 6 9 17l-5-5"/>',
   shield: '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
+  users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
   file: '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>',
 };
 const ic = (n, cls) => `<svg class="i${cls ? ' ' + cls : ''}" viewBox="0 0 24 24" aria-hidden="true">${IC[n]}</svg>`;
@@ -766,10 +858,12 @@ function readEnvelope() {
 
 /* ---------- toast / clipboard / sheet ---------- */
 let toastT = 0;
-function toast(msg) {
+function toast(msg, action) {
   const el = $('#toast');
-  el.textContent = msg; el.classList.add('on');
-  clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('on'), 2600);
+  el.innerHTML = esc(msg) + (action ? `<button class="tbtn" data-act="${action.act}" data-id="${esc(action.id)}">${esc(action.label)}</button>` : '');
+  el.style.pointerEvents = action ? 'auto' : 'none';
+  el.classList.add('on');
+  clearTimeout(toastT); toastT = setTimeout(() => { el.classList.remove('on'); el.style.pointerEvents = 'none'; }, action ? 4500 : 2600);
 }
 async function copyText(text) {
   try { await navigator.clipboard.writeText(text); toast('הועתק'); return; } catch (e) { /* fall through */ }
@@ -814,7 +908,7 @@ function bottomNav(cur) {
     ${a('#/', 'home', 'home', 'בית')}
     ${a('#/round', 'round', 'round', 'סבב')}
     <button class="fab" data-act="newObs" aria-label="תצפית חדשה">${ic('plus')}</button>
-    <button class="nb" data-act="newNote">${ic('note')}<span>הערה</span></button>
+    ${a('#/team', 'team', 'users', 'צוות')}
     ${a('#/settings', 'settings', 'settings', 'הגדרות')}
   </div></nav>`;
 }
@@ -840,6 +934,7 @@ function render() {
   else if (r === 'summary' && trainee(a)) html = viewText(a, 'summary');
   else if (r === 'round') html = viewRound();
   else if (r === 'settings') html = viewSettings();
+  else if (r === 'team') html = viewTeam();
   else html = viewHome();
   app.innerHTML = html;
 }
@@ -871,11 +966,20 @@ function viewHome() {
     return h + '</main>' + bottomNav('home');
   }
 
+  if (!S.settings.guideDone && S.observations.length < 5) {
+    h += `<div class="card guide" style="margin-top:16px"><h2>איך זה עובד</h2><ol>
+      <li><b>ראית משהו?</b> כפתור <b>+</b> → חניך, כשירות, ⊕/⊖, מה הוא עשה. 15 שניות.</li>
+      <li><b>חוזר על עצמו?</b> אחרי 3 תצפיות דומות הכלי יציע לאפיין <b>תופעה</b>.</li>
+      <li><b>לפני שיחה:</b> בפרופיל → "הכנה לשיחה". אחרי — "תעד שיחה" ומה סוכם.</li>
+      <li><b>לא בטוח מה עכשיו?</b> לכל חניך מופיע <b>הצעד הבא</b>.</li></ol>
+      <div class="btns" style="margin-top:10px"><button class="btn sm" data-act="guideDone">הבנתי</button></div></div>`;
+  }
+
   const items = L.attention(S, now);
   if (items.length) {
     h += `<p class="eyebrow">דורש תשומת לב</p><div class="card">`;
-    for (const it of items.slice(0, 6)) h += queueItem(it);
-    if (items.length > 6) h += `<p class="muted small" style="margin:10px 0 0">ועוד ${items.length - 6} בפרופילים</p>`;
+    for (const it of items.slice(0, 5)) h += queueItem(it);
+    if (items.length > 5) h += `<p class="muted small" style="margin:10px 0 0">ועוד ${items.length - 5} — מופיעים כ"צעד הבא" בפרופילים</p>`;
     h += '</div>';
   }
 
@@ -885,10 +989,11 @@ function viewHome() {
 
   h += `<p class="eyebrow">חניכים · מי שלא נצפה הכי מזמן למעלה</p><div class="list">`;
   for (const { t, s } of order) {
-    const open = S.phenomena.filter(p => p.traineeId === t.id && p.status !== 'resolved').length;
+    const ns = L.nextStep(S, t.id, now);
+    const nsTxt = ns && ns.kind !== 'observe' ? ns.text : '';
     h += `<a class="li${s.stale ? ' stale' : ''}" href="#/t/${t.id}"><span class="bar"></span>
       <div class="grow"><div class="nm">${esc(t.nickname)}</div>
-      <div class="meta"><span class="when">${ago(s.daysSince)}</span>${t.team ? ` · ${esc(t.team)}` : ''}${open ? ` · ${open} תופעות פתוחות` : ''}</div></div>
+      <div class="meta"><span class="when">${ago(s.daysSince)}</span>${t.team ? ` · ${esc(t.team)}` : ''}${nsTxt ? ` · <span class="ns">${esc(nsTxt)}</span>` : ''}</div></div>
       <div class="counts num"><span class="p">⊕${s.plus}</span><span class="m">⊖${s.minus}</span><span class="muted">${s.count}</span></div>
       <span class="chev">${ic('chev')}</span></a>`;
   }
@@ -903,6 +1008,12 @@ function queueItem(it) {
       <div class="t">מעקב עם ${esc(it.t.nickname)}${it.overdue > 0 ? ` · באיחור ${it.overdue} ימים` : ' · היום'}</div>
       <div class="d">סוכם ב-${L.fmtD(k.at)}: ${esc(k.agreements || k.summary || '—')}</div>
       <div class="btns"><a class="btn sm" href="#/t/${it.t.id}/talks">לפרופיל</a><button class="btn sm ghost" data-act="followDone" data-id="${k.id}">${ic('check')}בוצע</button></div></div></div>`;
+  }
+  if (it.type === 'evidence') {
+    return `<div class="q"><div class="ico">${ic('eye')}</div><div class="grow">
+      <div class="t">אין ראיה חדשה · ${esc(it.t.nickname)}</div>
+      <div class="d">"${esc(it.p.title)}" — ${it.days} ימים בלי תצפית ב"${esc(L.compName(S, it.p.competencyId))}" מאז שדיברתם</div>
+      <div class="btns"><button class="btn sm" data-act="newObsFor" data-t="${it.t.id}" data-p="${it.p.id}">${ic('eye')}תצפית ממוקדת</button><a class="btn sm ghost" href="#/p/${it.p.id}">לתופעה</a></div></div></div>`;
   }
   if (it.type === 'pattern') {
     const s = it.s, cn = L.compName(S, s.competencyId);
@@ -932,8 +1043,10 @@ function viewProfile(tid, tab) {
     <div class="stat"><b class="m">${s.minus}</b><span>⊖</span></div>
     <div class="stat"><b style="${s.stale ? 'color:var(--stale)' : ''}">${s.daysSince === null ? '—' : s.daysSince}</b><span>ימים מאז</span></div>
   </div>`;
+  const ns = L.nextStep(S, tid, now);
+  if (ns) h += nextStepCard(t, ns);
   for (const w of L.biasWarnings(S, tid)) h += `<div class="banner alert">${ic('alert')}<div class="grow">${esc(w.text)}</div></div>`;
-  const pats = L.patternSuggestions(S, tid, now);
+  const pats = L.patternSuggestions(S, tid, now).filter(p => !(ns && ns.pattern && ns.pattern.competencyId === p.competencyId && ns.pattern.kind === p.kind));
   for (const p of pats) h += queueItemBanner(t, p);
 
   const tabs = [['loop', 'מעגל'], ['comp', 'כשירויות'], ['time', 'ציר זמן'], ['talks', 'שיחות']];
@@ -943,6 +1056,22 @@ function viewProfile(tid, tab) {
   else if (tab === 'talks') h += tabTalks(tid);
   else h += tabLoop(tid);
   return h + '</main>' + bottomNav('');
+}
+function nextStepCard(t, ns) {
+  const icon = { followup: 'talk', evidence: 'eye', pattern: 'target', talk: 'talk', observe: 'plus' }[ns.kind];
+  let btns = '';
+  if (ns.kind === 'followup') btns = `<a class="btn sm primary" href="#/talk/${t.id}">${ic('talk')}תעד שיחת מעקב</a><button class="btn sm ghost" data-act="followDone" data-id="${ns.talkId}">${ic('check')}בוצע</button>`;
+  else if (ns.kind === 'evidence') btns = `<button class="btn sm primary" data-act="newObsFor" data-t="${t.id}" data-p="${ns.pid}">${ic('eye')}תצפית ממוקדת</button><a class="btn sm ghost" href="#/p/${ns.pid}">לתופעה</a>`;
+  else if (ns.kind === 'pattern') {
+    const s = ns.pattern, ex = s.existingId ? phen(s.existingId) : null;
+    btns = (ex ? `<button class="btn sm primary" data-act="linkPattern" data-t="${t.id}" data-c="${s.competencyId}" data-k="${s.kind}">קשר ל"${esc(ex.title)}"</button>`
+               : `<button class="btn sm primary" data-act="charPattern" data-t="${t.id}" data-c="${s.competencyId}" data-k="${s.kind}">${ic('target')}אפיין כתופעה</button>`)
+      + `<button class="btn sm ghost" data-act="dismissPattern" data-t="${t.id}" data-c="${s.competencyId}" data-k="${s.kind}">התעלם</button>`;
+  }
+  else if (ns.kind === 'talk') btns = `<a class="btn sm primary" href="#/prep/${t.id}">${ic('file')}הכנה לשיחה</a>`;
+  else btns = `<button class="btn sm primary" data-act="newObsFor" data-t="${t.id}">${ic('plus')}תצפית</button>`;
+  return `<div class="next"><div class="q" style="padding:0;border:0"><div class="ico">${ic(icon)}</div></div><div class="grow">
+    <div class="lbl">הצעד הבא</div><div class="txt">${esc(ns.text)}</div><div class="btns">${btns}</div></div></div>`;
 }
 function queueItemBanner(t, s) {
   const ex = s.existingId ? phen(s.existingId) : null;
@@ -1281,6 +1410,33 @@ function commitDraft(d) {
   } else S.observations.push({ id: uid(), ...rec, createdAt: nowISO() });
 }
 
+/* ---------- team: the mentor's blind spots ---------- */
+function viewTeam() {
+  const r = L.teamCoverage(S, Date.now());
+  let h = topBar('צוות', 'על מה אני מסתכל · 21 ימים אחרונים') + '<main class="wrap">' + demoBanner();
+  if (!r.size) return h + `<div class="card empty" style="margin-top:16px">אין חניכים פעילים. <a href="#/settings">הוסף בהגדרות</a></div></main>` + bottomNav('team');
+  if (r.blind.length) {
+    h += `<div class="banner info">${ic('eye')}<div class="grow"><b>נקודות עיוורות שלך</b>כמעט לא צפית ב: ${r.blind.map(x => esc(x.c.name)).join(' · ')}. בתרגיל הבא — חפש ${r.blind.length === 1 ? 'אותה' : 'אותן'} בכוונה.</div></div>`;
+  }
+  h += `<p class="eyebrow">כשירויות · כמה חניכים נצפו בכל אחת</p><div class="card">`;
+  for (const x of r.comps) {
+    const blind = r.blind.includes(x);
+    const pct = Math.round(100 * x.covered.length / r.size);
+    const miss = x.missing.length && x.missing.length < r.size ? `לא נצפו: ${x.missing.slice(0, 4).map(t => esc(t.nickname)).join(', ')}${x.missing.length > 4 ? ` ועוד ${x.missing.length - 4}` : ''}` : '';
+    h += `<div class="cvr${blind ? ' blind' : ''}"><div class="row"><span class="grow nm">${esc(x.c.name)}</span>
+      <span class="muted small num"><bdi>${x.covered.length}/${r.size}</bdi> · ${x.n} תצ'</span><div class="track"><div class="fill" style="width:${pct}%"></div></div></div>
+      ${miss ? `<div class="miss">${miss}</div>` : x.n === 0 ? '<div class="miss">אף תצפית</div>' : ''}</div>`;
+  }
+  h += `</div><p class="eyebrow">חניכים · כמה כשירויות ראית אצל כל אחד</p><div class="list">`;
+  for (const x of r.trainees.sort((a, b) => a.seen - b.seen)) {
+    h += `<a class="li" href="#/t/${x.t.id}"><div class="grow"><div class="nm">${esc(x.t.nickname)}</div>
+      <div class="meta">${x.unseen.length ? 'לא ראית: ' + x.unseen.slice(0, 3).map(c => esc(c.name)).join(', ') + (x.unseen.length > 3 ? ` ועוד ${x.unseen.length - 3}` : '') : 'ראית את כל הכשירויות'}</div></div>
+      <div class="counts num"><bdi>${x.seen}/${S.settings.competencies.length}</bdi></div><span class="chev">${ic('chev')}</span></a>`;
+  }
+  h += `</div><p class="muted small" style="margin:10px 2px">זה כיסוי של <b>התצפיות שלך</b>, לא דירוג של חניכים. כשירות שלא נצפתה אומרת משהו עליך, לא עליהם.</p>`;
+  return h + '</main>' + bottomNav('team');
+}
+
 /* ---------- settings ---------- */
 function viewSettings() {
   const st = S.settings;
@@ -1296,8 +1452,10 @@ function viewSettings() {
     h += `<div class="srow"><input type="text" data-tr="${t.id}" data-f="nickname" value="${esc(t.nickname)}" aria-label="כינוי" style="flex:1.3"><input type="text" data-tr="${t.id}" data-f="team" value="${esc(t.team || '')}" placeholder="צוות" aria-label="צוות" style="flex:1">
       <label class="switch" title="פעיל"><input type="checkbox" data-tr="${t.id}" data-f="active" ${t.active !== false ? 'checked' : ''} aria-label="פעיל"><span></span></label></div>`;
   }
-  h += `<div class="sep"></div><div class="srow"><input type="text" id="newTrName" placeholder="כינוי / מס' — לא שם מלא" style="flex:1.3"><input type="text" id="newTrTeam" placeholder="צוות" style="flex:1"><button class="ibtn" data-act="addTrainee" aria-label="הוסף חניך" style="background:var(--accent);color:#fff">${ic('plus')}</button></div>
-    <p class="muted small" style="margin:6px 2px 0">חניך שיצא מהקורס — כבה אותו במקום למחוק. ההיסטוריה נשמרת.</p></div>`;
+  h += `${S.trainees.length ? '<div class="sep"></div>' : ''}<textarea id="newTrName" rows="2" placeholder="כינוי / מס' — לא שם מלא"></textarea>
+    <p class="muted small" style="margin:6px 2px 0">כמה בבת אחת: שורה לכל חניך. צוות אחרי פסיק — <bdi>ברק, צוות א'</bdi></p>
+    <div class="btns" style="margin-top:8px"><button class="btn" data-act="addTrainee">${ic('plus')}הוסף</button></div>
+    ${S.trainees.length ? '<p class="muted small" style="margin:8px 2px 0">חניך שיצא מהקורס — כבה אותו במקום למחוק. ההיסטוריה נשמרת.</p>' : ''}</div>`;
 
   h += `<p class="eyebrow">כשירויות</p><div class="card">`;
   for (const c of st.competencies) {
@@ -1372,8 +1530,22 @@ async function doUnlock(pw) {
     S = L.normalize(r.data); KEY = r.key; SALT = r.salt; DEMO = false;
     lastAct = Date.now();
     render();
+    restorePending();
   } catch (e) {
     renderLock(e.message === 'badpw' ? 'סיסמה שגויה' : 'הנתונים פגומים');
+  }
+}
+function restorePending() {
+  const p = S.pending;
+  if (!p) return;
+  S.pending = null; persist();
+  if (p.round && p.round.queue.every(id => trainee(id))) round = p.round;
+  if (p.draft && (!p.draft.traineeId || trainee(p.draft.traineeId))) {
+    draft = p.draft;
+    openSheet(sheetObsHTML(), () => { draft = null; });
+    toast('המשך מאיפה שעצרת — הטיוטה נשמרה בנעילה');
+  } else if (round) {
+    go('#/round'); toast('הסבב נשמר בנעילה — ממשיכים');
   }
 }
 async function doSetup(unit, pw1, pw2) {
@@ -1387,8 +1559,16 @@ async function doSetup(unit, pw1, pw2) {
   render();
   toast('הכספת נוצרה. הוסף חניכים.');
 }
+const hasContent = d => !!(d && ((d.behavior || '').trim() || (d.text || '').trim() || (d.situation || '').trim() || (d.impact || '').trim()));
 async function lock() {
   if (!S) return;
+  // Whatever was being typed survives the lock — encrypted inside the vault,
+  // never as plaintext. Restored right after the next unlock.
+  if (!DEMO) {
+    const sd = sheetOpen() && hasContent(draft) ? JSON.parse(JSON.stringify(draft)) : null;
+    const rd = round && round.i < round.queue.length ? JSON.parse(JSON.stringify(round)) : null;
+    if (sd || rd) { S.pending = { draft: sd, round: rd, at: nowISO() }; persist(); }
+  }
   await saving;
   S = null; KEY = null; SALT = null; DEMO = false; draft = null; round = null;
   render();
@@ -1516,9 +1696,9 @@ function demoData(now) {
     ['t3', 7, 22, 'c4', 'minus', 'שאל את הצוות "מה עושים?" במקום להחליט', '', ['לחץ זמן', 'בהובלה'], 'צאלים', null, []],
     ['t3', 3, 1, 'c4', 'minus', 'עיכב החלטה על ציר 4 דקות עד שהמפקד התערב', 'תרגיל לילה', ['לילה', 'לחץ זמן'], 'צאלים', 'e2', []],
     ['t3', 1, 11, 'c7', 'plus', 'דיווח מסודר ומלא על מצב הכלים', '', [], 'מתחם הפלוגה', null, []],
-    ['t4', 30, 9, 'c3', 'minus', 'איבד התמצאות במעבר בין גזרות', '', [], 'שבטה', null, []],
+    ['t4', 30, 9, 'c3', 'minus', 'איבד התמצאות במעבר בין גזרות', '', [], 'שבטה', null, ['p3']],
     ['t4', 24, 10, 'c3', 'plus', 'תכנן ציר טוב עם נקודות ביניים ברורות', '', [], 'כיתה 3', null, []],
-    ['t4', 19, 14, 'c3', 'minus', 'לא בדק כיוון לפני יציאה מנקודה', '', ['אחרי מאמץ'], 'שבטה', null, []],
+    ['t4', 19, 14, 'c3', 'minus', 'לא בדק כיוון לפני יציאה מנקודה', '', ['אחרי מאמץ'], 'שבטה', null, ['p3']],
     ['t4', 10, 12, 'c3', 'neutral', 'ניווט סביר, הגיע בזמן', 'ניווט יום', [], 'שבטה', 'e1', []],
     ['t5', 40, 9, 'c1', 'plus', 'פיקדה על הצוות בתרגיל בצורה ברורה ורגועה', '', ['בהובלה'], 'צאלים', null, []],
     ['t5', 35, 15, 'c1', 'plus', 'נתנה פקודה מסודרת לפי סדר הפקודה', '', ['בהובלה'], 'מתחם הפלוגה', null, []],
@@ -1539,6 +1719,9 @@ function demoData(now) {
     { id: 'p1', traineeId: 't1', competencyId: 'c7', kind: 'gap', title: 'הדיווח בקשר קורס בעייפות ובלילה',
       goal: 'דיווח מלא בתבנית מיקום-מצב-כוונה, גם בסוף לילה', status: 'working', createdAt: at(27, 12),
       statusLog: [{ status: 'identified', at: at(27, 12) }, { status: 'discussed', at: at(24, 18) }, { status: 'working', at: at(15, 9) }] },
+    { id: 'p3', traineeId: 't4', competencyId: 'c3', kind: 'gap', title: 'יוצא מנקודה בלי לאמת כיוון',
+      goal: 'עצירה של 10 שניות לאימות כיוון בכל יציאה מנקודה', status: 'working', createdAt: at(18, 12),
+      statusLog: [{ status: 'identified', at: at(18, 12) }, { status: 'discussed', at: at(15, 19) }, { status: 'working', at: at(15, 19) }] },
     { id: 'p2', traineeId: 't5', competencyId: 'c6', kind: 'strength', title: 'מרימה את הצוות כשהמורל נופל',
       goal: '', status: 'identified', createdAt: at(16, 20), statusLog: [{ status: 'identified', at: at(16, 20) }] },
   ];
@@ -1549,6 +1732,9 @@ function demoData(now) {
     { id: 'k2', traineeId: 't3', at: at(20, 17), phenomenonIds: [], summary: 'שיחת היכרות. מרגיש בטוח במקצועיות, פחות בהובלה.',
       selfView: 'אומר שהוא "מעדיף לבצע מאשר להחליט".', agreements: 'לקחת לפחות החלטה אחת בכל תרגיל ולדווח עליה',
       followUpAt: L.ymd(now - 6 * D), followUpDone: false, createdAt: at(20, 17) },
+    { id: 'k3', traineeId: 't4', at: at(15, 19), phenomenonIds: ['p3'], summary: 'עברנו על שתי היציאות מהנקודות בשבטה.',
+      selfView: 'בטוח שהוא "מרגיש" את הכיוון. הסכים לנסות עצירת אימות.', agreements: 'עצירת 10 שניות לאימות כיוון בכל יציאה',
+      followUpAt: L.ymd(now - 8 * D), followUpDone: true, createdAt: at(15, 19) },
   ];
   S0.notes = [
     { id: 'n1', traineeId: 't1', at: at(27, 21), text: 'סיפר שאבא שלו מאושפז. לשים לב לעומס, לא להפוך את זה לתירוץ.', private: true, createdAt: at(27, 21) },
@@ -1574,6 +1760,13 @@ const A = {
     openObsSheet({ traineeId: tid });
     if (r === 'p' && phen(a)) { const p = phen(a); draft.competencyId = p.competencyId; draft.phenomenonIds = [p.id]; sheetBody(sheetObsHTML()); }
   },
+  newObsFor(el) {
+    openObsSheet({ traineeId: el.dataset.t });
+    const p = el.dataset.p && phen(el.dataset.p);
+    if (p) { draft.phenomenonIds = [p.id]; draft.competencyId = p.competencyId; sheetBody(sheetObsHTML()); }
+  },
+  obsAgain(el) { if (trainee(el.dataset.id)) openObsSheet({ traineeId: el.dataset.id }); },
+  guideDone() { S.settings.guideDone = true; persist(); render(); },
   newNote() {
     const [r, a] = parseRoute();
     openObsSheet({ traineeId: r === 't' ? a : null, mode: 'note' });
@@ -1598,10 +1791,11 @@ const A = {
   saveDraft() {
     const e = validateDraft(draft);
     if (e) { draft.err = e; rerenderDraft(); return; }
-    const name = trainee(draft.traineeId).nickname, wasNote = draft.mode === 'note', edit = !!draft.editId;
+    const tid = draft.traineeId, name = trainee(tid).nickname, wasNote = draft.mode === 'note', edit = !!draft.editId;
     commitDraft(draft); persist();
     draft = null; closeSheet(); render();
-    toast(edit ? 'עודכן' : wasNote ? `הערה נשמרה · ${name}` : `נשמר · ${name}`);
+    if (edit) toast('עודכן');
+    else toast(wasNote ? `הערה נשמרה · ${name}` : `נשמר · ${name}`, { act: 'obsAgain', id: tid, label: 'עוד עליו' });
   },
   editObs(el) {
     const o = S.observations.find(x => x.id === el.dataset.id); if (!o) return;
@@ -1705,9 +1899,13 @@ const A = {
 
   /* settings */
   addTrainee() {
-    const n = $('#newTrName').value.trim(); if (!n) return;
-    S.trainees.push({ id: uid(), nickname: n, team: $('#newTrTeam').value.trim(), active: true, createdAt: nowISO() });
-    persist(); render(); setTimeout(() => { const i = $('#newTrName'); if (i) i.focus(); }, 0);
+    const lines = $('#newTrName').value.split('\n').map(x => x.trim()).filter(Boolean);
+    if (!lines.length) return;
+    for (const line of lines) {
+      const [nick, ...team] = line.split(/[,\t]/);
+      if (nick.trim()) S.trainees.push({ id: uid(), nickname: nick.trim(), team: team.join(',').trim(), active: true, createdAt: nowISO() });
+    }
+    persist(); render(); toast(lines.length === 1 ? 'נוסף' : `נוספו ${lines.length} חניכים`);
   },
   addComp() { const n = $('#newComp').value.trim(); if (!n) return; S.settings.competencies.push({ id: 'c' + uid(), name: n }); persist(); render(); },
   delComp(el) { if (!confirm('למחוק את הכשירות?')) return; S.settings.competencies = S.settings.competencies.filter(c => c.id !== el.dataset.id); persist(); render(); },

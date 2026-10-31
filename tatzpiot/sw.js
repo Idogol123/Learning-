@@ -2,7 +2,7 @@
    touches any other origin (and the page makes no network calls at all).
    HTML is network-first so fixes arrive when online; icons are cache-first.
    Bump CACHE on every change to the tool, or installed PWAs keep the old page. */
-const CACHE = "tatzpiot-v1";
+const CACHE = "tatzpiot-v2";
 const ASSETS = [
   "./",
   "./index.html",

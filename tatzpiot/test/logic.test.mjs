@@ -277,6 +277,87 @@ t('vault: wrong password fails with "badpw", garbage fails with "format"', async
   await assert.rejects(V.open('right', tampered), /badpw/);
 });
 
+/* ---------- evidence gaps ---------- */
+const discussedPh = (daysAgo, extra = {}) => ({ id: 'p', traineeId: 'a', competencyId: 'c7', kind: 'gap', title: 'דיווח', goal: 'תבנית',
+  status: 'working', createdAt: at(daysAgo + 3), statusLog: [{ status: 'identified', at: at(daysAgo + 3) }, { status: 'discussed', at: at(daysAgo) }], ...extra });
+t('evidence gap: discussed 8 days ago, nothing since in that competency → flagged', () => {
+  const S = state({ phenomena: [discussedPh(8)], observations: [ob('a', 2, 'c1', 'plus')] });
+  const g = L.evidenceGaps(S, NOW);
+  assert.equal(g.length, 1);
+  assert.equal(g[0].days, 8);
+  assert.equal(g[0].hadAny, false);
+});
+t('evidence gap: a fresh observation in the competency clears it', () => {
+  const S = state({ phenomena: [discussedPh(8)], observations: [ob('a', 2, 'c7', 'minus')] });
+  assert.equal(L.evidenceGaps(S, NOW).length, 0);
+});
+t('evidence gap: not for identified/resolved phenomena, nor inside 7 days', () => {
+  assert.equal(L.evidenceGaps(state({ phenomena: [discussedPh(8, { status: 'identified' })] }), NOW).length, 0);
+  assert.equal(L.evidenceGaps(state({ phenomena: [discussedPh(8, { status: 'resolved' })] }), NOW).length, 0);
+  assert.equal(L.evidenceGaps(state({ phenomena: [discussedPh(6)] }), NOW).length, 0);
+});
+t('evidence gap: a later talk about it restarts the clock', () => {
+  const S = state({ phenomena: [discussedPh(20)], talks: [{ id: 'k', traineeId: 'a', at: at(3), phenomenonIds: ['p'] }] });
+  assert.equal(L.evidenceGaps(S, NOW).length, 0);
+});
+
+/* ---------- next step ---------- */
+t('next step priority: follow-up > evidence > pattern > waiting-for-talk > stale', () => {
+  const S = state({
+    phenomena: [discussedPh(10), { id: 'q', traineeId: 'a', competencyId: 'c2', kind: 'gap', title: 'ממתין', status: 'identified', statusLog: [] }],
+    observations: [ob('a', 1, 'c4', 'minus'), ob('a', 2, 'c4', 'minus'), ob('a', 3, 'c4', 'minus')],
+    talks: [{ id: 'k', traineeId: 'a', at: at(12), phenomenonIds: [], agreements: 'לבדוק', followUpAt: L.ymd(NOW - DAY) }],
+  });
+  assert.equal(L.nextStep(S, 'a', NOW).kind, 'followup');
+  S.talks[0].followUpDone = true;
+  assert.equal(L.nextStep(S, 'a', NOW).kind, 'evidence');
+  assert.match(L.nextStep(S, 'a', NOW).text, /חפש ראיה: תבנית/);
+  S.phenomena[0].status = 'resolved';
+  assert.equal(L.nextStep(S, 'a', NOW).kind, 'pattern');
+  S.dismissedObs = S.observations.map(o => o.id);
+  assert.equal(L.nextStep(S, 'a', NOW).kind, 'talk');
+  S.phenomena[1].status = 'resolved';
+  assert.equal(L.nextStep(S, 'a', NOW), null);                 // observed yesterday: nothing to do
+  assert.equal(L.nextStep(S, 'b', NOW).kind, 'observe');       // never observed
+  assert.match(L.nextStep(S, 'b', NOW).text, /טרם נצפה/);
+});
+
+/* ---------- team coverage ---------- */
+t('team coverage: counts last 21 days only, finds blind competencies and per-trainee gaps', () => {
+  const S = state({ observations: [
+    ob('a', 1, 'c1', 'plus'), ob('b', 2, 'c1', 'minus'), ob('c', 3, 'c1', 'plus'),
+    ob('a', 4, 'c2', 'plus'), ob('b', 5, 'c2', 'plus'),
+    ob('a', 30, 'c8', 'plus'), ob('b', 31, 'c8', 'plus'), ob('c', 32, 'c8', 'plus'),   // too old
+    ob('z', 1, 'c3', 'plus'),                                                          // inactive trainee
+  ] });
+  const r = L.teamCoverage(S, NOW);
+  assert.equal(r.total, 5);
+  assert.equal(r.size, 3);
+  const c1 = r.comps.find(x => x.c.id === 'c1');
+  assert.equal(c1.covered.length, 3);
+  const blindIds = r.blind.map(x => x.c.id);
+  assert.ok(!blindIds.includes('c1') && !blindIds.includes('c2'));
+  assert.equal(r.blind.length, 3);
+  assert.ok(r.blind.every(x => x.covered.length === 0), 'worst (unobserved) competencies first');
+  assert.ok(r.blind.length <= 3, 'never more than 3 blind spots');
+  const tc = r.trainees.find(x => x.t.id === 'c');
+  assert.equal(tc.seen, 1);
+  assert.equal(tc.unseen.length, 7);
+});
+
+/* ---------- SBI ---------- */
+t('prep text phrases examples as situation ← behavior ← impact', () => {
+  const S = state({ observations: [ob('a', 2, 'c4', 'minus', { situation: 'הציר נחסם', behavior: 'עיכב החלטה 4 דקות', impact: 'המפקד התערב' })] });
+  const txt = L.prepText(S, 'a', NOW);
+  assert.ok(txt.includes('הציר נחסם ← עיכב החלטה 4 דקות ← המפקד התערב'));
+  assert.ok(txt.includes('ראיתי: עיכב החלטה 4 דקות. ההשפעה: המפקד התערב. איך אתה ראית את זה?'));
+});
+t('normalize keeps a pending draft and guideDone', () => {
+  const S = L.normalize({ pending: { draft: { behavior: 'x' } }, settings: { guideDone: true } });
+  assert.equal(S.pending.draft.behavior, 'x');
+  assert.equal(S.settings.guideDone, true);
+});
+
 for (const [name, fn] of queue) {
   try { await fn(); passed++; }
   catch (e) { console.error(`FAIL: ${name}\n  ${e.message}`); process.exitCode = 1; }
