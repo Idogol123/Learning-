@@ -1,0 +1,1858 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>תצפיות — ליווי חניכים</title>
+<meta name="description" content="תיעוד תצפיות התנהגותיות על חניכים, אפיון תופעות, שיחות משוב ומעקב שיפור. מוצפן, אופליין, הנתונים במכשיר בלבד.">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<!-- Inline favicon: an external /favicon.ico request would be the one network
+     call this tool makes, and it promises zero. -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232c5d7c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0'/%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3C/svg%3E">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="תצפיות">
+<meta name="theme-color" content="#f2f1ea" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#13140f" media="(prefers-color-scheme: dark)">
+<meta name="referrer" content="no-referrer">
+<style>
+:root{
+  --bg:#f2f1ea; --card:#fbfaf5; --ink:#1c1e16; --muted:#6b7061;
+  --line:#e0ded2; --line-strong:#d0cebf;
+  --accent:#2c5d7c;
+  /* Semantics are fixed and never reused for decoration:
+     green = ⊕, orange = ⊖, red = "not observed" only. */
+  --plus:#2f7d4f; --minus:#b85a10; --stale:#b42318;
+  --ease:cubic-bezier(.16,1,.3,1);
+  --r:16px; --r-sm:12px;
+  --shadow:0 1px 2px rgba(28,30,22,.05), 0 8px 24px rgba(28,30,22,.06);
+  --shadow-up:0 -1px 2px rgba(28,30,22,.04), 0 -8px 24px rgba(28,30,22,.06);
+  --safe-b:env(safe-area-inset-bottom, 0px);
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#13140f; --card:#1c1e15; --ink:#edefe1; --muted:#9aa08c;
+    --line:#2c2f23; --line-strong:#3a3d2e;
+    --accent:#6aa6cf;
+    --plus:#4bbd7c; --minus:#f0954a; --stale:#f07167;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+    --shadow-up:0 -1px 2px rgba(0,0,0,.4), 0 -8px 24px rgba(0,0,0,.35);
+    color-scheme:dark;
+  }
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Hebrew",Arial,sans-serif;
+  font-size:16px; line-height:1.5; -webkit-font-smoothing:antialiased;
+  -webkit-tap-highlight-color:transparent;
+  padding:env(safe-area-inset-top,0) env(safe-area-inset-right,0) 0 env(safe-area-inset-left,0);
+}
+button,input,textarea,select{font:inherit;color:inherit}
+a{color:var(--accent)}
+button{cursor:pointer}
+svg.i{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.wrap{max-width:640px;margin:0 auto;padding:0 16px calc(104px + var(--safe-b))}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.num{font-variant-numeric:tabular-nums}
+h1,h2,h3{margin:0;font-weight:800;letter-spacing:-.02em}
+h1{font-size:22px}
+h2{font-size:17px}
+h3{font-size:15px}
+.eyebrow{font-size:12px;font-weight:700;letter-spacing:.04em;color:var(--muted);margin:22px 2px 8px}
+.hidden{display:none!important}
+
+/* top bar */
+.top{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 88%,transparent);
+  -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+.top-in{max-width:640px;margin:0 auto;display:flex;align-items:center;gap:8px;padding:8px 12px;min-height:56px}
+.top-t{flex:1;min-width:0}
+.top-t h1{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top-t .sub{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ibtn{width:44px;height:44px;border-radius:var(--r-sm);border:1px solid transparent;background:transparent;
+  display:inline-flex;align-items:center;justify-content:center;color:var(--ink);flex:none}
+.ibtn:active{background:var(--line)}
+
+/* surfaces */
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:14px}
+.card + .card{margin-top:10px}
+.stack > * + *{margin-top:10px}
+.row{display:flex;align-items:center;gap:10px}
+.row.wrap-ok{flex-wrap:wrap}
+.grow{flex:1;min-width:0}
+.sep{height:1px;background:var(--line);margin:12px 0}
+
+/* buttons */
+.btn{min-height:44px;padding:10px 16px;border-radius:var(--r-sm);border:1px solid var(--line-strong);background:var(--card);color:var(--ink);text-decoration:none;
+  font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:8px;transition:transform .15s var(--ease)}
+.btn:active{transform:scale(.98)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+@media (prefers-color-scheme: dark){.btn.primary{color:#0d1a24}}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--accent)}
+.btn.danger{color:var(--stale);border-color:color-mix(in srgb,var(--stale) 40%,transparent);background:transparent}
+.btn.block{width:100%}
+.btn.sm{min-height:36px;padding:6px 12px;font-size:14px}
+.btn[disabled]{opacity:.45;pointer-events:none}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+.btns > .btn{flex:1 1 auto}
+
+/* chips */
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chips.scroll{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:2px;margin:0 -16px;padding-inline:16px}
+.chips.scroll::-webkit-scrollbar{display:none}
+.chip{min-height:40px;padding:8px 14px;border-radius:999px;border:1px solid var(--line-strong);background:var(--card);
+  font-size:15px;font-weight:600;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;flex:none}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+@media (prefers-color-scheme: dark){.chip[aria-pressed="true"]{color:#0d1a24}}
+.chip .dot{width:8px;height:8px;border-radius:50%;background:var(--stale)}
+.chip.focus{border-style:dashed}
+.chip.focus[aria-pressed="true"]{border-style:solid}
+.chip.sm{min-height:32px;padding:4px 10px;font-size:13px}
+
+/* valence */
+.val{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.val button{min-height:56px;border-radius:var(--r-sm);border:1.5px solid var(--line-strong);background:var(--card);
+  font-size:15px;font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;line-height:1.2}
+.val button b{font-size:22px;line-height:1}
+.val button[data-v="plus"]{color:var(--plus)}
+.val button[data-v="minus"]{color:var(--minus)}
+.val button[data-v="neutral"]{color:var(--muted)}
+.val button[aria-pressed="true"][data-v="plus"]{background:color-mix(in srgb,var(--plus) 14%,var(--card));border-color:var(--plus)}
+.val button[aria-pressed="true"][data-v="minus"]{background:color-mix(in srgb,var(--minus) 14%,var(--card));border-color:var(--minus)}
+.val button[aria-pressed="true"][data-v="neutral"]{background:color-mix(in srgb,var(--muted) 14%,var(--card));border-color:var(--muted);color:var(--ink)}
+.p{color:var(--plus);font-weight:700}
+.m{color:var(--minus);font-weight:700}
+
+/* forms */
+label.f{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:14px 2px 6px}
+input[type=text],input[type=password],input[type=number],input[type=date],input[type=datetime-local],textarea,select{
+  width:100%;min-height:44px;border-radius:var(--r-sm);border:1px solid var(--line-strong);background:var(--bg);padding:10px 12px;font-size:16px}
+textarea{min-height:88px;resize:vertical;line-height:1.45}
+input:focus,textarea:focus,select:focus{outline:2px solid color-mix(in srgb,var(--accent) 55%,transparent);outline-offset:1px}
+.hint{font-size:13px;color:var(--minus);margin:6px 2px 0}
+.err{font-size:14px;color:var(--stale);margin:8px 2px 0;font-weight:600}
+details.more{margin-top:12px;border-top:1px solid var(--line);padding-top:4px}
+details.more > summary{list-style:none;min-height:44px;display:flex;align-items:center;gap:6px;color:var(--accent);font-weight:700;font-size:15px}
+details.more > summary::-webkit-details-marker{display:none}
+.seg{display:flex;background:var(--bg);border:1px solid var(--line-strong);border-radius:var(--r-sm);padding:3px;gap:3px}
+.seg button{flex:1;min-height:38px;border:0;border-radius:9px;background:transparent;font-weight:700;font-size:14px;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--card);color:var(--ink);box-shadow:var(--shadow)}
+.check{display:flex;align-items:center;gap:10px;min-height:44px}
+.check input{width:20px;height:20px;accent-color:var(--accent)}
+
+/* banners */
+.banner{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:var(--r);border:1px solid;font-size:14px;margin-top:12px}
+.banner svg.i{margin-top:1px}
+.banner.warn{background:color-mix(in srgb,var(--minus) 10%,var(--card));border-color:color-mix(in srgb,var(--minus) 30%,transparent)}
+.banner.info{background:color-mix(in srgb,var(--accent) 9%,var(--card));border-color:color-mix(in srgb,var(--accent) 26%,transparent)}
+.banner.alert{background:color-mix(in srgb,var(--stale) 9%,var(--card));border-color:color-mix(in srgb,var(--stale) 30%,transparent)}
+.banner .grow > b{display:block}
+
+/* attention queue */
+.q{display:flex;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
+.q:first-child{border-top:0;padding-top:0}
+.q:last-child{padding-bottom:0}
+.q .ico{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex:none;
+  color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,var(--card));border:1px solid color-mix(in srgb,var(--accent) 24%,transparent)}
+.q .ico.o{color:var(--minus);background:color-mix(in srgb,var(--minus) 12%,var(--card));border-color:color-mix(in srgb,var(--minus) 24%,transparent)}
+.q .ico.r{color:var(--stale);background:color-mix(in srgb,var(--stale) 10%,var(--card));border-color:color-mix(in srgb,var(--stale) 24%,transparent)}
+.q .t{font-weight:700;font-size:15px}
+.q .d{font-size:14px;color:var(--muted)}
+.q .btns{margin-top:8px}
+
+/* trainee list */
+.list{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden}
+.li{display:flex;align-items:center;gap:12px;padding:12px 14px;min-height:64px;border-top:1px solid var(--line);
+  text-decoration:none;color:inherit;position:relative}
+.li:first-child{border-top:0}
+.li:active{background:var(--bg)}
+.li .bar{position:absolute;inset-block:10px;right:0;width:4px;border-radius:4px 0 0 4px;background:transparent}
+.li.stale .bar{background:var(--stale)}
+.li .nm{font-weight:800;font-size:16px}
+.li .meta{font-size:13px;color:var(--muted)}
+.li.stale .when{color:var(--stale);font-weight:700}
+.li .counts{display:flex;gap:10px;font-size:14px;align-items:center}
+.li .chev{color:var(--muted)}
+.cov{display:flex;align-items:center;gap:10px;font-size:14px}
+.cov .track{flex:1;height:8px;border-radius:99px;background:var(--line);overflow:hidden}
+.cov .fill{height:100%;background:var(--accent);border-radius:99px}
+
+/* tabs */
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:14px -16px 0;padding:0 16px;overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{min-height:44px;padding:0 12px;border:0;background:none;font-weight:700;color:var(--muted);border-bottom:2.5px solid transparent;white-space:nowrap;text-decoration:none;display:flex;align-items:center}
+.tab[aria-current="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+
+/* stat strip */
+.stats{display:flex;gap:8px;margin-top:12px}
+.stat{flex:1;background:var(--card);border:1px solid var(--line);border-radius:var(--r-sm);padding:8px 10px;text-align:center}
+.stat b{display:block;font-size:20px;line-height:1.2}
+.stat span{font-size:12px;color:var(--muted)}
+
+/* phenomenon cards */
+.ph{display:block;text-decoration:none;color:inherit}
+.ph .k{font-size:12px;font-weight:800;padding:2px 8px;border-radius:99px;display:inline-block}
+.k.gap{color:var(--minus);background:color-mix(in srgb,var(--minus) 12%,var(--card))}
+.k.strength{color:var(--plus);background:color-mix(in srgb,var(--plus) 12%,var(--card))}
+.badge{font-size:12px;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--bg);border:1px solid var(--line-strong);color:var(--muted);display:inline-block}
+.ph .title{font-weight:800;font-size:16px;margin:6px 0 2px}
+.prog{display:flex;align-items:center;gap:8px;font-size:14px;margin-top:8px;flex-wrap:wrap}
+.prog .arrow{color:var(--muted)}
+
+/* competency table */
+.ct{width:100%;border-collapse:collapse}
+.ct td{padding:10px 4px;border-top:1px solid var(--line);font-size:15px;vertical-align:middle}
+.ct tbody tr:first-child td{border-top:0}
+.ct td.n{text-align:center;width:44px}
+.ct td.tr{text-align:left;width:112px;font-size:13px;color:var(--muted);line-height:1.3}
+.trend .was{display:block;font-weight:500;color:var(--muted);font-size:12px}
+.trend{display:inline-flex;align-items:flex-start;gap:4px;font-weight:700;text-align:right}
+.trend.up{color:var(--plus)} .trend.down{color:var(--minus)} .trend.flat{color:var(--muted)}
+.ct tr[data-act]{cursor:pointer}
+.ct th{font-size:12px;font-weight:700;color:var(--muted);padding:0 4px 6px;text-align:center}
+.ct th:first-child{text-align:right}
+.ct th:last-child{text-align:left}
+.ct tr.none td:first-child{color:var(--muted)}
+
+/* timeline */
+.ev{padding:12px 0;border-top:1px solid var(--line)}
+.ev:first-child{border-top:0;padding-top:2px}
+.ev .h{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);flex-wrap:wrap}
+.ev .sym{font-size:18px;line-height:1}
+.ev .b{margin-top:4px;font-size:15px}
+.ev .x{font-size:14px;color:var(--muted);margin-top:2px}
+.ev .tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.ev .acts{display:flex;gap:4px;margin-top:4px}
+.ev.note .b{font-style:italic}
+.tag{font-size:12px;padding:2px 8px;border-radius:99px;background:var(--bg);border:1px solid var(--line);color:var(--muted)}
+.tag.ph{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 30%,transparent)}
+
+/* text output */
+pre.out{white-space:pre-wrap;font:inherit;font-size:15px;margin:0;line-height:1.6}
+
+/* bottom nav */
+.bnav{position:fixed;inset-inline:0;bottom:0;z-index:30;background:color-mix(in srgb,var(--card) 92%,transparent);
+  -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-top:1px solid var(--line);padding-bottom:var(--safe-b)}
+.bnav-in{max-width:640px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr 84px 1fr 1fr;align-items:center;height:64px}
+.bnav a,.bnav button.nb{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:11px;font-weight:700;
+  color:var(--muted);text-decoration:none;min-height:56px;background:none;border:0}
+.bnav a[aria-current="true"]{color:var(--accent)}
+.fab{justify-self:center;width:60px;height:60px;border-radius:20px;border:0;background:var(--accent);color:#fff;
+  display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px color-mix(in srgb,var(--accent) 45%,transparent);margin-top:-22px;
+  transition:transform .15s var(--ease)}
+@media (prefers-color-scheme: dark){.fab{color:#0d1a24}}
+.fab:active{transform:scale(.95)}
+.fab svg.i{width:28px;height:28px;stroke-width:2.4}
+
+/* sheet */
+.backdrop{position:fixed;inset:0;background:rgba(10,12,8,.42);z-index:50;opacity:0;transition:opacity .25s var(--ease)}
+.backdrop.on{opacity:1}
+.sheet{position:fixed;inset-inline:0;bottom:0;z-index:51;max-height:94vh;max-height:94dvh;overflow-y:auto;overscroll-behavior:contain;
+  background:var(--card);border-radius:22px 22px 0 0;box-shadow:var(--shadow-up);transform:translateY(100%);transition:transform .32s var(--ease)}
+.sheet.on{transform:none}
+.sheet-in{max-width:640px;margin:0 auto;padding:6px 16px calc(20px + var(--safe-b))}
+.grab{width:40px;height:5px;border-radius:9px;background:var(--line-strong);margin:4px auto 6px}
+.sheet-h{display:flex;align-items:center;gap:8px;position:sticky;top:0;background:var(--card);z-index:2;padding:4px 0 8px}
+.sheet-h h2{flex:1}
+.sheet .save-bar{position:sticky;bottom:calc(-20px - var(--safe-b));background:var(--card);padding:12px 0 calc(12px + var(--safe-b));margin-bottom:calc(-20px - var(--safe-b));border-top:1px solid var(--line);margin-top:16px}
+
+/* toast */
+.toast{position:fixed;left:50%;bottom:calc(84px + var(--safe-b));transform:translate(-50%,20px);z-index:60;background:var(--ink);color:var(--bg);
+  padding:10px 16px;border-radius:12px;font-size:14px;font-weight:600;opacity:0;transition:all .25s var(--ease);pointer-events:none;max-width:calc(100% - 32px);text-align:center}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+
+/* lock */
+.lock{min-height:100vh;min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:24px 16px calc(24px + var(--safe-b))}
+.lock .card{width:100%;max-width:420px;padding:22px}
+.logo{width:56px;height:56px;border-radius:16px;display:flex;align-items:center;justify-content:center;color:var(--accent);
+  background:color-mix(in srgb,var(--accent) 12%,var(--card));border:1px solid color-mix(in srgb,var(--accent) 24%,transparent);margin-bottom:12px}
+.logo svg.i{width:28px;height:28px}
+.empty{text-align:center;padding:28px 12px;color:var(--muted)}
+.empty .btn{margin-top:12px}
+
+/* round */
+.round-card .who{font-size:26px;font-weight:800;letter-spacing:-.02em}
+.progress-dots{display:flex;gap:4px;margin-top:8px}
+.progress-dots i{flex:1;height:4px;border-radius:4px;background:var(--line)}
+.progress-dots i.d{background:var(--accent)}
+.progress-dots i.s{background:var(--line-strong)}
+.progress-dots i.c{background:color-mix(in srgb,var(--accent) 45%,var(--line))}
+
+/* settings rows */
+.srow{display:flex;gap:8px;align-items:center;padding:6px 0}
+.srow input[type=text]{min-height:40px;padding:8px 10px}
+.srow .ibtn{width:40px;height:40px}
+.switch{position:relative;width:48px;height:28px;flex:none}
+.switch input{opacity:0;width:100%;height:100%;margin:0;position:absolute;inset:0;z-index:1}
+.switch span{position:absolute;inset:0;border-radius:99px;background:var(--line-strong);transition:background .2s}
+.switch span::after{content:"";position:absolute;top:3px;right:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:transform .2s var(--ease);box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.switch input:checked + span{background:var(--plus)}
+.switch input:checked + span::after{transform:translateX(-20px)}
+.insight{font-size:14px;padding:8px 10px;border-radius:10px;background:var(--bg);border:1px solid var(--line);margin-top:6px}
+.insight b{color:var(--accent)}
+
+@media (max-width:360px){
+  .val button{font-size:13px}
+  .ct td.tr{width:96px}
+}
+@media (prefers-reduced-motion: reduce){
+  *{transition:none!important}
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="sheetRoot"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+'use strict';
+
+/* ======================================================================
+   logic — pure, deterministic functions over the data model.
+   No DOM, no storage, no clock: callers pass `now`. Tested directly by
+   tatzpiot/test/logic.test.mjs, which extracts THIS block from the page.
+   ====================================================================== */
+const logic = (() => {
+  const DAY = 864e5;
+  const WIN = 21;            // trend window, days
+  const PATTERN_DAYS = 14;   // look-back for "this looks like a pattern"
+  const PATTERN_MIN = 3;
+
+  const DEFAULT_COMPETENCIES = [
+    'פיקוד ושליטה', 'מקצועיות טנקיסטית', 'ניווט והתמצאות', 'קבלת החלטות תחת לחץ',
+    'דוגמה אישית', 'עבודת צוות ויחסי אנוש', 'דיווח ותקשורת', 'למידה ויישום משוב',
+  ];
+  const DEFAULT_CONDITIONS = ['לילה', 'עייפות', 'לחץ זמן', 'אחרי מאמץ', 'בהובלה', 'מול מפקד'];
+  const STATUS = { identified: 'זוהתה', discussed: 'נדונה בשיחה', working: 'בתהליך', resolved: 'הושגה' };
+  const STATUS_ORDER = ['identified', 'discussed', 'working', 'resolved'];
+  const KIND = { gap: 'לשיפור', strength: 'חוזקה' };
+
+  const ts = x => (typeof x === 'number' ? x : x instanceof Date ? x.getTime() : parseISO(x));
+  // 'YYYY-MM-DD' is a LOCAL calendar day; Date.parse would read it as UTC.
+  function parseISO(s) {
+    if (typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s)) {
+      const [y, m, d] = s.split('-').map(Number);
+      return new Date(y, m - 1, d).getTime();
+    }
+    return Date.parse(s);
+  }
+  const midnight = t => { const d = new Date(ts(t)); return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(); };
+  // Calendar-day difference; rounding absorbs the 23/25-hour DST days.
+  const calDays = (a, b) => Math.round((midnight(b) - midnight(a)) / DAY);
+  const pad = n => String(n).padStart(2, '0');
+  const ymd = t => { const d = new Date(ts(t)); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+  const fmtD = t => { const d = new Date(ts(t)); return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}`; };
+  const fmtDY = t => { const d = new Date(ts(t)); return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${String(d.getFullYear()).slice(2)}`; };
+  const fmtT = t => { const d = new Date(ts(t)); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+  const sym = v => (v === 'plus' ? '⊕' : v === 'minus' ? '⊖' : '○');
+  const tod = h => (h >= 5 && h < 12 ? 'בוקר' : h >= 12 && h < 17 ? 'צהריים' : h >= 17 && h < 21 ? 'ערב' : 'לילה');
+
+  function normalize(d) {
+    d = d || {};
+    const s = d.settings || {};
+    let i = 0;
+    return {
+      settings: {
+        unitName: s.unitName || '',
+        competencies: Array.isArray(s.competencies) && s.competencies.length
+          ? s.competencies
+          : DEFAULT_COMPETENCIES.map(name => ({ id: 'c' + (++i), name })),
+        conditions: Array.isArray(s.conditions) ? s.conditions : DEFAULT_CONDITIONS.slice(),
+        staleDays: Number(s.staleDays) > 0 ? Number(s.staleDays) : 5,
+        bgLockSec: Number.isFinite(Number(s.bgLockSec)) && s.bgLockSec !== null && s.bgLockSec !== undefined ? Number(s.bgLockSec) : 60,
+        lastBackupAt: s.lastBackupAt || null,
+      },
+      trainees: d.trainees || [],
+      exercises: d.exercises || [],
+      observations: (d.observations || []).map(o => ({ conditions: [], phenomenonIds: [], location: null, exerciseId: null, situation: '', impact: '', ...o })),
+      phenomena: (d.phenomena || []).map(p => ({ statusLog: [], goal: '', ...p })),
+      talks: d.talks || [],
+      notes: d.notes || [],
+      dismissedObs: d.dismissedObs || [],
+    };
+  }
+
+  const compName = (S, id) => (S.settings.competencies.find(c => c.id === id) || {}).name || '—';
+  const obsOf = (S, tid) => S.observations.filter(o => o.traineeId === tid);
+  const byAtDesc = (a, b) => ts(b.at) - ts(a.at);
+  const countPM = list => {
+    let p = 0, m = 0, n = 0;
+    for (const o of list) o.valence === 'plus' ? p++ : o.valence === 'minus' ? m++ : n++;
+    return { p, m, n };
+  };
+
+  function stats(S, tid, now) {
+    const list = obsOf(S, tid);
+    const { p, m, n } = countPM(list);
+    let last = null;
+    for (const o of list) { const t = ts(o.at); if (last === null || t > last) last = t; }
+    const daysSince = last === null ? null : calDays(last, now);
+    return { count: list.length, plus: p, minus: m, neutral: n, last, daysSince,
+             stale: last === null || daysSince > S.settings.staleDays };
+  }
+
+  // Least-recently-observed first; never-observed at the very top.
+  function coverageOrder(S, now) {
+    return S.trainees.filter(t => t.active !== false)
+      .map(t => ({ t, s: stats(S, t.id, now) }))
+      .sort((a, b) => {
+        const la = a.s.last === null ? -Infinity : a.s.last;
+        const lb = b.s.last === null ? -Infinity : b.s.last;
+        if (la !== lb) return la < lb ? -1 : 1;
+        return a.t.nickname.localeCompare(b.t.nickname, 'he');
+      });
+  }
+
+  // ⊕ share among ⊕/⊖ in the last 21 days vs the 21 days before that.
+  // Neutral observations carry no direction and are ignored. A direction is
+  // only claimed with >=3 directional observations in EACH window.
+  function trend(list, now) {
+    const r = { p: 0, m: 0 }, q = { p: 0, m: 0 };
+    for (const o of list) {
+      if (o.valence !== 'plus' && o.valence !== 'minus') continue;
+      const age = (now - ts(o.at)) / DAY;
+      const b = age < WIN ? r : age < 2 * WIN ? q : null;
+      if (!b) continue;
+      o.valence === 'plus' ? b.p++ : b.m++;
+    }
+    const rn = r.p + r.m, qn = q.p + q.m;
+    if (rn < 3 || qn < 3) return { dir: null, recent: r, prev: q };
+    const delta = r.p / rn - q.p / qn;
+    return { dir: delta >= 0.15 ? 'up' : delta <= -0.15 ? 'down' : 'flat', recent: r, prev: q, delta };
+  }
+
+  function competencyTable(S, tid, now) {
+    const list = obsOf(S, tid);
+    return S.settings.competencies.map(c => {
+      const l = list.filter(o => o.competencyId === c.id);
+      const { p, m } = countPM(l);
+      return { c, n: l.length, plus: p, minus: m, trend: trend(l, now) };
+    });
+  }
+
+  function biasWarnings(S, tid) {
+    const list = obsOf(S, tid), out = [];
+    const { p, m } = countPM(list);
+    if (list.length >= 5 && ((p > 0 && m === 0) || (m > 0 && p === 0))) {
+      out.push({ type: 'onesided', text: `כל ${list.length} התצפיות ${p ? '⊕' : '⊖'} — תמונה חד־צדדית, חפש גם את הצד השני` });
+    }
+    const comps = new Set(list.map(o => o.competencyId));
+    if (list.length >= 4 && comps.size === 1) {
+      out.push({ type: 'single', text: `כל התצפיות מכשירות אחת (${compName(S, list[0].competencyId)}) — הרחב את זווית הצפייה` });
+    }
+    return out;
+  }
+
+  // 3+ unlinked ⊖ (or ⊕) in one competency within 14 days = probably a
+  // phenomenon nobody has named yet. If an open phenomenon of the same
+  // competency+kind exists, suggest linking instead of creating a duplicate.
+  function patternSuggestions(S, tid, now) {
+    const dismissed = new Set(S.dismissedObs || []);
+    const recent = obsOf(S, tid).filter(o =>
+      (o.valence === 'plus' || o.valence === 'minus') &&
+      (now - ts(o.at)) / DAY <= PATTERN_DAYS &&
+      !(o.phenomenonIds || []).length);
+    const groups = new Map();
+    for (const o of recent) {
+      const k = o.competencyId + '|' + o.valence;
+      if (!groups.has(k)) groups.set(k, []);
+      groups.get(k).push(o);
+    }
+    const out = [];
+    for (const [k, l] of groups) {
+      if (l.length < PATTERN_MIN || l.every(o => dismissed.has(o.id))) continue;
+      const [cid, val] = k.split('|');
+      const kind = val === 'minus' ? 'gap' : 'strength';
+      const existing = S.phenomena.find(p => p.traineeId === tid && p.competencyId === cid && p.kind === kind && p.status !== 'resolved');
+      out.push({ traineeId: tid, competencyId: cid, kind, obsIds: l.sort(byAtDesc).map(o => o.id), existingId: existing ? existing.id : null });
+    }
+    return out;
+  }
+
+  // The moment a phenomenon left "identified" is when the trainee heard about
+  // it. Everything in that competency before vs after = evidence of change.
+  function phenomenonProgress(S, p) {
+    const moved = (p.statusLog || []).find(x => x.status !== 'identified');
+    if (!moved) return null;
+    const cut = ts(moved.at);
+    const before = { p: 0, m: 0 }, after = { p: 0, m: 0 };
+    for (const o of obsOf(S, p.traineeId)) {
+      if (o.competencyId !== p.competencyId || (o.valence !== 'plus' && o.valence !== 'minus')) continue;
+      const b = ts(o.at) < cut ? before : after;
+      o.valence === 'plus' ? b.p++ : b.m++;
+    }
+    return { since: moved.at, before, after };
+  }
+
+  // Where/when/under-what does this behaviour show up? Only shares that
+  // actually say something (>=2 occurrences and >=50%) become insights.
+  function breakdown(list) {
+    const inc = (m, k) => m.set(k, (m.get(k) || 0) + 1);
+    const cond = new Map(), loc = new Map(), tm = new Map();
+    for (const o of list) {
+      for (const c of o.conditions || []) inc(cond, c);
+      if (o.location) inc(loc, o.location);
+      inc(tm, tod(new Date(ts(o.at)).getHours()));
+    }
+    const n = list.length;
+    const arr = m => [...m].sort((a, b) => b[1] - a[1]);
+    const insights = [];
+    if (n >= 2) {
+      for (const [k, c] of arr(cond)) if (c >= 2 && c / n >= 0.5) insights.push({ kind: 'cond', label: k, c, n });
+      for (const [k, c] of arr(tm)) if (c >= 2 && c / n >= 0.5) insights.push({ kind: 'tod', label: k, c, n });
+      for (const [k, c] of arr(loc)) if (c >= 2 && c / n >= 0.5) insights.push({ kind: 'loc', label: k, c, n });
+    }
+    return { n, cond: arr(cond), loc: arr(loc), tod: arr(tm), insights };
+  }
+
+  function lastTalk(S, tid) {
+    return S.talks.filter(k => k.traineeId === tid).sort(byAtDesc)[0] || null;
+  }
+
+  function dueFollowups(S, now) {
+    const out = [];
+    for (const t of S.trainees) {
+      if (t.active === false) continue;
+      const k = lastTalk(S, t.id);
+      if (k && k.followUpAt && !k.followUpDone && ts(k.followUpAt) <= now) {
+        out.push({ t, talk: k, overdue: calDays(k.followUpAt, now) });
+      }
+    }
+    return out.sort((a, b) => b.overdue - a.overdue);
+  }
+
+  function attention(S, now) {
+    const items = [];
+    for (const f of dueFollowups(S, now)) items.push({ type: 'followup', prio: 1, ...f });
+    for (const t of S.trainees) {
+      if (t.active === false) continue;
+      for (const s of patternSuggestions(S, t.id, now)) items.push({ type: 'pattern', prio: 2, t, s });
+    }
+    for (const t of S.trainees) {
+      if (t.active === false) continue;
+      for (const w of biasWarnings(S, t.id)) items.push({ type: 'bias', prio: 3, t, w });
+    }
+    return items.sort((a, b) => a.prio - b.prio);
+  }
+
+  function topComps(S, tid, val, n) {
+    const m = new Map();
+    for (const o of obsOf(S, tid)) {
+      if (o.valence !== val) continue;
+      if (!m.has(o.competencyId)) m.set(o.competencyId, []);
+      m.get(o.competencyId).push(o);
+    }
+    return [...m].map(([cid, l]) => ({ cid, l: l.sort(byAtDesc) }))
+      .sort((a, b) => b.l.length - a.l.length || ts(b.l[0].at) - ts(a.l[0].at))
+      .slice(0, n);
+  }
+
+  function prepText(S, tid, now, opts) {
+    const includePrivate = !!(opts && opts.includePrivate);
+    const t = S.trainees.find(x => x.id === tid);
+    if (!t) return '';
+    const L = [`הכנה לשיחה — ${t.nickname}${t.team ? ` (${t.team})` : ''}`, fmtDY(now), ''];
+    const obs = obsOf(S, tid);
+    const last = lastTalk(S, tid);
+    if (last) {
+      L.push(`מהשיחה הקודמת (${fmtD(last.at)}):`);
+      if (last.agreements) L.push(`סוכם: ${last.agreements}`);
+      const phs = (last.phenomenonIds || []).map(id => S.phenomena.find(p => p.id === id)).filter(Boolean);
+      if (phs.length) {
+        const cids = new Set(phs.map(p => p.competencyId));
+        const since = obs.filter(o => ts(o.at) > ts(last.at) && cids.has(o.competencyId)).sort(byAtDesc);
+        const c = countPM(since);
+        L.push(`מאז, באותן כשירויות: ⊕${c.p} ⊖${c.m}${since.length ? '' : ' — עוד לא נצפה. לבדוק לפני השיחה.'}`);
+        for (const o of since.slice(0, 3)) L.push(`  ${fmtD(o.at)} ${sym(o.valence)} ${o.behavior}`);
+      }
+      L.push('');
+    } else {
+      L.push('שיחה ראשונה.', '');
+    }
+    const open = S.phenomena.filter(p => p.traineeId === tid && p.status !== 'resolved');
+    if (open.length) {
+      L.push('תופעות פתוחות:');
+      for (const p of open) {
+        L.push(`• [${KIND[p.kind]}] ${p.title} — ${STATUS[p.status]}`);
+        if (p.goal) L.push(`  יעד: ${p.goal}`);
+        const ev = obs.filter(o => (o.phenomenonIds || []).includes(p.id)).sort(byAtDesc)[0];
+        if (ev) L.push(`  ראיה: ${fmtD(ev.at)} — ${ev.behavior}`);
+      }
+      L.push('');
+    }
+    const s = topComps(S, tid, 'plus', 2), g = topComps(S, tid, 'minus', 2);
+    if (s.length) {
+      L.push('חוזקות:');
+      for (const x of s) {
+        L.push(`• ${compName(S, x.cid)} (⊕${x.l.length})`);
+        for (const o of x.l.slice(0, 2)) L.push(`  ${fmtD(o.at)} — ${o.behavior}`);
+      }
+      L.push('');
+    }
+    if (g.length) {
+      L.push('נקודות לשיפור:');
+      for (const x of g) {
+        L.push(`• ${compName(S, x.cid)} (⊖${x.l.length})`);
+        for (const o of x.l.slice(0, 2)) L.push(`  ${fmtD(o.at)} — ${o.behavior}`);
+      }
+      L.push('');
+    }
+    L.push('שאלות פתיחה:');
+    if (last && last.agreements) L.push('• "מה עשית מאז השיחה הקודמת עם מה שסיכמנו?"');
+    const ex = g[0] && g[0].l[0];
+    if (ex) L.push(`• "אני רוצה לחזור ל-${fmtD(ex.at)}: ${ex.behavior}. איך אתה ראית את זה?"`);
+    L.push('• "במה אתה מרגיש שהתקדמת, ובמה אתה עוד מתקשה?"');
+    if (s[0]) L.push(`• "ב${compName(S, s[0].cid)} אתה חזק. איפה עוד זה יכול לשרת אותך?"`);
+    const notes = S.notes.filter(n => n.traineeId === tid && (includePrivate || !n.private)).sort(byAtDesc).slice(0, 3);
+    if (notes.length) {
+      L.push('', 'הערות:');
+      for (const n of notes) L.push(`• ${fmtD(n.at)} — ${n.text}${n.private ? ' (פרטי)' : ''}`);
+    }
+    return L.join('\n').trim();
+  }
+
+  function summaryText(S, tid, now) {
+    const t = S.trainees.find(x => x.id === tid);
+    if (!t) return '';
+    const obs = obsOf(S, tid).sort((a, b) => ts(a.at) - ts(b.at));
+    const talks = S.talks.filter(k => k.traineeId === tid);
+    const L = [`סיכום חניכה — ${t.nickname}${t.team ? ` (${t.team})` : ''}`];
+    if (obs.length) L.push(`${fmtDY(obs[0].at)}–${fmtDY(obs[obs.length - 1].at)} · ${obs.length} תצפיות · ${talks.length} שיחות משוב`);
+    L.push('');
+    const phs = S.phenomena.filter(p => p.traineeId === tid)
+      .sort((a, b) => STATUS_ORDER.indexOf(b.status) - STATUS_ORDER.indexOf(a.status));
+    if (phs.length) {
+      L.push('מסלול התופעות:');
+      for (const p of phs) {
+        L.push(`• [${KIND[p.kind]}] ${p.title} — ${STATUS[p.status]} (מ-${fmtDY(p.createdAt)})`);
+        const pr = phenomenonProgress(S, p);
+        if (pr) L.push(`  לפני השיחה: ⊕${pr.before.p} ⊖${pr.before.m} · מאז: ⊕${pr.after.p} ⊖${pr.after.m}`);
+        if (p.goal) L.push(`  יעד: ${p.goal}`);
+      }
+      L.push('');
+    }
+    L.push('כשירויות:');
+    for (const r of competencyTable(S, tid, now)) {
+      if (!r.n) continue;
+      const arrow = r.trend.dir === 'up' ? '↑' : r.trend.dir === 'down' ? '↓' : r.trend.dir === 'flat' ? '→' : '';
+      L.push(`• ${r.c.name}: ⊕${r.plus} ⊖${r.minus}${arrow ? ' ' + arrow : ''}`);
+    }
+    const strong = phs.filter(p => p.kind === 'strength').map(p => p.title)
+      .concat(topComps(S, tid, 'plus', 2).map(x => compName(S, x.cid)));
+    if (strong.length) L.push('', 'חוזקות מוכחות: ' + [...new Set(strong)].join(' · '));
+    const openGaps = phs.filter(p => p.kind === 'gap' && p.status !== 'resolved').map(p => p.title);
+    if (openGaps.length) L.push('נשאר פתוח: ' + openGaps.join(' · '));
+    return L.join('\n').trim();
+  }
+
+  return { DAY, WIN, DEFAULT_COMPETENCIES, DEFAULT_CONDITIONS, STATUS, STATUS_ORDER, KIND,
+           ts, parseISO, calDays, ymd, fmtD, fmtDY, fmtT, sym, tod, normalize, compName, obsOf, byAtDesc, countPM,
+           stats, coverageOrder, trend, competencyTable, biasWarnings, patternSuggestions,
+           phenomenonProgress, breakdown, lastTalk, dueFollowups, attention, topComps, prepText, summaryText };
+})();
+
+/* ======================================================================
+   vault — encryption at rest. PBKDF2-SHA256 (250k) -> AES-GCM-256.
+   One envelope format for both localStorage and backup files. A wrong
+   password fails GCM authentication; there is no stored hash to attack.
+   ====================================================================== */
+const vault = (() => {
+  const ITER = 250000;
+  const enc = new TextEncoder(), dec = new TextDecoder();
+  const b64 = u8 => { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); };
+  const unb64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+  async function derive(pw, salt, iter) {
+    const base = await crypto.subtle.importKey('raw', enc.encode(pw), 'PBKDF2', false, ['deriveKey']);
+    return crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: iter || ITER, hash: 'SHA-256' },
+      base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+  }
+  const newSalt = () => crypto.getRandomValues(new Uint8Array(16));
+  async function seal(key, salt, obj) {
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, enc.encode(JSON.stringify(obj))));
+    return { app: 'tatzpiot', v: 1, iter: ITER, salt: b64(salt), iv: b64(iv), ct: b64(ct) };
+  }
+  async function open(pw, env) {
+    if (!env || env.app !== 'tatzpiot' || !env.salt || !env.iv || !env.ct) throw new Error('format');
+    const salt = unb64(env.salt);
+    const key = await derive(pw, salt, env.iter);
+    let pt;
+    try { pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64(env.iv) }, key, unb64(env.ct)); }
+    catch (e) { throw new Error('badpw'); }
+    return { key, salt, data: JSON.parse(dec.decode(pt)) };
+  }
+  return { ITER, derive, newSalt, seal, open };
+})();
+
+/* ======================================================================
+   app
+   ====================================================================== */
+const LS_KEY = 'tatzpiot.v1';
+const L = logic;
+let S = null, KEY = null, SALT = null, DEMO = false;
+let saving = Promise.resolve();
+let draft = null;      // observation/note being composed
+let round = null;      // exercise round state
+let timeFilter = 'all';
+let lastAct = Date.now(), hiddenAt = null;
+
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const uid = () => { const a = crypto.getRandomValues(new Uint8Array(9)); return Array.from(a, b => b.toString(36).padStart(2, '0')).join('').slice(0, 14); };
+const nowISO = () => new Date().toISOString();
+const todayYMD = () => L.ymd(Date.now());
+const localDT = t => { const d = new Date(L.ts(t)); const p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; };
+const trainee = id => S.trainees.find(t => t.id === id);
+const phen = id => S.phenomena.find(p => p.id === id);
+const exercise = id => S.exercises.find(e => e.id === id);
+
+function ago(days) {
+  if (days === null) return 'טרם נצפה';
+  if (days <= 0) return 'היום';
+  if (days === 1) return 'אתמול';
+  return `לפני ${days} ימים`;
+}
+
+/* ---------- icons (Lucide, inline) ---------- */
+const IC = {
+  plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+  back: '<path d="m9 18 6-6-6-6"/>',
+  chev: '<path d="m15 18-6-6 6-6"/>',
+  home: '<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+  round: '<path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/>',
+  settings: '<path d="M20 7h-9"/><path d="M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/>',
+  lock: '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+  eye: '<path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/>',
+  talk: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+  alert: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+  copy: '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+  x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/>',
+  upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/>',
+  trash: '<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>',
+  edit: '<path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/>',
+  target: '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+  note: '<path d="M16 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8Z"/><path d="M15 3v4a2 2 0 0 0 2 2h4"/>',
+  up: '<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>',
+  down: '<path d="M12 5v14"/><path d="m19 12-7 7-7-7"/>',
+  flat: '<path d="M5 12h14"/>',
+  clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+  pin: '<path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/>',
+  check: '<path d="M20 6 9 17l-5-5"/>',
+  shield: '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
+  file: '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>',
+};
+const ic = (n, cls) => `<svg class="i${cls ? ' ' + cls : ''}" viewBox="0 0 24 24" aria-hidden="true">${IC[n]}</svg>`;
+
+/* ---------- storage ---------- */
+function persist() {
+  if (DEMO || !S || !KEY) return saving;
+  const key = KEY, salt = SALT;
+  saving = saving
+    .then(() => vault.seal(key, salt, S))
+    .then(env => localStorage.setItem(LS_KEY, JSON.stringify(env)))
+    .catch(e => { console.warn(e); toast('השמירה נכשלה — גבה מיד'); });
+  return saving;
+}
+function readEnvelope() {
+  try { const raw = localStorage.getItem(LS_KEY); return raw ? JSON.parse(raw) : null; }
+  catch (e) { return null; }
+}
+
+/* ---------- toast / clipboard / sheet ---------- */
+let toastT = 0;
+function toast(msg) {
+  const el = $('#toast');
+  el.textContent = msg; el.classList.add('on');
+  clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('on'), 2600);
+}
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); toast('הועתק'); return; } catch (e) { /* fall through */ }
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta); ta.select();
+  try { document.execCommand('copy'); toast('הועתק'); } catch (e) { toast('ההעתקה נכשלה'); }
+  ta.remove();
+}
+let sheetOnClose = null;
+function openSheet(html, onClose) {
+  const root = $('#sheetRoot');
+  root.innerHTML = `<div class="backdrop" data-act="closeSheet"></div><div class="sheet" role="dialog" aria-modal="true"><div class="sheet-in"><div class="grab"></div>${html}</div></div>`;
+  sheetOnClose = onClose || null;
+  requestAnimationFrame(() => { root.querySelector('.backdrop').classList.add('on'); root.querySelector('.sheet').classList.add('on'); });
+}
+function sheetBody(html) {
+  const s = $('#sheetRoot .sheet-in');
+  if (s) s.innerHTML = `<div class="grab"></div>${html}`;
+}
+function closeSheet() {
+  const root = $('#sheetRoot');
+  const sh = root.querySelector('.sheet');
+  if (!sh) return;
+  root.querySelector('.backdrop').classList.remove('on'); sh.classList.remove('on');
+  const cb = sheetOnClose; sheetOnClose = null;
+  setTimeout(() => { if (root.querySelector('.sheet') === sh) root.innerHTML = ''; }, 300);
+  if (cb) cb();
+}
+const sheetHead = title => `<div class="sheet-h"><h2>${esc(title)}</h2><button class="ibtn" data-act="closeSheet" aria-label="סגור">${ic('x')}</button></div>`;
+
+/* ---------- chrome ---------- */
+function topBar(title, sub, opts) {
+  opts = opts || {};
+  const back = opts.back ? `<button class="ibtn" data-act="back" aria-label="חזרה">${ic('back')}</button>` : '';
+  const right = opts.right || '';
+  return `<header class="top"><div class="top-in">${back}<div class="top-t"><h1>${esc(title)}</h1>${sub ? `<div class="sub">${esc(sub)}</div>` : ''}</div>${right}</div></header>`;
+}
+function bottomNav(cur) {
+  const a = (href, k, icon, label) => `<a href="${href}" aria-current="${cur === k}">${ic(icon)}<span>${label}</span></a>`;
+  return `<nav class="bnav" aria-label="ניווט"><div class="bnav-in">
+    ${a('#/', 'home', 'home', 'בית')}
+    ${a('#/round', 'round', 'round', 'סבב')}
+    <button class="fab" data-act="newObs" aria-label="תצפית חדשה">${ic('plus')}</button>
+    <button class="nb" data-act="newNote">${ic('note')}<span>הערה</span></button>
+    ${a('#/settings', 'settings', 'settings', 'הגדרות')}
+  </div></nav>`;
+}
+function demoBanner() {
+  return DEMO ? `<div class="banner info">${ic('eye')}<div class="grow"><b>מצב הדגמה</b>נתוני דוגמה בזיכרון בלבד. שום דבר לא נשמר. <a href="#" data-act="exitDemo">יציאה</a></div></div>` : '';
+}
+
+/* ---------- router ---------- */
+function parseRoute() {
+  const h = (location.hash || '#/').replace(/^#\/?/, '');
+  const parts = h.split('/').filter(Boolean).map(decodeURIComponent);
+  return parts;
+}
+function render() {
+  if (!S) return renderLock();
+  const [r, a, b] = parseRoute();
+  const app = $('#app');
+  let html;
+  if (r === 't' && trainee(a)) html = viewProfile(a, b || 'loop');
+  else if (r === 'p' && phen(a)) html = viewPhenomenon(a);
+  else if (r === 'talk' && trainee(a)) html = viewTalkForm(a);
+  else if (r === 'prep' && trainee(a)) html = viewText(a, 'prep');
+  else if (r === 'summary' && trainee(a)) html = viewText(a, 'summary');
+  else if (r === 'round') html = viewRound();
+  else if (r === 'settings') html = viewSettings();
+  else html = viewHome();
+  app.innerHTML = html;
+}
+window.addEventListener('hashchange', () => { render(); window.scrollTo(0, 0); });
+function go(hash) { if (location.hash === hash) render(); else location.hash = hash; }
+
+/* ======================================================================
+   views
+   ====================================================================== */
+function viewHome() {
+  const now = Date.now();
+  const order = L.coverageOrder(S, now);
+  const sd = S.settings.staleDays;
+  const fresh = order.filter(x => !x.s.stale).length;
+  let h = topBar(S.settings.unitName || 'תצפיות', new Date().toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' }),
+    { right: `<button class="ibtn" data-act="lock" aria-label="נעל">${ic('lock')}</button>` });
+  h += '<main class="wrap">' + demoBanner();
+
+  if (!DEMO && S.observations.length) {
+    const lb = S.settings.lastBackupAt;
+    const days = lb ? L.calDays(lb, now) : null;
+    if (days === null || days > 7) {
+      h += `<div class="banner warn">${ic('alert')}<div class="grow"><b>${days === null ? 'עוד לא גיבית' : `לא גיבית ${days} ימים`}</b>Safari עלול למחוק נתוני אתר. הגיבוי הוא קו ההגנה היחיד.<div class="btns" style="margin-top:8px"><button class="btn sm" data-act="exportBackup">${ic('download')}גבה עכשיו</button></div></div></div>`;
+    }
+  }
+
+  if (!order.length) {
+    h += `<div class="card empty" style="margin-top:16px"><div class="logo" style="margin:0 auto 12px">${ic('eye')}</div><h2 style="color:var(--ink)">מתחילים</h2><p>הוסף את החניכים שלך — כינוי או מספר, לא שם מלא.</p><a class="btn primary" href="#/settings">הוסף חניכים</a></div>`;
+    return h + '</main>' + bottomNav('home');
+  }
+
+  const items = L.attention(S, now);
+  if (items.length) {
+    h += `<p class="eyebrow">דורש תשומת לב</p><div class="card">`;
+    for (const it of items.slice(0, 6)) h += queueItem(it);
+    if (items.length > 6) h += `<p class="muted small" style="margin:10px 0 0">ועוד ${items.length - 6} בפרופילים</p>`;
+    h += '</div>';
+  }
+
+  h += `<p class="eyebrow">כיסוי · ${sd} ימים אחרונים</p>
+    <div class="card"><div class="cov"><span class="num"><bdi><b>${fresh}</b>/${order.length}</bdi> נצפו</span><div class="track"><div class="fill" style="width:${order.length ? Math.round(100 * fresh / order.length) : 0}%"></div></div>
+    ${fresh < order.length ? `<a class="btn sm ghost" href="#/round">סבב</a>` : ''}</div></div>`;
+
+  h += `<p class="eyebrow">חניכים · מי שלא נצפה הכי מזמן למעלה</p><div class="list">`;
+  for (const { t, s } of order) {
+    const open = S.phenomena.filter(p => p.traineeId === t.id && p.status !== 'resolved').length;
+    h += `<a class="li${s.stale ? ' stale' : ''}" href="#/t/${t.id}"><span class="bar"></span>
+      <div class="grow"><div class="nm">${esc(t.nickname)}</div>
+      <div class="meta"><span class="when">${ago(s.daysSince)}</span>${t.team ? ` · ${esc(t.team)}` : ''}${open ? ` · ${open} תופעות פתוחות` : ''}</div></div>
+      <div class="counts num"><span class="p">⊕${s.plus}</span><span class="m">⊖${s.minus}</span><span class="muted">${s.count}</span></div>
+      <span class="chev">${ic('chev')}</span></a>`;
+  }
+  h += '</div></main>' + bottomNav('home');
+  return h;
+}
+
+function queueItem(it) {
+  if (it.type === 'followup') {
+    const k = it.talk;
+    return `<div class="q"><div class="ico">${ic('talk')}</div><div class="grow">
+      <div class="t">מעקב עם ${esc(it.t.nickname)}${it.overdue > 0 ? ` · באיחור ${it.overdue} ימים` : ' · היום'}</div>
+      <div class="d">סוכם ב-${L.fmtD(k.at)}: ${esc(k.agreements || k.summary || '—')}</div>
+      <div class="btns"><a class="btn sm" href="#/t/${it.t.id}/talks">לפרופיל</a><button class="btn sm ghost" data-act="followDone" data-id="${k.id}">${ic('check')}בוצע</button></div></div></div>`;
+  }
+  if (it.type === 'pattern') {
+    const s = it.s, cn = L.compName(S, s.competencyId);
+    const ex = s.existingId ? phen(s.existingId) : null;
+    return `<div class="q"><div class="ico o">${ic('target')}</div><div class="grow">
+      <div class="t">דפוס אצל ${esc(it.t.nickname)}</div>
+      <div class="d">${s.obsIds.length} תצפיות ${s.kind === 'gap' ? '⊖' : '⊕'} ב"${esc(cn)}" ב-14 יום, בלי תופעה מקושרת</div>
+      <div class="btns">${ex
+        ? `<button class="btn sm" data-act="linkPattern" data-t="${it.t.id}" data-c="${s.competencyId}" data-k="${s.kind}">קשר ל"${esc(ex.title)}"</button>`
+        : `<button class="btn sm" data-act="charPattern" data-t="${it.t.id}" data-c="${s.competencyId}" data-k="${s.kind}">אפיין כתופעה</button>`}
+        <button class="btn sm ghost" data-act="dismissPattern" data-t="${it.t.id}" data-c="${s.competencyId}" data-k="${s.kind}">התעלם</button></div></div></div>`;
+  }
+  return `<div class="q"><div class="ico r">${ic('alert')}</div><div class="grow">
+    <div class="t">${esc(it.t.nickname)}</div><div class="d">${esc(it.w.text)}</div></div>
+    <a class="ibtn" href="#/t/${it.t.id}" aria-label="פתח">${ic('chev')}</a></div>`;
+}
+
+/* ---------- profile ---------- */
+function viewProfile(tid, tab) {
+  const t = trainee(tid), now = Date.now();
+  const s = L.stats(S, tid, now);
+  let h = topBar(t.nickname, [t.team, t.active === false ? 'לא פעיל' : ''].filter(Boolean).join(' · '), { back: true });
+  h += '<main class="wrap">' + demoBanner();
+  h += `<div class="stats num">
+    <div class="stat"><b>${s.count}</b><span>תצפיות</span></div>
+    <div class="stat"><b class="p">${s.plus}</b><span>⊕</span></div>
+    <div class="stat"><b class="m">${s.minus}</b><span>⊖</span></div>
+    <div class="stat"><b style="${s.stale ? 'color:var(--stale)' : ''}">${s.daysSince === null ? '—' : s.daysSince}</b><span>ימים מאז</span></div>
+  </div>`;
+  for (const w of L.biasWarnings(S, tid)) h += `<div class="banner alert">${ic('alert')}<div class="grow">${esc(w.text)}</div></div>`;
+  const pats = L.patternSuggestions(S, tid, now);
+  for (const p of pats) h += queueItemBanner(t, p);
+
+  const tabs = [['loop', 'מעגל'], ['comp', 'כשירויות'], ['time', 'ציר זמן'], ['talks', 'שיחות']];
+  h += `<nav class="tabs">${tabs.map(([k, l]) => `<a class="tab" href="#/t/${tid}/${k}" aria-current="${tab === k}">${l}</a>`).join('')}</nav>`;
+  if (tab === 'comp') h += tabComp(tid, now);
+  else if (tab === 'time') h += tabTime(tid);
+  else if (tab === 'talks') h += tabTalks(tid);
+  else h += tabLoop(tid);
+  return h + '</main>' + bottomNav('');
+}
+function queueItemBanner(t, s) {
+  const ex = s.existingId ? phen(s.existingId) : null;
+  return `<div class="banner info">${ic('target')}<div class="grow"><b>נראה דפוס ב"${esc(L.compName(S, s.competencyId))}"</b>${s.obsIds.length} תצפיות ${s.kind === 'gap' ? '⊖' : '⊕'} ב-14 יום שלא מקושרות לתופעה.
+    <div class="btns" style="margin-top:8px">${ex
+      ? `<button class="btn sm" data-act="linkPattern" data-t="${t.id}" data-c="${s.competencyId}" data-k="${s.kind}">קשר ל"${esc(ex.title)}"</button>`
+      : `<button class="btn sm" data-act="charPattern" data-t="${t.id}" data-c="${s.competencyId}" data-k="${s.kind}">אפיין כתופעה</button>`}
+    <button class="btn sm ghost" data-act="dismissPattern" data-t="${t.id}" data-c="${s.competencyId}" data-k="${s.kind}">התעלם</button></div></div></div>`;
+}
+
+function phCard(p) {
+  const ev = S.observations.filter(o => (o.phenomenonIds || []).includes(p.id)).length;
+  const pr = L.phenomenonProgress(S, p);
+  const good = p.kind === 'gap' ? 'm' : 'p';
+  return `<a class="card ph" href="#/p/${p.id}">
+    <div class="row"><span class="k ${p.kind}">${L.KIND[p.kind]}</span><span class="badge">${L.STATUS[p.status]}</span><span class="grow"></span><span class="muted small">${ev} ראיות</span></div>
+    <div class="title">${esc(p.title)}</div>
+    <div class="muted small">${esc(L.compName(S, p.competencyId))}${p.goal ? ` · יעד: ${esc(p.goal)}` : ''}</div>
+    ${pr ? `<div class="prog num"><span class="muted">לפני השיחה</span><span class="p">⊕${pr.before.p}</span><span class="m">⊖${pr.before.m}</span><span class="arrow">←</span><span class="muted">מאז</span><span class="p">⊕${pr.after.p}</span><span class="m">⊖${pr.after.m}</span></div>` : ''}
+  </a>`;
+}
+
+function tabLoop(tid) {
+  let h = `<div class="btns" style="margin-top:14px">
+    <button class="btn" data-act="newPhen" data-t="${tid}">${ic('target')}תופעה</button>
+    <a class="btn" href="#/talk/${tid}">${ic('talk')}שיחת משוב</a></div>`;
+  const all = S.phenomena.filter(p => p.traineeId === tid);
+  const open = all.filter(p => p.status !== 'resolved')
+    .sort((a, b) => L.STATUS_ORDER.indexOf(b.status) - L.STATUS_ORDER.indexOf(a.status));
+  const done = all.filter(p => p.status === 'resolved');
+  const t = trainee(tid);
+  if (!all.length) {
+    h += `<div class="card empty" style="margin-top:12px">${ic('target')}<p>עוד אין תופעות.<br>תופעה = דפוס התנהגות חוזר שראית יותר מפעם אחת. כשיצטברו 3 תצפיות דומות — הכלי יציע לאפיין.</p></div>`;
+  } else {
+    h += `<p class="eyebrow">תופעות פתוחות</p>`;
+    h += open.length ? open.map(phCard).join('') : `<p class="muted">אין תופעות פתוחות.</p>`;
+    if (done.length) h += `<details class="more"><summary>הושגו (${done.length})</summary>${done.map(phCard).join('')}</details>`;
+  }
+  // what to look for next — the targeted-observation step of the loop
+  const look = open.filter(p => p.status !== 'identified');
+  if (look.length) {
+    h += `<p class="eyebrow">מה לחפש בתצפית הבאה על ${esc(t.nickname)}</p><div class="card">${look.map(p => `<div class="row" style="padding:4px 0">${ic('eye')}<span class="grow">${esc(p.goal || p.title)}</span></div>`).join('')}</div>`;
+  }
+  const k = L.lastTalk(S, tid);
+  if (k) {
+    h += `<p class="eyebrow">שיחה אחרונה · ${L.fmtDY(k.at)}</p><div class="card">
+      ${k.agreements ? `<div><b>סוכם:</b> ${esc(k.agreements)}</div>` : ''}
+      ${k.followUpAt ? `<div class="muted small" style="margin-top:4px">מעקב: ${L.fmtDY(k.followUpAt)}${k.followUpDone ? ' · בוצע' : ''}</div>` : ''}</div>`;
+  }
+  return h;
+}
+
+function trendHTML(tr) {
+  if (!tr.dir) return `<span class="muted small">אין מספיק נתונים</span>`;
+  const r = tr.recent, q = tr.prev;
+  const icon = tr.dir === 'up' ? 'up' : tr.dir === 'down' ? 'down' : 'flat';
+  // Fractions are isolated with <bdi>: an inline "a/b→c/d" gets reordered by
+  // the RTL bidi pass and reads backwards (now→before).
+  return `<span class="trend ${tr.dir}">${ic(icon)}<span class="num">עכשיו <bdi>${r.p}/${r.p + r.m}</bdi><span class="was">קודם <bdi>${q.p}/${q.p + q.m}</bdi></span></span></span>`;
+}
+function tabComp(tid, now) {
+  const rows = L.competencyTable(S, tid, now);
+  let h = `<div class="card" style="margin-top:14px"><table class="ct"><thead><tr><th>כשירות</th><th class="p">⊕</th><th class="m">⊖</th><th>מגמה</th></tr></thead><tbody>`;
+  for (const r of rows) {
+    h += `<tr class="${r.n ? '' : 'none'}" data-act="filterComp" data-t="${tid}" data-c="${r.c.id}"><td>${esc(r.c.name)}</td>
+      <td class="n num p">${r.plus || '·'}</td><td class="n num m">${r.minus || '·'}</td>
+      <td class="tr">${r.n ? trendHTML(r.trend) : '<span class="muted">—</span>'}</td></tr>`;
+  }
+  h += `</tbody></table></div><p class="muted small" style="margin:10px 2px">מגמה = חלק ה-⊕ מתוך ⊕/⊖ ב-21 הימים האחרונים ("עכשיו") לעומת 21 הימים שלפניהם ("קודם"). מוצגת רק כשיש לפחות 3 תצפיות ⊕/⊖ בכל תקופה. ⊕/⊖ הם ספירה, לא ציון.</p>`;
+  return h;
+}
+
+function tabTime(tid) {
+  const comps = S.settings.competencies;
+  const chip = (k, l) => `<button class="chip sm" data-act="timeFilter" data-k="${k}" aria-pressed="${timeFilter === k}">${esc(l)}</button>`;
+  let h = `<div class="chips scroll" style="margin-top:14px">${chip('all', 'הכל')}${chip('notes', 'הערות')}${chip('talks', 'שיחות')}${comps.map(c => chip(c.id, c.name)).join('')}</div>`;
+  const ev = [];
+  if (timeFilter === 'all' || (timeFilter !== 'notes' && timeFilter !== 'talks')) {
+    for (const o of L.obsOf(S, tid)) if (timeFilter === 'all' || o.competencyId === timeFilter) ev.push({ k: 'o', at: o.at, o });
+  }
+  if (timeFilter === 'all' || timeFilter === 'notes') for (const n of S.notes) if (n.traineeId === tid) ev.push({ k: 'n', at: n.at, n });
+  if (timeFilter === 'all' || timeFilter === 'talks') for (const k of S.talks) if (k.traineeId === tid) ev.push({ k: 't', at: k.at, t: k });
+  ev.sort(L.byAtDesc);
+  if (!ev.length) return h + `<div class="card empty" style="margin-top:12px">אין רשומות${timeFilter !== 'all' ? ' בסינון הזה' : ''}.</div>`;
+  h += `<div class="card" style="margin-top:12px">`;
+  for (const e of ev) h += e.k === 'o' ? obsHTML(e.o, true) : e.k === 'n' ? noteHTML(e.n) : talkHTML(e.t, true);
+  return h + '</div>';
+}
+function obsHTML(o, actions) {
+  const ex = o.exerciseId ? exercise(o.exerciseId) : null;
+  const phs = (o.phenomenonIds || []).map(phen).filter(Boolean);
+  const cls = o.valence === 'plus' ? 'p' : o.valence === 'minus' ? 'm' : 'muted';
+  return `<div class="ev"><div class="h"><span class="sym ${cls}">${L.sym(o.valence)}</span><b style="color:var(--ink)">${esc(L.compName(S, o.competencyId))}</b>
+      <span>${L.fmtD(o.at)} ${L.fmtT(o.at)}</span>${o.location ? `<span>· ${esc(o.location)}</span>` : ''}${ex ? `<span>· ${esc(ex.name)}</span>` : ''}</div>
+    ${o.situation ? `<div class="x">מצב: ${esc(o.situation)}</div>` : ''}
+    <div class="b">${esc(o.behavior)}</div>
+    ${o.impact ? `<div class="x">השפעה: ${esc(o.impact)}</div>` : ''}
+    ${(o.conditions || []).length || phs.length ? `<div class="tags">${(o.conditions || []).map(c => `<span class="tag">${esc(c)}</span>`).join('')}${phs.map(p => `<a class="tag ph" href="#/p/${p.id}">${esc(p.title)}</a>`).join('')}</div>` : ''}
+    ${actions ? `<div class="acts"><button class="btn sm ghost" data-act="editObs" data-id="${o.id}">${ic('edit')}עריכה</button><button class="btn sm ghost" data-act="delObs" data-id="${o.id}" style="color:var(--muted)">${ic('trash')}</button></div>` : ''}
+  </div>`;
+}
+function noteHTML(n) {
+  return `<div class="ev note"><div class="h">${ic('note')}<b style="color:var(--ink)">הערה${n.private ? ' · פרטית' : ''}</b><span>${L.fmtD(n.at)} ${L.fmtT(n.at)}</span></div>
+    <div class="b">${esc(n.text)}</div>
+    <div class="acts"><button class="btn sm ghost" data-act="delNote" data-id="${n.id}" style="color:var(--muted)">${ic('trash')}</button></div></div>`;
+}
+function talkHTML(k, compact) {
+  const phs = (k.phenomenonIds || []).map(phen).filter(Boolean);
+  return `<div class="ev"><div class="h">${ic('talk')}<b style="color:var(--ink)">שיחת משוב</b><span>${L.fmtDY(k.at)}</span></div>
+    ${k.summary ? `<div class="b">${esc(k.summary)}</div>` : ''}
+    ${k.selfView ? `<div class="x"><b>איך הוא רואה את עצמו:</b> ${esc(k.selfView)}</div>` : ''}
+    ${k.agreements ? `<div class="x"><b>סוכם:</b> ${esc(k.agreements)}</div>` : ''}
+    ${k.followUpAt ? `<div class="x">מעקב: ${L.fmtDY(k.followUpAt)}${k.followUpDone ? ' · בוצע' : ''}</div>` : ''}
+    ${phs.length ? `<div class="tags">${phs.map(p => `<a class="tag ph" href="#/p/${p.id}">${esc(p.title)}</a>`).join('')}</div>` : ''}
+    ${compact ? '' : `<div class="acts"><button class="btn sm ghost" data-act="delTalk" data-id="${k.id}" style="color:var(--muted)">${ic('trash')}</button></div>`}
+  </div>`;
+}
+function tabTalks(tid) {
+  let h = `<div class="btns" style="margin-top:14px">
+    <a class="btn primary" href="#/prep/${tid}">${ic('file')}הכנה לשיחה</a>
+    <a class="btn" href="#/talk/${tid}">${ic('talk')}תעד שיחה</a></div>
+    <div class="btns" style="margin-top:8px"><a class="btn ghost" href="#/summary/${tid}">סיכום חניכה (סוף קורס)</a></div>`;
+  const talks = S.talks.filter(k => k.traineeId === tid).sort(L.byAtDesc);
+  if (!talks.length) return h + `<div class="card empty" style="margin-top:12px">עוד לא תועדה שיחה.<br>תעד אחרי כל שיחת משוב: מה הוא חושב על עצמו ומה סוכם — זה מה שהשיחה הבאה תיבנה עליו.</div>`;
+  return h + `<div class="card" style="margin-top:12px">${talks.map(k => talkHTML(k, false)).join('')}</div>`;
+}
+
+/* ---------- text views ---------- */
+let prepPrivate = false;
+function viewText(tid, kind) {
+  const t = trainee(tid), now = Date.now();
+  const text = kind === 'prep' ? L.prepText(S, tid, now, { includePrivate: prepPrivate }) : L.summaryText(S, tid, now);
+  let h = topBar(kind === 'prep' ? 'הכנה לשיחה' : 'סיכום חניכה', t.nickname, { back: true });
+  h += `<main class="wrap">${demoBanner()}<div class="btns" style="margin-top:14px"><button class="btn primary" data-act="copyOut">${ic('copy')}העתק</button>
+    ${kind === 'prep' ? `<a class="btn" href="#/talk/${tid}">${ic('talk')}תעד את השיחה</a>` : ''}</div>`;
+  if (kind === 'prep') h += `<label class="check"><input type="checkbox" data-act="togglePrivate" ${prepPrivate ? 'checked' : ''}><span>כלול הערות פרטיות <span class="muted small">(כבוי כברירת מחדל — הטקסט נוטה להגיע לוואטסאפ)</span></span></label>`;
+  h += `<div class="card" style="margin-top:8px"><pre class="out" id="outText">${esc(text)}</pre></div>`;
+  if (kind === 'summary') h += `<p class="muted small" style="margin:10px 2px">נבנה מקומית מהתצפיות, התופעות והשיחות. בסיס לחוות דעת — לא תחליף לה.</p>`;
+  return h + '</main>' + bottomNav('');
+}
+
+/* ---------- phenomenon ---------- */
+function viewPhenomenon(pid) {
+  const p = phen(pid), t = trainee(p.traineeId), now = Date.now();
+  const linked = S.observations.filter(o => (o.phenomenonIds || []).includes(pid)).sort(L.byAtDesc);
+  const since = L.ts(p.createdAt) - 14 * L.DAY;
+  const cands = L.obsOf(S, p.traineeId).filter(o => o.competencyId === p.competencyId && !(o.phenomenonIds || []).includes(pid) && L.ts(o.at) >= since).sort(L.byAtDesc);
+  const pr = L.phenomenonProgress(S, p);
+  const bd = L.breakdown(linked);
+  let h = topBar(p.title, `${t.nickname} · ${L.compName(S, p.competencyId)}`, { back: true });
+  h += `<main class="wrap">${demoBanner()}<div class="card" style="margin-top:14px">
+    <div class="row"><span class="k ${p.kind}" style="font-size:12px;font-weight:800;padding:2px 8px;border-radius:99px">${L.KIND[p.kind]}</span><span class="grow"></span><span class="muted small">נפתחה ${L.fmtDY(p.createdAt)}</span></div>
+    <label class="f">סטטוס</label>
+    <div class="seg" role="group">${L.STATUS_ORDER.map(s => `<button data-act="phStatus" data-id="${pid}" data-s="${s}" aria-pressed="${p.status === s}">${L.STATUS[s]}</button>`).join('')}</div>
+    <label class="f" for="phTitle">ניסוח התופעה</label>
+    <input type="text" id="phTitle" value="${esc(p.title)}">
+    <label class="f" for="phGoal">יעד מוסכם <span class="muted">(התנהגות שתראה כשזה יעבוד)</span></label>
+    <textarea id="phGoal" rows="2" placeholder="לדוגמה: דיווח מלא בתבנית קבועה גם בסוף לילה">${esc(p.goal || '')}</textarea>
+    <div class="btns" style="margin-top:10px"><button class="btn" data-act="phSave" data-id="${pid}">שמור</button></div>
+  </div>`;
+
+  if (pr) {
+    h += `<p class="eyebrow">האם זה משתנה? · מאז ${L.fmtDY(pr.since)}</p><div class="card"><div class="prog num" style="margin:0;font-size:16px">
+      <span class="muted">לפני</span><span class="p">⊕${pr.before.p}</span><span class="m">⊖${pr.before.m}</span><span class="arrow">←</span>
+      <span class="muted">מאז</span><span class="p">⊕${pr.after.p}</span><span class="m">⊖${pr.after.m}</span></div>
+      <p class="muted small" style="margin:6px 0 0">כל התצפיות ב"${esc(L.compName(S, p.competencyId))}", לפני ואחרי שהתופעה נדונה איתו.${pr.after.p + pr.after.m < 2 ? ' עדיין מעט תצפיות מאז — חפש אותה בתרגיל הבא.' : ''}</p></div>`;
+  }
+  if (bd.insights.length) {
+    h += `<p class="eyebrow">אפיון · מתי זה קורה</p><div class="card">${bd.insights.map(x => `<div class="insight"><b>${x.c} מתוך ${x.n}</b> ${x.kind === 'cond' ? 'בתנאי' : x.kind === 'tod' ? 'ב' : 'ב'}${esc(x.label)}</div>`).join('')}
+      <p class="muted small" style="margin:8px 0 0">מבוסס על ${bd.n} הראיות המקושרות. לא סטטיסטיקה — רמז לשאלה הנכונה בשיחה.</p></div>`;
+  }
+  h += `<p class="eyebrow">ראיות (${linked.length})</p><div class="card">${linked.length ? linked.map(o => obsHTML(o, false) + `<div class="acts" style="margin-top:-6px"><button class="btn sm ghost" data-act="unlinkObs" data-id="${o.id}" data-p="${pid}" style="color:var(--muted)">נתק</button></div>`).join('') : '<p class="muted" style="margin:0">אין ראיות מקושרות עדיין.</p>'}</div>`;
+  if (cands.length) {
+    h += `<p class="eyebrow">אולי קשור · אותה כשירות</p><div class="card">${cands.slice(0, 8).map(o => obsHTML(o, false) + `<div class="acts" style="margin-top:-6px"><button class="btn sm" data-act="linkObs" data-id="${o.id}" data-p="${pid}">${ic('plus')}קשר כראיה</button></div>`).join('')}</div>`;
+  }
+  h += `<div class="btns" style="margin-top:16px"><button class="btn danger" data-act="delPhen" data-id="${pid}">${ic('trash')}מחק תופעה</button></div>`;
+  return h + '</main>' + bottomNav('');
+}
+
+/* ---------- talk form ---------- */
+function viewTalkForm(tid) {
+  const t = trainee(tid);
+  const open = S.phenomena.filter(p => p.traineeId === tid && p.status !== 'resolved');
+  const fu = L.ymd(Date.now() + 7 * L.DAY);
+  let h = topBar('שיחת משוב', t.nickname, { back: true });
+  h += `<main class="wrap">${demoBanner()}
+  <details class="more card" style="margin-top:14px;border-top:1px solid var(--line)"><summary>${ic('file')}ההכנה לשיחה</summary><pre class="out">${esc(L.prepText(S, tid, Date.now()))}</pre></details>
+  <div class="card" style="margin-top:10px">
+    <label class="f" for="tkDate">תאריך</label><input type="date" id="tkDate" value="${todayYMD()}">
+    ${open.length ? `<label class="f">תופעות שנדונו</label><div class="chips" id="tkPh">${open.map(p => `<button class="chip sm" data-act="togglePress" data-id="${p.id}" aria-pressed="true">${esc(p.title)}</button>`).join('')}</div>` : ''}
+    <label class="f" for="tkSum">מה עלה בשיחה</label><textarea id="tkSum" rows="3"></textarea>
+    <label class="f" for="tkSelf">איך הוא רואה את עצמו</label><textarea id="tkSelf" rows="3" placeholder="מסכים? רואה אחרת? מה הוא אמר במילים שלו"></textarea>
+    <label class="f" for="tkAgr">מה סוכם</label><textarea id="tkAgr" rows="2" placeholder="פעולה ספציפית שאפשר לראות בתרגיל הבא"></textarea>
+    <label class="f" for="tkFu">תאריך מעקב</label><input type="date" id="tkFu" value="${fu}">
+    <div class="btns" style="margin-top:14px"><button class="btn primary block" data-act="saveTalk" data-t="${tid}">שמור שיחה</button></div>
+    <p class="muted small" style="margin:8px 2px 0">תופעות שסומנו ועדיין במצב "זוהתה" יעברו ל"נדונה בשיחה" — משם נמדד השינוי.</p>
+  </div>`;
+  return h + '</main>' + bottomNav('');
+}
+
+/* ---------- round ---------- */
+function viewRound() {
+  let h = topBar('סבב תרגיל', round ? (exercise(round.exerciseId) || {}).name : 'עוברים חניך אחרי חניך');
+  h += '<main class="wrap">' + demoBanner();
+  const active = S.trainees.filter(t => t.active !== false);
+  if (!active.length) return h + `<div class="card empty" style="margin-top:16px">אין חניכים פעילים. <a href="#/settings">הוסף בהגדרות</a></div></main>` + bottomNav('round');
+
+  if (!round) {
+    const today = todayYMD();
+    const exs = S.exercises.slice().sort((a, b) => L.ts(b.date) - L.ts(a.date)).slice(0, 6);
+    h += `<p class="eyebrow">בחר תרגיל</p>`;
+    if (exs.length) h += `<div class="list">${exs.map(e => `<button class="li" style="width:100%;border-inline:0;border-bottom:0;background:none;text-align:right" data-act="startRound" data-id="${e.id}"><div class="grow"><div class="nm">${esc(e.name)}</div><div class="meta">${e.date === today ? 'היום' : L.fmtDY(e.date)} · ${esc(e.type)}</div></div><span class="chev">${ic('chev')}</span></button>`).join('')}</div>`;
+    h += `<p class="eyebrow">או תרגיל חדש</p><div class="card">
+      <label class="f" for="exName">שם</label><input type="text" id="exName" placeholder="לדוגמה: תרגיל לילה פלוגתי">
+      <label class="f">סוג</label><div class="chips" id="exType">${['תרגיל', 'שגרה', 'שטח', 'כיתה'].map((x, i) => `<button class="chip" data-act="pickOne" data-v="${x}" aria-pressed="${i === 0}">${x}</button>`).join('')}</div>
+      <div class="btns" style="margin-top:14px"><button class="btn primary block" data-act="createExStart">התחל סבב</button></div></div>
+      <p class="muted small" style="margin:10px 2px">הסדר: מי שלא נצפה הכי מזמן קודם. אפשר לדלג.</p>`;
+    return h + '</main>' + bottomNav('round');
+  }
+
+  if (round.i >= round.queue.length) {
+    const seen = round.queue.filter(id => round.done.includes(id));
+    const skipped = round.queue.filter(id => !round.done.includes(id));
+    h += `<div class="card" style="margin-top:16px;text-align:center"><div class="logo" style="margin:0 auto 10px">${ic('check')}</div>
+      <h2>נרשמה תצפית על ${seen.length} מתוך ${round.queue.length}</h2>
+      <p class="muted">${round.count} תצפיות בסבב</p></div>`;
+    if (skipped.length) h += `<p class="eyebrow">לא נצפו בתרגיל הזה</p><div class="card">${skipped.map(id => `<div class="row" style="padding:4px 0"><span class="grow">${esc(trainee(id).nickname)}</span><a class="btn sm ghost" href="#/t/${id}">פרופיל</a></div>`).join('')}</div>`;
+    h += `<div class="btns" style="margin-top:14px"><button class="btn primary" data-act="endRound">סיום</button></div>`;
+    return h + '</main>' + bottomNav('round');
+  }
+
+  const tid = round.queue[round.i], t = trainee(tid);
+  if (!round.draft || round.draft.traineeId !== tid) round.draft = roundDraft();
+  const s = L.stats(S, tid, Date.now());
+  h += `<div class="progress-dots">${round.queue.map((id, i) => `<i class="${i < round.i ? (round.done.includes(id) ? 'd' : 's') : i === round.i ? 'c' : ''}"></i>`).join('')}</div>`;
+  h += `<div class="card round-card" style="margin-top:12px"><div class="row"><div class="grow"><div class="who">${esc(t.nickname)}</div>
+    <div class="muted small">${round.i + 1}/${round.queue.length} · ${ago(s.daysSince)}${t.team ? ' · ' + esc(t.team) : ''}</div></div>
+    ${round.done.includes(tid) ? `<span class="badge">נרשם</span>` : ''}</div>
+    <div id="obsForm">${obsFormHTML(round.draft, { compact: true })}</div>
+    <div class="btns" style="margin-top:14px"><button class="btn primary" data-act="roundSave">שמור והבא</button><button class="btn" data-act="roundSaveMore">שמור, עוד עליו</button></div>
+    <div class="btns" style="margin-top:8px"><button class="btn ghost" data-act="roundSkip">${round.done.includes(tid) ? 'הבא' : 'דלג'}</button><button class="btn ghost" data-act="roundFinish" style="color:var(--muted)">סיים סבב</button></div>
+  </div>`;
+  return h + '</main>' + bottomNav('round');
+}
+
+/* ---------- observation form (sheet + round) ---------- */
+function newDraft(opts) {
+  opts = opts || {};
+  const today = todayYMD();
+  const ex = S.exercises.filter(e => e.date === today).sort((a, b) => L.ts(b.createdAt || 0) - L.ts(a.createdAt || 0))[0];
+  return { mode: opts.mode || 'obs', editId: null, traineeId: opts.traineeId || null, competencyId: null, valence: null,
+           behavior: '', situation: '', impact: '', conditions: [], location: '', at: localDT(Date.now()),
+           exerciseId: opts.exerciseId !== undefined ? opts.exerciseId : (ex ? ex.id : null), phenomenonIds: [], text: '', private: true, err: '' };
+}
+function obsFormHTML(d, o) {
+  o = o || {};
+  const comps = S.settings.competencies;
+  const ph = d.traineeId ? S.phenomena.filter(p => p.traineeId === d.traineeId && p.status !== 'resolved') : [];
+  let h = '';
+  if (ph.length) {
+    h += `<label class="f">${ic('eye')} מה לחפש — לחיצה מקשרת כראיה</label><div class="chips">${ph.map(p => `<button class="chip sm focus" data-act="obsPh" data-id="${p.id}" aria-pressed="${d.phenomenonIds.includes(p.id)}">${esc(p.title)}</button>`).join('')}</div>`;
+  }
+  h += `<label class="f">כשירות</label><div class="chips">${comps.map(c => `<button class="chip sm" data-act="obsComp" data-id="${c.id}" aria-pressed="${d.competencyId === c.id}">${esc(c.name)}</button>`).join('')}</div>`;
+  h += `<label class="f">כיוון</label><div class="val">
+    <button data-act="obsVal" data-v="plus" aria-pressed="${d.valence === 'plus'}"><b>⊕</b>חיובי</button>
+    <button data-act="obsVal" data-v="minus" aria-pressed="${d.valence === 'minus'}"><b>⊖</b>לשיפור</button>
+    <button data-act="obsVal" data-v="neutral" aria-pressed="${d.valence === 'neutral'}"><b>○</b>ניטרלי</button></div>`;
+  h += `<label class="f" for="obBeh">מה הוא עשה <span class="muted">(חובה)</span></label>
+    <textarea id="obBeh" data-bind="behavior" rows="3" placeholder="התנהגות שראית, לא תכונה: &quot;דיווח מיקום שגוי פעמיים ולא תיקן&quot;">${esc(d.behavior)}</textarea>
+    <div class="hint" id="obHint" ${d.behavior.trim().length && d.behavior.trim().length < 15 ? '' : 'hidden'}>תאר התנהגות, לא תכונה</div>`;
+  const recentLocs = [...new Set(S.observations.slice().sort(L.byAtDesc).map(x => x.location).filter(Boolean))].slice(0, 5);
+  const today = todayYMD();
+  const exs = S.exercises.slice().sort((a, b) => L.ts(b.date) - L.ts(a.date)).slice(0, 8);
+  const extra = !!(d.situation || d.impact || d.conditions.length || d.location);
+  h += `<details class="more" ${extra ? 'open' : ''}><summary>${ic('plus')}הקשר, השפעה, תנאים, מקום וזמן</summary>
+    <label class="f" for="obSit">מצב — מה קרה</label><textarea id="obSit" data-bind="situation" rows="2">${esc(d.situation)}</textarea>
+    <label class="f" for="obImp">השפעה</label><textarea id="obImp" data-bind="impact" rows="2">${esc(d.impact)}</textarea>
+    ${S.settings.conditions.length ? `<label class="f">תנאים</label><div class="chips">${S.settings.conditions.map(c => `<button class="chip sm" data-act="obsCond" data-v="${esc(c)}" aria-pressed="${d.conditions.includes(c)}">${esc(c)}</button>`).join('')}</div>` : ''}
+    <label class="f" for="obLoc">${ic('pin')} מקום</label><input type="text" id="obLoc" data-bind="location" value="${esc(d.location)}" placeholder="טקסט חופשי — בלי GPS">
+    ${recentLocs.length ? `<div class="chips" style="margin-top:8px">${recentLocs.map(l => `<button class="chip sm" data-act="obsLoc" data-v="${esc(l)}">${esc(l)}</button>`).join('')}</div>` : ''}
+    <label class="f" for="obAt">${ic('clock')} מתי</label><input type="datetime-local" id="obAt" data-bind="at" value="${esc(d.at)}">
+    ${o.compact ? '' : `<label class="f" for="obEx">תרגיל</label><select id="obEx" data-bind="exerciseId"><option value="">— ללא —</option>${exs.map(e => `<option value="${e.id}" ${d.exerciseId === e.id ? 'selected' : ''}>${esc(e.name)} · ${e.date === today ? 'היום' : L.fmtD(e.date)}</option>`).join('')}</select>`}
+  </details>`;
+  if (d.err) h += `<div class="err">${esc(d.err)}</div>`;
+  return h;
+}
+function noteFormHTML(d) {
+  return `<label class="f" for="nText">הערה</label>
+    <textarea id="nText" data-bind="text" rows="5" placeholder="רושם, הקשר אישי, מחשבה — מה שאינו תצפית. לא נספר בשום חישוב.">${esc(d.text)}</textarea>
+    <label class="check"><input type="checkbox" data-bind-check="private" ${d.private ? 'checked' : ''}><span>פרטית — לא תיכלל בטקסט המועתק להכנה לשיחה</span></label>
+    ${d.err ? `<div class="err">${esc(d.err)}</div>` : ''}`;
+}
+function sheetObsHTML() {
+  const d = draft;
+  const order = L.coverageOrder(S, Date.now());
+  let h = sheetHead(d.editId ? 'עריכת תצפית' : d.mode === 'note' ? 'הערה חדשה' : 'תצפית חדשה');
+  if (!d.editId) h += `<div class="seg" role="group"><button data-act="obsMode" data-v="obs" aria-pressed="${d.mode === 'obs'}">תצפית</button><button data-act="obsMode" data-v="note" aria-pressed="${d.mode === 'note'}">הערה</button></div>`;
+  if (!order.length) return h + `<div class="empty">אין חניכים פעילים. <a href="#/settings" data-act="closeSheet">הוסף בהגדרות</a></div>`;
+  h += `<label class="f">חניך <span class="muted">· לפי כיסוי</span></label><div class="chips scroll">${order.map(({ t, s }) => `<button class="chip" data-act="obsTrainee" data-id="${t.id}" aria-pressed="${d.traineeId === t.id}">${s.stale ? '<span class="dot"></span>' : ''}${esc(t.nickname)}</button>`).join('')}</div>`;
+  h += d.mode === 'note' ? noteFormHTML(d) : obsFormHTML(d, {});
+  h += `<div class="save-bar"><button class="btn primary block" data-act="saveDraft">${d.editId ? 'שמור שינויים' : 'שמור'}</button></div>`;
+  return h;
+}
+// Two independent drafts: the "+" sheet and the exercise round. Opening the
+// sheet mid-round must never wipe what was typed into the round form.
+const sheetOpen = () => !!$('#sheetRoot .sheet');
+function cur() { return sheetOpen() && draft ? draft : round && round.draft ? round.draft : draft; }
+function rerenderDraft() {
+  if (sheetOpen() && draft) sheetBody(sheetObsHTML());
+  else if (round && round.draft) { const f = $('#obsForm'); if (f) f.innerHTML = obsFormHTML(round.draft, { compact: true }); }
+}
+function openObsSheet(opts) {
+  draft = newDraft(opts);
+  openSheet(sheetObsHTML(), () => { draft = null; });
+}
+function validateDraft(d) {
+  if (!d.traineeId) return 'בחר חניך';
+  if (d.mode === 'note') return d.text.trim() ? '' : 'ההערה ריקה';
+  if (!d.competencyId) return 'בחר כשירות';
+  if (!d.valence) return 'בחר ⊕ / ⊖ / ניטרלי';
+  if (!d.behavior.trim()) return 'חובה לתאר מה הוא עשה';
+  return '';
+}
+function commitDraft(d) {
+  const at = d.at ? new Date(d.at).toISOString() : nowISO();
+  if (d.mode === 'note') {
+    S.notes.push({ id: uid(), traineeId: d.traineeId, at, text: d.text.trim(), private: !!d.private, createdAt: nowISO() });
+    return;
+  }
+  const rec = { traineeId: d.traineeId, exerciseId: d.exerciseId || null, at, competencyId: d.competencyId, valence: d.valence,
+    situation: d.situation.trim(), behavior: d.behavior.trim(), impact: d.impact.trim(), location: d.location.trim() || null,
+    conditions: d.conditions.slice(), phenomenonIds: d.phenomenonIds.slice() };
+  if (d.editId) {
+    const o = S.observations.find(x => x.id === d.editId);
+    if (o) Object.assign(o, rec);
+  } else S.observations.push({ id: uid(), ...rec, createdAt: nowISO() });
+}
+
+/* ---------- settings ---------- */
+function viewSettings() {
+  const st = S.settings;
+  const used = new Set(S.observations.map(o => o.competencyId).concat(S.phenomena.map(p => p.competencyId)));
+  const usedEx = new Set(S.observations.map(o => o.exerciseId).filter(Boolean));
+  let h = topBar('הגדרות', DEMO ? 'מצב הדגמה' : '') + '<main class="wrap">' + demoBanner();
+
+  h += `<p class="eyebrow">יחידה</p><div class="card"><label class="f" for="unitName" style="margin-top:0">שם (מוצג בכותרת)</label>
+    <input type="text" id="unitName" data-set="unitName" value="${esc(st.unitName)}" placeholder="לדוגמה: מחזור 2 · צוות ב'"></div>`;
+
+  h += `<p class="eyebrow">חניכים</p><div class="card">`;
+  for (const t of S.trainees) {
+    h += `<div class="srow"><input type="text" data-tr="${t.id}" data-f="nickname" value="${esc(t.nickname)}" aria-label="כינוי" style="flex:1.3"><input type="text" data-tr="${t.id}" data-f="team" value="${esc(t.team || '')}" placeholder="צוות" aria-label="צוות" style="flex:1">
+      <label class="switch" title="פעיל"><input type="checkbox" data-tr="${t.id}" data-f="active" ${t.active !== false ? 'checked' : ''} aria-label="פעיל"><span></span></label></div>`;
+  }
+  h += `<div class="sep"></div><div class="srow"><input type="text" id="newTrName" placeholder="כינוי / מס' — לא שם מלא" style="flex:1.3"><input type="text" id="newTrTeam" placeholder="צוות" style="flex:1"><button class="ibtn" data-act="addTrainee" aria-label="הוסף חניך" style="background:var(--accent);color:#fff">${ic('plus')}</button></div>
+    <p class="muted small" style="margin:6px 2px 0">חניך שיצא מהקורס — כבה אותו במקום למחוק. ההיסטוריה נשמרת.</p></div>`;
+
+  h += `<p class="eyebrow">כשירויות</p><div class="card">`;
+  for (const c of st.competencies) {
+    h += `<div class="srow"><input type="text" data-comp="${c.id}" value="${esc(c.name)}" aria-label="שם כשירות" style="flex:1">
+      <button class="ibtn" data-act="delComp" data-id="${c.id}" aria-label="מחק" ${used.has(c.id) ? 'disabled title="בשימוש — אפשר רק לשנות שם" style="opacity:.3"' : ''}>${ic('trash')}</button></div>`;
+  }
+  h += `<div class="sep"></div><div class="srow"><input type="text" id="newComp" placeholder="כשירות חדשה" style="flex:1"><button class="ibtn" data-act="addComp" aria-label="הוסף">${ic('plus')}</button></div></div>`;
+
+  h += `<p class="eyebrow">תנאים (לאפיון תופעות)</p><div class="card"><div class="chips">${st.conditions.map((c, i) => `<span class="chip sm">${esc(c)}<button class="ibtn" style="width:28px;height:28px;margin-inline-start:-4px" data-act="delCond" data-i="${i}" aria-label="הסר">${ic('x')}</button></span>`).join('')}</div>
+    <div class="srow" style="margin-top:8px"><input type="text" id="newCond" placeholder="תנאי חדש, לדוגמה: גשם" style="flex:1"><button class="ibtn" data-act="addCond" aria-label="הוסף">${ic('plus')}</button></div></div>`;
+
+  h += `<p class="eyebrow">תרגילים</p><div class="card">`;
+  const exs = S.exercises.slice().sort((a, b) => L.ts(b.date) - L.ts(a.date));
+  for (const e of exs) h += `<div class="srow"><span class="grow"><b>${esc(e.name)}</b> <span class="muted small">${L.fmtDY(e.date)} · ${esc(e.type)}</span></span><button class="ibtn" data-act="delEx" data-id="${e.id}" aria-label="מחק" ${usedEx.has(e.id) ? 'disabled style="opacity:.3"' : ''}>${ic('trash')}</button></div>`;
+  h += `${exs.length ? '<div class="sep"></div>' : ''}<input type="text" id="newExName" placeholder="שם תרגיל">
+    <div class="srow" style="margin-top:8px"><input type="date" id="newExDate" value="${todayYMD()}" style="flex:1"><select id="newExType" style="flex:1">${['תרגיל', 'שגרה', 'שטח', 'כיתה'].map(x => `<option>${x}</option>`).join('')}</select><button class="ibtn" data-act="addEx" aria-label="הוסף">${ic('plus')}</button></div></div>`;
+
+  h += `<p class="eyebrow">התנהגות</p><div class="card">
+    <label class="f" for="staleDays" style="margin-top:0">חניך מסומן באדום אחרי (ימים בלי תצפית)</label><input type="number" id="staleDays" data-set="staleDays" min="1" max="60" value="${st.staleDays}" inputmode="numeric">
+    <label class="f" for="bgLock">נעילה כשהאפליקציה ברקע</label>
+    <select id="bgLock" data-set="bgLockSec">${[[0, 'מיד'], [30, 'אחרי 30 שניות'], [60, 'אחרי דקה'], [120, 'אחרי 2 דקות'], [300, 'אחרי 5 דקות']].map(([v, l]) => `<option value="${v}" ${st.bgLockSec === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
+    <p class="muted small" style="margin:6px 2px 0">בנוסף: נעילה אחרי 5 דקות בלי פעילות.</p></div>`;
+
+  h += `<p class="eyebrow">גיבוי</p><div class="card">
+    <p style="margin:0 0 10px">${st.lastBackupAt ? `גיבוי אחרון: ${L.fmtDY(st.lastBackupAt)}` : 'עוד לא גיבית.'} <span class="muted small">הקובץ מוצפן באותה סיסמה.</span></p>
+    <div class="btns"><button class="btn" data-act="exportBackup" ${DEMO ? 'disabled' : ''}>${ic('download')}ייצוא גיבוי</button><button class="btn" data-act="pickRestore" ${DEMO ? 'disabled' : ''}>${ic('upload')}שחזור</button></div></div>`;
+
+  h += `<p class="eyebrow">אבטחה</p><div class="card"><div class="btns">
+    <button class="btn" data-act="lock">${ic('lock')}נעל עכשיו</button><button class="btn" data-act="changePw" ${DEMO ? 'disabled' : ''}>החלף סיסמה</button></div>
+    <p class="muted small" style="margin:10px 2px 0">${ic('shield')} הנתונים מוצפנים במכשיר (AES-GCM, מפתח מהסיסמה ב-PBKDF2 ×250,000). אין שרת, אין סנכרון, אף בקשת רשת. שכחת סיסמה = הנתונים אבודים.</p></div>`;
+
+  h += `<p class="eyebrow">אזור מסוכן</p><div class="card"><button class="btn danger block" data-act="wipe" ${DEMO ? 'disabled' : ''}>${ic('trash')}מחק הכל</button></div>`;
+  h += `<input type="file" id="restoreFile" accept="application/json,.json" hidden>`;
+  return h + '</main>' + bottomNav('settings');
+}
+
+/* ======================================================================
+   lock / setup
+   ====================================================================== */
+function renderLock(msg) {
+  closeSheet();
+  const env = readEnvelope();
+  const standalone = window.matchMedia && window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  let h = `<main class="lock"><div class="card"><div class="logo">${ic('eye')}</div>`;
+  if (env) {
+    h += `<h1>תצפיות</h1><p class="muted" style="margin:4px 0 0">הנתונים נעולים.</p>
+      <form data-form="unlock"><label class="f" for="pw">סיסמה</label><input type="password" id="pw" autocomplete="current-password" autofocus>
+      ${msg ? `<div class="err">${esc(msg)}</div>` : ''}
+      <div class="btns" style="margin-top:14px"><button class="btn primary block" type="submit" id="go">פתח</button></div></form>`;
+  } else {
+    h += `<h1>תצפיות</h1><p class="muted" style="margin:4px 0 12px">ליווי חניכים: תצפית ← תופעה ← שיחה ← שיפור. הכל מוצפן ונשאר במכשיר.</p>
+      ${standalone ? '' : `<div class="banner info" style="margin-top:0">${ic('download')}<div class="grow"><b>קודם התקן למסך הבית</b>ב-iPhone: שיתוף ← "הוסף למסך הבית", ופתח משם. נתונים שנרשמים בלשונית Safari לא יופיעו באפליקציה המותקנת, ו-Safari מוחק נתוני אתרים לא מותקנים.</div></div>`}
+      <form data-form="setup"><label class="f" for="unit">שם יחידה / צוות <span class="muted">(אופציונלי)</span></label><input type="text" id="unit">
+      <label class="f" for="pw1">סיסמה <span class="muted">(לפחות 6 תווים)</span></label><input type="password" id="pw1" autocomplete="new-password">
+      <label class="f" for="pw2">שוב</label><input type="password" id="pw2" autocomplete="new-password">
+      <div class="banner alert">${ic('alert')}<div class="grow"><b>שכחת סיסמה = הנתונים אבודים. אין שחזור.</b>אין שרת ואין "שכחתי סיסמה". שמור אותה, וגבה כל שבוע.</div></div>
+      ${msg ? `<div class="err">${esc(msg)}</div>` : ''}
+      <div class="btns" style="margin-top:14px"><button class="btn primary block" type="submit" id="go">צור כספת והתחל</button></div></form>
+      <div class="sep"></div>
+      <div class="btns"><button class="btn" data-act="pickRestore">${ic('upload')}שחזור מגיבוי</button><button class="btn ghost" data-act="startDemo">${ic('eye')}נסה עם נתוני דוגמה</button></div>
+      <input type="file" id="restoreFile" accept="application/json,.json" hidden>`;
+  }
+  h += `</div></main>`;
+  $('#app').innerHTML = h;
+}
+
+async function doUnlock(pw) {
+  const env = readEnvelope();
+  const btn = $('#go'); if (btn) { btn.disabled = true; btn.textContent = 'פותח…'; }
+  try {
+    const r = await vault.open(pw, env);
+    S = L.normalize(r.data); KEY = r.key; SALT = r.salt; DEMO = false;
+    lastAct = Date.now();
+    render();
+  } catch (e) {
+    renderLock(e.message === 'badpw' ? 'סיסמה שגויה' : 'הנתונים פגומים');
+  }
+}
+async function doSetup(unit, pw1, pw2) {
+  if (pw1.length < 6) return renderLock('סיסמה קצרה מדי (לפחות 6 תווים)');
+  if (pw1 !== pw2) return renderLock('הסיסמאות לא תואמות');
+  const btn = $('#go'); if (btn) { btn.disabled = true; btn.textContent = 'מצפין…'; }
+  SALT = vault.newSalt(); KEY = await vault.derive(pw1, SALT);
+  S = L.normalize({ settings: { unitName: unit.trim() } }); DEMO = false;
+  await persist();
+  location.hash = '#/settings';
+  render();
+  toast('הכספת נוצרה. הוסף חניכים.');
+}
+async function lock() {
+  if (!S) return;
+  await saving;
+  S = null; KEY = null; SALT = null; DEMO = false; draft = null; round = null;
+  render();
+}
+
+/* ======================================================================
+   backup / restore / password
+   ====================================================================== */
+async function exportBackup() {
+  if (DEMO || !KEY) return;
+  const prev = S.settings.lastBackupAt;
+  S.settings.lastBackupAt = nowISO();
+  const env = await vault.seal(KEY, SALT, S);
+  env.exportedAt = S.settings.lastBackupAt;
+  const name = `tatzpiot-backup-${todayYMD()}.json`;
+  const blob = new Blob([JSON.stringify(env)], { type: 'application/json' });
+  let ok = false;
+  try {
+    const file = new File([blob], name, { type: 'application/json' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: name });
+      ok = true;
+    }
+  } catch (e) {
+    if (e && e.name === 'AbortError') { S.settings.lastBackupAt = prev; return; }
+  }
+  if (!ok) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  }
+  await persist(); render(); toast('הגיבוי נוצר');
+}
+let restoreEnv = null;
+function onRestoreFile(file) {
+  const fr = new FileReader();
+  fr.onload = () => {
+    try { restoreEnv = JSON.parse(fr.result); if (!restoreEnv || restoreEnv.app !== 'tatzpiot') throw 0; }
+    catch (e) { toast('זה לא קובץ גיבוי של תצפיות'); restoreEnv = null; return; }
+    openSheet(sheetHead('שחזור מגיבוי') + `<form data-form="restore">
+      <p class="muted" style="margin:0">${restoreEnv.exportedAt ? `גיבוי מ-${L.fmtDY(restoreEnv.exportedAt)}. ` : ''}הזן את הסיסמה שהייתה בזמן הגיבוי.</p>
+      <label class="f" for="rpw">סיסמת הגיבוי</label><input type="password" id="rpw" autocomplete="current-password">
+      ${S ? `<div class="banner alert">${ic('alert')}<div class="grow">השחזור <b>מחליף</b> את כל הנתונים הנוכחיים במכשיר.</div></div>` : ''}
+      <div class="err hidden" id="rerr"></div>
+      <div class="btns" style="margin-top:14px"><button class="btn primary block" type="submit" id="rgo">שחזר</button></div></form>`);
+  };
+  fr.readAsText(file);
+}
+async function doRestore(pw) {
+  const btn = $('#rgo'); if (btn) { btn.disabled = true; btn.textContent = 'מפענח…'; }
+  try {
+    const r = await vault.open(pw, restoreEnv);
+    S = L.normalize(r.data); KEY = r.key; SALT = r.salt; DEMO = false; round = null;
+    await persist();
+    closeSheet(); location.hash = '#/'; render();
+    toast('שוחזר. הסיסמה עכשיו היא סיסמת הגיבוי.');
+  } catch (e) {
+    const er = $('#rerr'); if (er) { er.textContent = e.message === 'badpw' ? 'סיסמה שגויה או קובץ פגום' : 'קובץ פגום'; er.classList.remove('hidden'); }
+    if (btn) { btn.disabled = false; btn.textContent = 'שחזר'; }
+  }
+}
+function changePw() {
+  openSheet(sheetHead('החלפת סיסמה') + `<form data-form="changePw">
+    <label class="f" for="cp0">סיסמה נוכחית</label><input type="password" id="cp0" autocomplete="current-password">
+    <label class="f" for="cp1">סיסמה חדשה</label><input type="password" id="cp1" autocomplete="new-password">
+    <label class="f" for="cp2">שוב</label><input type="password" id="cp2" autocomplete="new-password">
+    <p class="muted small">גיבויים ישנים ימשיכו להיפתח רק עם הסיסמה הישנה. גבה מחדש אחרי ההחלפה.</p>
+    <div class="err hidden" id="cperr"></div>
+    <div class="btns" style="margin-top:10px"><button class="btn primary block" type="submit">החלף</button></div></form>`);
+}
+async function doChangePw(p0, p1, p2) {
+  const er = $('#cperr'); const fail = m => { er.textContent = m; er.classList.remove('hidden'); };
+  try { await vault.open(p0, readEnvelope()); } catch (e) { return fail('הסיסמה הנוכחית שגויה'); }
+  if (p1.length < 6) return fail('לפחות 6 תווים');
+  if (p1 !== p2) return fail('הסיסמאות לא תואמות');
+  await saving;
+  SALT = vault.newSalt(); KEY = await vault.derive(p1, SALT);
+  await persist(); closeSheet(); toast('הסיסמה הוחלפה. גבה מחדש.');
+}
+function wipe() {
+  if (!confirm('למחוק את כל הנתונים במכשיר? אין דרך לשחזר בלי קובץ גיבוי.')) return;
+  openSheet(sheetHead('אישור אחרון') + `<form data-form="wipe"><p>הקלד <b>מחק</b> כדי למחוק לצמיתות את כל החניכים, התצפיות, התופעות והשיחות.</p>
+    <input type="text" id="wipeTxt" autocomplete="off"><div class="btns" style="margin-top:12px"><button class="btn danger block" type="submit">מחק לצמיתות</button></div></form>`);
+}
+
+/* ======================================================================
+   demo data — in memory only, never persisted
+   ====================================================================== */
+function demoData(now) {
+  const D = L.DAY;
+  const at = (days, hour) => { const d = new Date(now - days * D); d.setHours(hour, (days * 7) % 60, 0, 0); return d.toISOString(); };
+  const S0 = L.normalize({ settings: { unitName: 'הדגמה · צוות ב\'' } });
+  const T = [['t1', 'ברק', 'צוות א\''], ['t2', 'שקד', 'צוות א\''], ['t3', 'אלון 07', 'צוות ב\''], ['t4', 'נועם', 'צוות ב\''], ['t5', 'תמר', 'צוות א\''], ['t6', 'יואב', 'צוות ב\'']];
+  S0.trainees = T.map(([id, nickname, team]) => ({ id, nickname, team, active: true, createdAt: at(45, 9) }));
+  S0.exercises = [
+    { id: 'e1', name: 'ניווט יום', date: L.ymd(now - 10 * D), type: 'שטח', createdAt: at(10, 6) },
+    { id: 'e2', name: 'תרגיל לילה פלוגתי', date: L.ymd(now - 3 * D), type: 'תרגיל', createdAt: at(3, 18) },
+    { id: 'e3', name: 'שגרת בוקר', date: L.ymd(now), type: 'שגרה', createdAt: at(0, 6) },
+  ];
+  // [trainee, daysAgo, hour, comp, valence, behavior, situation, conditions, location, exercise, phenomena]
+  const O = [
+    ['t1', 38, 2, 'c7', 'minus', 'דיווח "הגעתי" בלי מיקום ובלי מצב הכוח. המ"מ שאל פעמיים', 'סוף ניווט לילה', ['לילה', 'עייפות'], 'שבטה', null, ['p1']],
+    ['t1', 33, 3, 'c7', 'minus', 'לא דיווח על תקלה בזחל עד שנשאל ישירות', 'תרגיל פלוגתי', ['לילה', 'עייפות'], 'שבטה', null, ['p1']],
+    ['t1', 30, 23, 'c7', 'minus', 'דיווח מיקום שגוי בקשר ולא תיקן כשהבין', '', ['לילה'], 'צאלים', null, ['p1']],
+    ['t1', 28, 10, 'c7', 'plus', 'דיווח מלא ומסודר בתחילת תרגיל יום', '', [], 'צאלים', null, []],
+    ['t1', 26, 1, 'c7', 'minus', 'נעלם מהרשת 6 דקות במעבר בין נקודות', 'מעבר לילי', ['לילה', 'עייפות', 'אחרי מאמץ'], 'צאלים', null, ['p1']],
+    ['t1', 20, 9, 'c1', 'plus', 'חילק משימות לצוות בצורה ברורה לפני היציאה', 'הכנות לתרגיל', ['בהובלה'], 'מתחם הפלוגה', null, []],
+    ['t1', 17, 14, 'c2', 'neutral', 'ביצע טיפול בטנק לפי הנוהל, בלי חריגות', '', [], 'מתחם הפלוגה', null, []],
+    ['t1', 15, 22, 'c7', 'plus', 'דיווח לפי התבנית (מיקום-מצב-כוונה) גם אחרי 18 שעות ערות', 'לילה שני בשטח', ['לילה', 'עייפות'], 'צאלים', null, ['p1']],
+    ['t1', 12, 3, 'c7', 'minus', 'דילג על "כוונה" בדיווח, אבל תיקן מיוזמתו אחרי דקה', '', ['לילה', 'עייפות'], 'צאלים', null, ['p1']],
+    ['t1', 9, 15, 'c7', 'plus', 'ביקש מהטען לוודא את הדיווח — בדיוק כמו שסיכמנו', 'ניווט יום', [], 'שבטה', 'e1', ['p1']],
+    ['t1', 4, 2, 'c7', 'plus', 'דיווח מלא ושקט במצב מבצעי עמוס', 'תרגיל לילה', ['לילה', 'לחץ זמן'], 'צאלים', 'e2', ['p1']],
+    ['t1', 2, 8, 'c5', 'plus', 'היה הראשון בהעמסה אחרי לילה בלי שינה', '', ['עייפות'], 'מתחם הפלוגה', null, []],
+    ['t2', 30, 11, 'c6', 'plus', 'עזר לחניך מצוות אחר להשלים הכנה לבוחן', '', [], 'כיתה 3', null, []],
+    ['t2', 22, 16, 'c2', 'plus', 'פירק והרכיב מקלע בזמן הטוב בצוות', '', [], 'מתחם הפלוגה', null, []],
+    ['t2', 14, 10, 'c3', 'plus', 'זיהה טעות ניווט של החוליה ותיקן בלי לחכות', '', ['בהובלה'], 'שבטה', null, []],
+    ['t2', 8, 21, 'c1', 'plus', 'החזיק את הצוות בשקט בהמתנה של שעתיים', '', ['לילה'], 'צאלים', null, []],
+    ['t2', 3, 23, 'c4', 'plus', 'החליט על ציר חלופי תוך שניות כשהציר נחסם', 'תרגיל לילה', ['לילה', 'לחץ זמן'], 'צאלים', 'e2', []],
+    ['t2', 1, 9, 'c8', 'plus', 'יישם הערה מהתחקיר כבר בתרגיל הבא', '', [], 'מתחם הפלוגה', null, []],
+    ['t3', 35, 13, 'c4', 'plus', 'הגיב מהר ונכון לתקלת קשר בתרגיל יבש', '', [], 'כיתה 3', null, []],
+    ['t3', 25, 10, 'c2', 'plus', 'הכיר את כל נוהלי הירי בעל-פה', '', [], 'מטווח', null, []],
+    ['t3', 18, 15, 'c6', 'neutral', 'עבד לבד רוב הזמן, בלי חיכוך', '', [], 'מתחם הפלוגה', null, []],
+    ['t3', 11, 16, 'c4', 'minus', 'קפא כשהמ"מ שינה משימה באמצע, חיכה להוראה', 'ניווט יום', ['לחץ זמן'], 'שבטה', 'e1', []],
+    ['t3', 7, 22, 'c4', 'minus', 'שאל את הצוות "מה עושים?" במקום להחליט', '', ['לחץ זמן', 'בהובלה'], 'צאלים', null, []],
+    ['t3', 3, 1, 'c4', 'minus', 'עיכב החלטה על ציר 4 דקות עד שהמפקד התערב', 'תרגיל לילה', ['לילה', 'לחץ זמן'], 'צאלים', 'e2', []],
+    ['t3', 1, 11, 'c7', 'plus', 'דיווח מסודר ומלא על מצב הכלים', '', [], 'מתחם הפלוגה', null, []],
+    ['t4', 30, 9, 'c3', 'minus', 'איבד התמצאות במעבר בין גזרות', '', [], 'שבטה', null, []],
+    ['t4', 24, 10, 'c3', 'plus', 'תכנן ציר טוב עם נקודות ביניים ברורות', '', [], 'כיתה 3', null, []],
+    ['t4', 19, 14, 'c3', 'minus', 'לא בדק כיוון לפני יציאה מנקודה', '', ['אחרי מאמץ'], 'שבטה', null, []],
+    ['t4', 10, 12, 'c3', 'neutral', 'ניווט סביר, הגיע בזמן', 'ניווט יום', [], 'שבטה', 'e1', []],
+    ['t5', 40, 9, 'c1', 'plus', 'פיקדה על הצוות בתרגיל בצורה ברורה ורגועה', '', ['בהובלה'], 'צאלים', null, []],
+    ['t5', 35, 15, 'c1', 'plus', 'נתנה פקודה מסודרת לפי סדר הפקודה', '', ['בהובלה'], 'מתחם הפלוגה', null, []],
+    ['t5', 28, 10, 'c1', 'plus', 'החזירה שליטה אחרי בלבול בצוות', '', ['לחץ זמן'], 'שבטה', null, []],
+    ['t5', 25, 20, 'c1', 'plus', 'חילקה גזרות אש בבהירות', '', [], 'צאלים', null, []],
+    ['t5', 20, 9, 'c5', 'plus', 'עמדה בזמנים גם כשאחרים איחרו', '', [], 'מתחם הפלוגה', null, []],
+    ['t5', 16, 19, 'c6', 'plus', 'הרימה את המורל של הצוות אחרי תחקיר קשה', '', ['עייפות'], 'מתחם הפלוגה', null, ['p2']],
+    ['t5', 14, 11, 'c1', 'minus', 'הוראות סותרות לצוות תוך 5 דקות', '', ['לחץ זמן'], 'שבטה', null, []],
+    ['t5', 10, 13, 'c1', 'minus', 'לא וידאה שהפקודה הובנה לפני תנועה', 'ניווט יום', [], 'שבטה', 'e1', []],
+    ['t5', 7, 16, 'c8', 'plus', 'ביקשה משוב יזום אחרי התרגיל ורשמה אותו', '', [], 'מתחם הפלוגה', null, []],
+    ['t5', 5, 0, 'c1', 'minus', 'נתנה למקלען להוביל את הצוות בפועל', 'תרגיל לילה', ['לילה', 'עייפות'], 'צאלים', null, []],
+    ['t5', 2, 10, 'c1', 'plus', 'תדריך קצר וברור לפני יציאה', '', ['בהובלה'], 'מתחם הפלוגה', null, []],
+  ];
+  S0.observations = O.map(([tid, d, hr, c, v, beh, sit, cond, loc, ex, ph], i) => ({
+    id: 'o' + (i + 1), traineeId: tid, exerciseId: ex, at: at(d, hr), competencyId: c, valence: v,
+    situation: sit, behavior: beh, impact: '', conditions: cond, location: loc, phenomenonIds: ph, createdAt: at(d, hr) }));
+  S0.phenomena = [
+    { id: 'p1', traineeId: 't1', competencyId: 'c7', kind: 'gap', title: 'הדיווח בקשר קורס בעייפות ובלילה',
+      goal: 'דיווח מלא בתבנית מיקום-מצב-כוונה, גם בסוף לילה', status: 'working', createdAt: at(27, 12),
+      statusLog: [{ status: 'identified', at: at(27, 12) }, { status: 'discussed', at: at(24, 18) }, { status: 'working', at: at(15, 9) }] },
+    { id: 'p2', traineeId: 't5', competencyId: 'c6', kind: 'strength', title: 'מרימה את הצוות כשהמורל נופל',
+      goal: '', status: 'identified', createdAt: at(16, 20), statusLog: [{ status: 'identified', at: at(16, 20) }] },
+  ];
+  S0.talks = [
+    { id: 'k1', traineeId: 't1', at: at(24, 18), phenomenonIds: ['p1'], summary: 'עברנו על 3 דיווחים מהלילות האחרונים.',
+      selfView: 'חשב שהדיווחים שלו בסדר. כשראה את שלוש הדוגמאות — הסכים שבלילה הוא "נכבה" בקשר.',
+      agreements: 'דיווח לפי תבנית קבועה גם בעייפות; לבקש מהטען לוודא', followUpAt: L.ymd(now - 10 * D), followUpDone: true, createdAt: at(24, 18) },
+    { id: 'k2', traineeId: 't3', at: at(20, 17), phenomenonIds: [], summary: 'שיחת היכרות. מרגיש בטוח במקצועיות, פחות בהובלה.',
+      selfView: 'אומר שהוא "מעדיף לבצע מאשר להחליט".', agreements: 'לקחת לפחות החלטה אחת בכל תרגיל ולדווח עליה',
+      followUpAt: L.ymd(now - 6 * D), followUpDone: false, createdAt: at(20, 17) },
+  ];
+  S0.notes = [
+    { id: 'n1', traineeId: 't1', at: at(27, 21), text: 'סיפר שאבא שלו מאושפז. לשים לב לעומס, לא להפוך את זה לתירוץ.', private: true, createdAt: at(27, 21) },
+    { id: 'n2', traineeId: 't3', at: at(15, 13), text: 'ביקש עוד משוב ישיר אחרי תרגילים.', private: false, createdAt: at(15, 13) },
+  ];
+  return S0;
+}
+function startDemo() {
+  S = demoData(Date.now()); KEY = null; SALT = null; DEMO = true; lastAct = Date.now();
+  location.hash = '#/'; render();
+}
+
+/* ======================================================================
+   events
+   ====================================================================== */
+const A = {
+  back() { if (history.length > 1) history.back(); else go('#/'); },
+  closeSheet() { closeSheet(); },
+  lock() { lock(); },
+  newObs() {
+    const [r, a] = parseRoute();
+    const tid = (r === 't' || r === 'talk' || r === 'prep') ? a : r === 'p' && phen(a) ? phen(a).traineeId : null;
+    openObsSheet({ traineeId: tid });
+    if (r === 'p' && phen(a)) { const p = phen(a); draft.competencyId = p.competencyId; draft.phenomenonIds = [p.id]; sheetBody(sheetObsHTML()); }
+  },
+  newNote() {
+    const [r, a] = parseRoute();
+    openObsSheet({ traineeId: r === 't' ? a : null, mode: 'note' });
+  },
+  obsMode(el) { const d = cur(); d.mode = el.dataset.v; d.err = ''; rerenderDraft(); },
+  obsTrainee(el) { const d = cur(); d.traineeId = el.dataset.id; d.phenomenonIds = []; d.err = ''; rerenderDraft(); },
+  obsComp(el) { const d = cur(); d.competencyId = el.dataset.id; d.err = ''; pressOne(el); },
+  obsVal(el) { const d = cur(); d.valence = el.dataset.v; d.err = ''; pressOne(el); },
+  obsPh(el) {
+    const d = cur(), id = el.dataset.id, p = phen(id);
+    const on = !d.phenomenonIds.includes(id);
+    d.phenomenonIds = on ? d.phenomenonIds.concat(id) : d.phenomenonIds.filter(x => x !== id);
+    if (on && p) d.competencyId = p.competencyId;   // linking implies the competency
+    rerenderDraft();
+  },
+  obsCond(el) {
+    const d = cur(), v = el.dataset.v;
+    d.conditions = d.conditions.includes(v) ? d.conditions.filter(x => x !== v) : d.conditions.concat(v);
+    el.setAttribute('aria-pressed', d.conditions.includes(v));
+  },
+  obsLoc(el) { const d = cur(); d.location = el.dataset.v; const i = el.closest('details').querySelector('[data-bind="location"]'); if (i) i.value = d.location; },
+  saveDraft() {
+    const e = validateDraft(draft);
+    if (e) { draft.err = e; rerenderDraft(); return; }
+    const name = trainee(draft.traineeId).nickname, wasNote = draft.mode === 'note', edit = !!draft.editId;
+    commitDraft(draft); persist();
+    draft = null; closeSheet(); render();
+    toast(edit ? 'עודכן' : wasNote ? `הערה נשמרה · ${name}` : `נשמר · ${name}`);
+  },
+  editObs(el) {
+    const o = S.observations.find(x => x.id === el.dataset.id); if (!o) return;
+    draft = { ...newDraft({ traineeId: o.traineeId }), editId: o.id, competencyId: o.competencyId, valence: o.valence,
+      behavior: o.behavior, situation: o.situation || '', impact: o.impact || '', conditions: (o.conditions || []).slice(),
+      location: o.location || '', at: localDT(o.at), exerciseId: o.exerciseId, phenomenonIds: (o.phenomenonIds || []).slice() };
+    openSheet(sheetObsHTML(), () => { draft = null; });
+  },
+  delObs(el) { if (!confirm('למחוק את התצפית?')) return; S.observations = S.observations.filter(o => o.id !== el.dataset.id); persist(); render(); },
+  delNote(el) { if (!confirm('למחוק את ההערה?')) return; S.notes = S.notes.filter(n => n.id !== el.dataset.id); persist(); render(); },
+  delTalk(el) { if (!confirm('למחוק את תיעוד השיחה?')) return; S.talks = S.talks.filter(k => k.id !== el.dataset.id); persist(); render(); },
+  timeFilter(el) { timeFilter = el.dataset.k; render(); },
+  filterComp(el) { timeFilter = el.dataset.c; go(`#/t/${el.dataset.t}/time`); },
+  followDone(el) { const k = S.talks.find(x => x.id === el.dataset.id); if (k) { k.followUpDone = true; persist(); render(); toast('המעקב סומן כבוצע'); } },
+
+  /* patterns */
+  charPattern(el) { const s = findPattern(el); if (s) openPhenSheet(el.dataset.t, s); },
+  linkPattern(el) {
+    const s = findPattern(el); if (!s || !s.existingId) return;
+    for (const id of s.obsIds) { const o = S.observations.find(x => x.id === id); if (o && !o.phenomenonIds.includes(s.existingId)) o.phenomenonIds.push(s.existingId); }
+    persist(); render(); toast(`${s.obsIds.length} תצפיות קושרו`);
+  },
+  dismissPattern(el) { const s = findPattern(el); if (!s) return; S.dismissedObs = [...new Set(S.dismissedObs.concat(s.obsIds))]; persist(); render(); },
+
+  /* phenomena */
+  newPhen(el) { openPhenSheet(el.dataset.t, null); },
+  phKind(el) { pressOne(el); },
+  phComp(el) { pressOne(el); },
+  savePhen(el) {
+    const tid = el.dataset.t;
+    const kind = ($('#phKindSeg [aria-pressed="true"]') || {}).dataset?.v;
+    const cid = ($('#phCompChips [aria-pressed="true"]') || {}).dataset?.id;
+    const title = $('#npTitle').value.trim(), goal = $('#npGoal').value.trim();
+    const err = !cid ? 'בחר כשירות' : !title ? 'נסח את התופעה' : '';
+    if (err) { const e = $('#nperr'); e.textContent = err; e.classList.remove('hidden'); return; }
+    const id = uid(), now = nowISO();
+    S.phenomena.push({ id, traineeId: tid, competencyId: cid, kind: kind || 'gap', title, goal, status: 'identified', createdAt: now, statusLog: [{ status: 'identified', at: now }] });
+    for (const oid of (el.dataset.obs || '').split(',').filter(Boolean)) { const o = S.observations.find(x => x.id === oid); if (o) o.phenomenonIds.push(id); }
+    persist(); closeSheet(); go(`#/p/${id}`);
+  },
+  phStatus(el) {
+    const p = phen(el.dataset.id), s = el.dataset.s;
+    if (!p || p.status === s) return;
+    p.status = s; p.statusLog = (p.statusLog || []).concat({ status: s, at: nowISO() });
+    persist(); render();
+  },
+  phSave(el) {
+    const p = phen(el.dataset.id); if (!p) return;
+    const t = $('#phTitle').value.trim(); if (t) p.title = t;
+    p.goal = $('#phGoal').value.trim();
+    persist(); render(); toast('נשמר');
+  },
+  delPhen(el) {
+    if (!confirm('למחוק את התופעה? התצפיות עצמן נשארות.')) return;
+    const id = el.dataset.id, p = phen(id);
+    S.phenomena = S.phenomena.filter(x => x.id !== id);
+    for (const o of S.observations) o.phenomenonIds = (o.phenomenonIds || []).filter(x => x !== id);
+    for (const k of S.talks) k.phenomenonIds = (k.phenomenonIds || []).filter(x => x !== id);
+    persist(); go(`#/t/${p.traineeId}`);
+  },
+  linkObs(el) { const o = S.observations.find(x => x.id === el.dataset.id); if (o && !o.phenomenonIds.includes(el.dataset.p)) o.phenomenonIds.push(el.dataset.p); persist(); render(); },
+  unlinkObs(el) { const o = S.observations.find(x => x.id === el.dataset.id); if (o) o.phenomenonIds = o.phenomenonIds.filter(x => x !== el.dataset.p); persist(); render(); },
+
+  /* talks */
+  togglePress(el) { el.setAttribute('aria-pressed', el.getAttribute('aria-pressed') !== 'true'); },
+  saveTalk(el) {
+    const tid = el.dataset.t;
+    const phIds = [...document.querySelectorAll('#tkPh [aria-pressed="true"]')].map(b => b.dataset.id);
+    const sum = $('#tkSum').value.trim(), self = $('#tkSelf').value.trim(), agr = $('#tkAgr').value.trim();
+    if (!sum && !self && !agr) { toast('מלא לפחות שדה אחד'); return; }
+    const d = $('#tkDate').value || todayYMD();
+    const now = new Date();
+    const atD = new Date(L.parseISO(d)); atD.setHours(now.getHours(), now.getMinutes(), 0, 0);
+    const at = atD.toISOString();
+    S.talks.push({ id: uid(), traineeId: tid, at, phenomenonIds: phIds, summary: sum, selfView: self, agreements: agr,
+      followUpAt: $('#tkFu').value || null, followUpDone: false, createdAt: nowISO() });
+    for (const id of phIds) {
+      const p = phen(id);
+      if (p && p.status === 'identified') { p.status = 'discussed'; p.statusLog = (p.statusLog || []).concat({ status: 'discussed', at }); }
+    }
+    persist(); go(`#/t/${tid}/talks`); toast('השיחה נשמרה');
+  },
+  copyOut() { copyText($('#outText').textContent); },
+  togglePrivate(el) { prepPrivate = el.checked; render(); },
+
+  /* round */
+  pickOne(el) { pressOne(el); },
+  startRound(el) { beginRound(el.dataset.id); },
+  createExStart() {
+    const name = $('#exName').value.trim();
+    if (!name) { toast('תן שם לתרגיל'); return; }
+    const type = ($('#exType [aria-pressed="true"]') || {}).dataset?.v || 'תרגיל';
+    const e = { id: uid(), name, date: todayYMD(), type, createdAt: nowISO() };
+    S.exercises.push(e); persist(); beginRound(e.id);
+  },
+  roundSave() { roundCommit(true); },
+  roundSaveMore() { roundCommit(false); },
+  roundSkip() { round.i++; round.draft = roundDraft(); render(); window.scrollTo(0, 0); },
+  roundFinish() { round.i = round.queue.length; render(); },
+  endRound() { round = null; go('#/'); },
+
+  /* settings */
+  addTrainee() {
+    const n = $('#newTrName').value.trim(); if (!n) return;
+    S.trainees.push({ id: uid(), nickname: n, team: $('#newTrTeam').value.trim(), active: true, createdAt: nowISO() });
+    persist(); render(); setTimeout(() => { const i = $('#newTrName'); if (i) i.focus(); }, 0);
+  },
+  addComp() { const n = $('#newComp').value.trim(); if (!n) return; S.settings.competencies.push({ id: 'c' + uid(), name: n }); persist(); render(); },
+  delComp(el) { if (!confirm('למחוק את הכשירות?')) return; S.settings.competencies = S.settings.competencies.filter(c => c.id !== el.dataset.id); persist(); render(); },
+  addCond() { const n = $('#newCond').value.trim(); if (!n || S.settings.conditions.includes(n)) return; S.settings.conditions.push(n); persist(); render(); },
+  delCond(el) { S.settings.conditions.splice(Number(el.dataset.i), 1); persist(); render(); },
+  addEx() {
+    const n = $('#newExName').value.trim(); if (!n) return;
+    S.exercises.push({ id: uid(), name: n, date: $('#newExDate').value || todayYMD(), type: $('#newExType').value, createdAt: nowISO() });
+    persist(); render();
+  },
+  delEx(el) { if (!confirm('למחוק את התרגיל?')) return; S.exercises = S.exercises.filter(e => e.id !== el.dataset.id); persist(); render(); },
+  exportBackup() { exportBackup().catch(() => toast('הגיבוי נכשל')); },
+  pickRestore() { const f = $('#restoreFile'); if (f) { f.value = ''; f.click(); } },
+  changePw() { changePw(); },
+  wipe() { wipe(); },
+  startDemo() { startDemo(); },
+  exitDemo() { lock(); },
+};
+function pressOne(el) {
+  const g = el.parentElement;
+  for (const b of g.children) if (b.hasAttribute('aria-pressed')) b.setAttribute('aria-pressed', b === el);
+}
+function findPattern(el) {
+  return L.patternSuggestions(S, el.dataset.t, Date.now()).find(s => s.competencyId === el.dataset.c && s.kind === el.dataset.k);
+}
+function openPhenSheet(tid, s) {
+  const comps = S.settings.competencies;
+  const kind = s ? s.kind : 'gap';
+  const obsList = s ? s.obsIds.map(id => S.observations.find(o => o.id === id)).filter(Boolean) : [];
+  const bd = s ? L.breakdown(obsList) : null;
+  openSheet(sheetHead('תופעה חדשה · ' + trainee(tid).nickname) + `
+    <div class="seg" id="phKindSeg" role="group"><button data-act="phKind" data-v="gap" aria-pressed="${kind === 'gap'}">לשיפור</button><button data-act="phKind" data-v="strength" aria-pressed="${kind === 'strength'}">חוזקה</button></div>
+    ${obsList.length ? `<label class="f">התצפיות שיקושרו</label><div class="card" style="box-shadow:none">${obsList.map(o => obsHTML(o, false)).join('')}</div>
+      ${bd.insights.length ? bd.insights.map(x => `<div class="insight"><b>${x.c} מתוך ${x.n}</b> ב${esc(x.label)}</div>`).join('') : ''}` : ''}
+    <label class="f">כשירות</label><div class="chips" id="phCompChips">${comps.map(c => `<button class="chip sm" data-act="phComp" data-id="${c.id}" aria-pressed="${s && s.competencyId === c.id}">${esc(c.name)}</button>`).join('')}</div>
+    <label class="f" for="npTitle">ניסוח — התנהגות חוזרת, לא תכונה</label>
+    <input type="text" id="npTitle" placeholder="&quot;כש... הוא...&quot; — לדוגמה: מעכב החלטה כשהתוכנית משתנה">
+    <label class="f" for="npGoal">יעד <span class="muted">(אופציונלי — אפשר לקבוע בשיחה)</span></label>
+    <textarea id="npGoal" rows="2" placeholder="מה תראה כשזה ישתפר"></textarea>
+    <div class="err hidden" id="nperr"></div>
+    <div class="save-bar"><button class="btn primary block" data-act="savePhen" data-t="${tid}" data-obs="${obsList.map(o => o.id).join(',')}">צור תופעה</button></div>`);
+}
+function roundDraft() {
+  if (!round || round.i >= round.queue.length) return null;
+  return newDraft({ traineeId: round.queue[round.i], exerciseId: round.exerciseId });
+}
+function beginRound(exId) {
+  const queue = L.coverageOrder(S, Date.now()).map(x => x.t.id);
+  round = { exerciseId: exId, queue, i: 0, done: [], count: 0, draft: null };
+  round.draft = roundDraft();
+  go('#/round'); render();
+}
+function roundCommit(advance) {
+  const d = round.draft;
+  const e = validateDraft(d);
+  if (e) { d.err = e; rerenderDraft(); return; }
+  commitDraft(d); persist();
+  const tid = d.traineeId;
+  if (!round.done.includes(tid)) round.done.push(tid);
+  round.count++;
+  toast(`נשמר · ${trainee(tid).nickname}`);
+  if (advance) round.i++;
+  round.draft = roundDraft();
+  render(); window.scrollTo(0, 0);
+}
+
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-act]');
+  if (!el) return;
+  const fn = A[el.dataset.act];
+  if (!fn) return;
+  if (el.tagName === 'A' && el.getAttribute('href') === '#') e.preventDefault();
+  fn(el, e);
+});
+document.addEventListener('input', e => {
+  const el = e.target, d = cur();
+  if (d && el.dataset.bind) {
+    d[el.dataset.bind] = el.value;
+    if (el.dataset.bind === 'behavior') {
+      const h = el.parentElement.querySelector('#obHint'), n = el.value.trim().length;
+      if (h) h.hidden = !(n > 0 && n < 15);
+    }
+  }
+});
+document.addEventListener('change', e => {
+  const el = e.target, d = cur();
+  if (d && el.dataset.bindCheck) { d[el.dataset.bindCheck] = el.checked; return; }
+  if (d && el.dataset.bind === 'exerciseId') { d.exerciseId = el.value || null; return; }
+  if (!S) { if (el.id === 'restoreFile' && el.files[0]) onRestoreFile(el.files[0]); return; }
+  if (el.id === 'restoreFile' && el.files[0]) { onRestoreFile(el.files[0]); return; }
+  if (el.dataset.set) {
+    const k = el.dataset.set;
+    if (k === 'staleDays') { const v = Math.max(1, Math.min(60, Number(el.value) || 5)); S.settings.staleDays = v; }
+    else if (k === 'bgLockSec') S.settings.bgLockSec = Number(el.value);
+    else S.settings[k] = el.value.trim();
+    persist(); return;
+  }
+  if (el.dataset.tr) {
+    const t = trainee(el.dataset.tr); if (!t) return;
+    if (el.dataset.f === 'active') t.active = el.checked;
+    else if (el.dataset.f === 'nickname') { if (el.value.trim()) t.nickname = el.value.trim(); else el.value = t.nickname; }
+    else t[el.dataset.f] = el.value.trim();
+    persist(); return;
+  }
+  if (el.dataset.comp) {
+    const c = S.settings.competencies.find(x => x.id === el.dataset.comp);
+    if (c && el.value.trim()) { c.name = el.value.trim(); persist(); } else if (c) el.value = c.name;
+  }
+});
+document.addEventListener('submit', e => {
+  const f = e.target.dataset.form; if (!f) return;
+  e.preventDefault();
+  if (f === 'unlock') doUnlock($('#pw').value);
+  else if (f === 'setup') doSetup($('#unit').value, $('#pw1').value, $('#pw2').value);
+  else if (f === 'restore') doRestore($('#rpw').value);
+  else if (f === 'changePw') doChangePw($('#cp0').value, $('#cp1').value, $('#cp2').value);
+  else if (f === 'wipe') {
+    if ($('#wipeTxt').value.trim() !== 'מחק') { toast('הקלד "מחק" בדיוק'); return; }
+    localStorage.removeItem(LS_KEY);
+    S = null; KEY = null; SALT = null; closeSheet(); location.hash = '#/'; render(); toast('הכל נמחק');
+  }
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
+
+/* ---------- auto-lock ---------- */
+['pointerdown', 'keydown', 'input'].forEach(ev => document.addEventListener(ev, () => { lastAct = Date.now(); }, { passive: true, capture: true }));
+setInterval(() => { if (S && Date.now() - lastAct > 5 * 60e3) lock(); }, 15e3);
+document.addEventListener('visibilitychange', () => {
+  if (!S) return;
+  if (document.hidden) {
+    hiddenAt = Date.now();
+    if (S.settings.bgLockSec === 0) lock();
+  } else {
+    const away = hiddenAt ? Date.now() - hiddenAt : 0;
+    hiddenAt = null;
+    if (away >= S.settings.bgLockSec * 1000 || Date.now() - lastAct > 5 * 60e3) lock();
+  }
+});
+
+render();
+
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  window.addEventListener('load', () =>
+    navigator.serviceWorker.register('./sw.js').catch(() => {}));
+}
+</script>
+</body>
+</html>
