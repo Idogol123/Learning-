@@ -294,11 +294,7 @@ pre.out{white-space:pre-wrap;font:inherit;font-size:15px;margin:0;line-height:1.
 
 /* round */
 .round-card .who{font-size:26px;font-weight:800;letter-spacing:-.02em}
-.progress-dots{display:flex;gap:4px;margin-top:8px}
-.progress-dots i{flex:1;height:4px;border-radius:4px;background:var(--line)}
-.progress-dots i.d{background:var(--accent)}
-.progress-dots i.s{background:var(--line-strong)}
-.progress-dots i.c{background:color-mix(in srgb,var(--accent) 45%,var(--line))}
+.chip .i{width:16px;height:16px}
 
 /* settings rows */
 .srow{display:flex;gap:8px;align-items:center;padding:6px 0}
@@ -1369,7 +1365,7 @@ function viewRound() {
       <label class="f" for="exName">שם</label><input type="text" id="exName" placeholder="לדוגמה: תרגיל לילה פלוגתי">
       <label class="f">סוג</label><div class="chips" id="exType">${['תרגיל', 'שגרה', 'שטח', 'כיתה'].map((x, i) => `<button class="chip" data-act="pickOne" data-v="${x}" aria-pressed="${i === 0}">${x}</button>`).join('')}</div>
       <div class="btns" style="margin-top:14px"><button class="btn primary block" data-act="createExStart">התחל סבב</button></div></div>
-      <p class="muted small" style="margin:10px 2px">הסדר: מי שלא נצפה הכי מזמן קודם. אפשר לדלג.</p>`;
+      <p class="muted small" style="margin:10px 2px">מוצע לפי מי שלא נצפה הכי מזמן — אבל אפשר לבחור כל חניך בכל רגע.</p>`;
     return h + '</main>' + bottomNav('round');
   }
 
@@ -1387,13 +1383,14 @@ function viewRound() {
   const tid = round.queue[round.i], t = trainee(tid);
   if (!round.draft || round.draft.traineeId !== tid) round.draft = roundDraft();
   const s = L.stats(S, tid, Date.now());
-  h += `<div class="progress-dots">${round.queue.map((id, i) => `<i class="${i < round.i ? (round.done.includes(id) ? 'd' : 's') : i === round.i ? 'c' : ''}"></i>`).join('')}</div>`;
+  // Everyone, always one tap away: trainees rarely perform in the suggested order.
+  h += `<div class="chips" style="margin-top:14px" role="group" aria-label="בחר חניך">${round.queue.map(id => `<button class="chip" data-act="roundPick" data-id="${id}" aria-pressed="${id === tid}"${round.done.includes(id) ? ` aria-label="${esc(trainee(id).nickname)} — נרשם"` : ''}>${round.done.includes(id) ? ic('check') : ''}${esc(trainee(id).nickname)}</button>`).join('')}</div>`;
   h += `<div class="card round-card" style="margin-top:12px"><div class="row"><div class="grow"><div class="who">${esc(t.nickname)}</div>
-    <div class="muted small">${round.i + 1}/${round.queue.length} · ${ago(s.daysSince)}${t.team ? ' · ' + esc(t.team) : ''}</div></div>
+    <div class="muted small">${ago(s.daysSince)}${t.team ? ' · ' + esc(t.team) : ''}</div></div>
     ${round.done.includes(tid) ? `<span class="badge">נרשם</span>` : ''}</div>
     <div id="obsForm">${obsFormHTML(round.draft, { compact: true })}</div>
     <div class="btns" style="margin-top:14px"><button class="btn primary" data-act="roundSave">שמור והבא</button><button class="btn" data-act="roundSaveMore">שמור, עוד עליו</button></div>
-    <div class="btns" style="margin-top:8px"><button class="btn ghost" data-act="roundSkip">${round.done.includes(tid) ? 'הבא' : 'דלג'}</button><button class="btn ghost" data-act="roundFinish" style="color:var(--muted)">סיים סבב</button></div>
+    <div class="btns" style="margin-top:8px"><button class="btn ghost" data-act="roundFinish" style="color:var(--muted)">סיים סבב · נרשמו ${round.done.length}/${round.queue.length}</button></div>
   </div>`;
   return h + '</main>' + bottomNav('round');
 }
@@ -2018,7 +2015,15 @@ const A = {
   },
   roundSave() { roundCommit(true); },
   roundSaveMore() { roundCommit(false); },
-  roundSkip() { round.i++; round.draft = roundDraft(); save(); render(); window.scrollTo(0, 0); },
+  roundPick(el) {
+    const i = round.queue.indexOf(el.dataset.id);
+    if (i < 0 || i === round.i) return;
+    round.i = i;
+    // Text already typed belongs to whoever you pick now — never thrown away.
+    if (hasContent(round.draft)) { round.draft.traineeId = el.dataset.id; round.draft.phenomenonIds = []; }
+    else round.draft = roundDraft();
+    save(); render();
+  },
   roundFinish() { round.i = round.queue.length; save(); render(); },
   endRound() { round = null; save(); go('#/'); },
 
@@ -2094,7 +2099,11 @@ function roundCommit(advance) {
   if (!round.done.includes(tid)) round.done.push(tid);
   round.count++;
   toast(`נשמר · ${trainee(tid).nickname}`);
-  if (advance) round.i++;
+  if (advance) {
+    // Next = the first one not yet observed, in the suggested order.
+    const next = round.queue.findIndex(id => !round.done.includes(id));
+    round.i = next < 0 ? round.queue.length : next;
+  }
   round.draft = roundDraft();
   save();
   render(); window.scrollTo(0, 0);

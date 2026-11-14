@@ -194,6 +194,48 @@ t('a new vault with one trainee shows no zeros and no blind-spot verdict', async
   await ctx.close();
 });
 
+/* ---------- round: any order ---------- */
+const startRound = async page => { await goto(page, '#/round'); await page.click('[data-act=startRound]'); await page.waitForSelector('[data-act=roundPick]'); };
+const fillObs = async (page, text) => { await page.click('#obsForm [data-act=obsComp]'); await page.click('#obsForm [data-act=obsVal]'); await page.fill('#obBeh', text); };
+t('round: any trainee can be picked at any moment, whatever the suggested order', async () => {
+  const { ctx, page } = await fresh();
+  await startRound(page);
+  const q = await page.evaluate(() => round.queue);
+  assert.equal(await page.locator('[data-act=roundPick]').count(), q.length);
+  await page.click(`[data-act=roundPick][data-id="${q[3]}"]`);
+  await fillObs(page, 'התנהגות שנצפתה אצל הרביעי בתור');
+  await page.click('[data-act=roundSave]');
+  const last = await page.evaluate(() => S.observations[S.observations.length - 1]);
+  assert.equal(last.traineeId, q[3]);
+  assert.equal(await page.evaluate(() => round.queue[round.i]), q[0], '"next" returns to the first one not yet observed');
+  await ctx.close();
+});
+
+t('round: text already typed moves with you when you pick another trainee', async () => {
+  const { ctx, page } = await fresh();
+  await startRound(page);
+  const q = await page.evaluate(() => round.queue);
+  await page.fill('#obBeh', 'כתבתי ואז הבנתי שזה חניך אחר');
+  await page.click(`[data-act=roundPick][data-id="${q[2]}"]`);
+  assert.equal(await page.inputValue('#obBeh'), 'כתבתי ואז הבנתי שזה חניך אחר');
+  assert.equal(await page.evaluate(() => round.draft.traineeId), q[2]);
+  await ctx.close();
+});
+
+t('round: ends when everyone was observed, in whatever order', async () => {
+  const { ctx, page } = await fresh();
+  await startRound(page);
+  const q = await page.evaluate(() => round.queue);
+  for (const id of [...q].reverse()) {
+    await page.click(`[data-act=roundPick][data-id="${id}"]`);
+    await fillObs(page, 'תצפית בסדר הפוך מהמוצע');
+    await page.click('[data-act=roundSave]');
+  }
+  await page.waitForSelector('[data-act=endRound]');
+  assert.equal(await page.evaluate(() => round.done.length), q.length);
+  await ctx.close();
+});
+
 /* ---------- accessibility ---------- */
 const small = page => page.evaluate(() => {
   const bad = [];
