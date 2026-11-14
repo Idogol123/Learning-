@@ -160,6 +160,40 @@ t('home shows at most 3 attention items', async () => {
   await ctx.close();
 });
 
+/* ---------- conclusions, not tables ---------- */
+t('there is no team screen: three destinations in the bottom bar, settings from the home header', async () => {
+  const { ctx, page } = await fresh();
+  assert.equal(await page.locator('.bnav a').count(), 2);
+  assert.equal(await page.locator('.bnav a[href="#/team"]').count(), 0);
+  await page.click('header a[href="#/settings"]'); await page.waitForTimeout(100);
+  assert.equal(await page.evaluate(() => location.hash), '#/settings');
+  await page.click('[data-act=back]'); await page.waitForTimeout(150);
+  assert.equal(await page.evaluate(() => location.hash), '#/');
+  await goto(page, '#/team');
+  assert.equal(await page.locator('.cvr').count(), 0, 'old link lands on home, no coverage table');
+  await ctx.close();
+});
+
+t('blind spots are one sentence on home and before a round', async () => {
+  const { ctx, page } = await fresh();
+  const names = await page.evaluate(() => logic.teamCoverage(S, Date.now()).blind.map(x => x.c.name));
+  assert.ok(names.length >= 1 && names.length <= 3);
+  const home = await page.locator('#blind').innerText();
+  for (const n of names) assert.ok(home.includes(n), n);
+  await goto(page, '#/round');
+  const rd = await page.locator('#blind').innerText();
+  for (const n of names) assert.ok(rd.includes(n), n);
+  await ctx.close();
+});
+
+t('a new vault with one trainee shows no zeros and no blind-spot verdict', async () => {
+  const { ctx, page } = await fresh();
+  await page.evaluate(async () => { S = logic.normalize({}); S.trainees = [{ id: 'a', nickname: 'ברק', team: '', active: true }]; await persist(); go('#/'); render(); });
+  assert.equal(await page.locator('#blind').count(), 0);
+  assert.ok(!(await page.locator('main').innerText()).includes('0/1'));
+  await ctx.close();
+});
+
 /* ---------- accessibility ---------- */
 const small = page => page.evaluate(() => {
   const bad = [];
@@ -178,7 +212,7 @@ t('every control is at least 44px (inline text links 24px), on every screen', as
   const { ctx, page } = await fresh();
   const bad = {};
   const check = async name => { const b = await small(page); if (b.length) bad[name] = b; };
-  for (const h of ['#/', '#/t/t1', '#/t/t1/comp', '#/t/t1/time', '#/t/t1/talks', '#/t/t3', '#/p/p1', '#/talk/t1', '#/prep/t1', '#/round', '#/team', '#/settings']) {
+  for (const h of ['#/', '#/t/t1', '#/t/t1/comp', '#/t/t1/time', '#/t/t1/talks', '#/t/t3', '#/p/p1', '#/talk/t1', '#/prep/t1', '#/round', '#/settings']) {
     await goto(page, h); await check(h);
   }
   await goto(page, '#/round'); await page.click('[data-act=startRound]'); await page.click('details.more > summary'); await check('round-active');

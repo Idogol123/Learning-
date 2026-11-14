@@ -257,6 +257,15 @@ t('summary text lists phenomena with before/after', () => {
   assert.match(txt, /הושגה/);
 });
 
+t('blind spots: silent until there are 10 observations in the window — no verdict from thin data', () => {
+  const S = state();
+  S.observations = Array.from({ length: 9 }, (_, i) => ob('a', i % 5, 'c1', 'plus'));
+  assert.equal(L.teamCoverage(S, NOW).blind.length, 0);
+  S.observations.push(ob('a', 1, 'c1', 'plus'));
+  assert.ok(L.teamCoverage(S, NOW).blind.length > 0);
+  assert.equal(L.teamCoverage(L.normalize({}), NOW).blind.length, 0, 'empty vault: nothing to say');
+});
+
 /* ---------- vault ---------- */
 t('vault: round-trips, uses 250k iterations, fresh IV per seal', async () => {
   const salt = V.newSalt();
@@ -329,9 +338,10 @@ t('team coverage: counts last 21 days only, finds blind competencies and per-tra
     ob('a', 4, 'c2', 'plus'), ob('b', 5, 'c2', 'plus'),
     ob('a', 30, 'c8', 'plus'), ob('b', 31, 'c8', 'plus'), ob('c', 32, 'c8', 'plus'),   // too old
     ob('z', 1, 'c3', 'plus'),                                                          // inactive trainee
+    ...Array.from({ length: 5 }, () => ob('a', 6, 'c1', 'plus')),                      // enough data for a verdict
   ] });
   const r = L.teamCoverage(S, NOW);
-  assert.equal(r.total, 5);
+  assert.equal(r.total, 10);
   assert.equal(r.size, 3);
   const c1 = r.comps.find(x => x.c.id === 'c1');
   assert.equal(c1.covered.length, 3);

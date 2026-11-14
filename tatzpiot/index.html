@@ -245,7 +245,7 @@ pre.out{white-space:pre-wrap;font:inherit;font-size:15px;margin:0;line-height:1.
 /* bottom nav */
 .bnav{position:fixed;inset-inline:0;bottom:0;z-index:30;background:color-mix(in srgb,var(--card) 92%,transparent);
   -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-top:1px solid var(--line);padding-bottom:var(--safe-b)}
-.bnav-in{max-width:640px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr 84px 1fr 1fr;align-items:center;height:64px}
+.bnav-in{max-width:640px;margin:0 auto;display:grid;grid-template-columns:1fr 84px 1fr;align-items:center;height:64px}
 .bnav a,.bnav button.nb{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:11px;font-weight:700;
   color:var(--muted);text-decoration:none;min-height:56px;background:none;border:0}
 .bnav a[aria-current="true"]{color:var(--accent)}
@@ -283,16 +283,6 @@ pre.out{white-space:pre-wrap;font:inherit;font-size:15px;margin:0;line-height:1.
 /* guide */
 .guide ol{margin:8px 0 0;padding-inline-start:20px}
 .guide li{margin:4px 0}
-/* team */
-.cvr{padding:10px 0;border-top:1px solid var(--line)}
-.cvr:first-child{border-top:0;padding-top:0}
-.cvr .row{font-size:15px}
-.cvr .track{flex:none;width:84px;height:6px;border-radius:99px;background:var(--line);overflow:hidden}
-.cvr .fill{height:100%;background:var(--accent)}
-.cvr.blind .fill{background:var(--muted)}
-.cvr .miss{font-size:13px;color:var(--muted);margin-top:2px}
-.cvr.blind .nm{font-weight:800}
-
 /* lock */
 .lock{min-height:100vh;min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:24px 16px calc(24px + var(--safe-b))}
 .lock .card{width:100%;max-width:420px;padding:22px}
@@ -629,7 +619,8 @@ const logic = (() => {
                unseen: S.settings.competencies.filter(c => !seen.has(c.id)) };
     });
     // Only the worst few: a warning that flags everything says nothing.
-    const blind = tr.length ? comps.filter(x => x.n <= 1 || x.covered.length <= Math.floor(tr.length / 4))
+    // And nothing at all below 10 observations — thin data is not a blind spot.
+    const blind = tr.length && recent.length >= 10 ? comps.filter(x => x.n <= 1 || x.covered.length <= Math.floor(tr.length / 4))
       .sort((a, b) => a.covered.length - b.covered.length || a.n - b.n).slice(0, 3) : [];
     return { comps, trainees, blind, total: recent.length, size: tr.length };
   }
@@ -850,7 +841,6 @@ const IC = {
   pin: '<path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/>',
   check: '<path d="M20 6 9 17l-5-5"/>',
   shield: '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
-  users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
   file: '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>',
 };
 const ic = (n, cls) => `<svg class="i${cls ? ' ' + cls : ''}" viewBox="0 0 24 24" aria-hidden="true">${IC[n]}</svg>`;
@@ -976,10 +966,8 @@ function bottomNav(cur) {
   const a = (href, k, icon, label) => `<a href="${href}" aria-current="${cur === k}">${ic(icon)}<span>${label}</span></a>`;
   return `<nav class="bnav" aria-label="ניווט"><div class="bnav-in">
     ${a('#/', 'home', 'home', 'בית')}
-    ${a('#/round', 'round', 'round', 'סבב')}
     <button class="fab" data-act="newObs" aria-label="תצפית חדשה">${ic('plus')}</button>
-    ${a('#/team', 'team', 'users', 'צוות')}
-    ${a('#/settings', 'settings', 'settings', 'הגדרות')}
+    ${a('#/round', 'round', 'round', 'סבב')}
   </div></nav>`;
 }
 function demoBanner() {
@@ -1004,7 +992,6 @@ function render() {
   else if (r === 'summary' && trainee(a)) html = viewText(a, 'summary');
   else if (r === 'round') html = viewRound();
   else if (r === 'settings') html = viewSettings();
-  else if (r === 'team') html = viewTeam();
   else html = viewHome();
   app.innerHTML = html;
 }
@@ -1032,7 +1019,7 @@ function viewHome() {
   const sd = S.settings.staleDays;
   const fresh = order.filter(x => !x.s.stale).length;
   let h = topBar(S.settings.unitName || 'תצפיות', new Date().toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' }),
-    { right: `<button class="ibtn" data-act="lock" aria-label="נעל">${ic('lock')}</button>` });
+    { right: `<a class="ibtn" href="#/settings" aria-label="הגדרות">${ic('settings')}</a><button class="ibtn" data-act="lock" aria-label="נעל">${ic('lock')}</button>` });
   h += '<main class="wrap">' + demoBanner();
 
   if (!DEMO && S.observations.length) {
@@ -1065,9 +1052,9 @@ function viewHome() {
     h += '</div>';
   }
 
-  h += `<p class="eyebrow">כיסוי · ${sd} ימים אחרונים</p>
+  if (S.observations.length) h += `<p class="eyebrow">כיסוי · ${sd} ימים אחרונים</p>
     <div class="card"><div class="cov"><span class="num"><bdi><b>${fresh}</b>/${order.length}</bdi> נצפו</span><div class="track"><div class="fill" style="width:${order.length ? Math.round(100 * fresh / order.length) : 0}%"></div></div>
-    ${fresh < order.length ? `<a class="btn sm ghost" href="#/round">סבב</a>` : ''}</div></div>`;
+    ${fresh < order.length ? `<a class="btn sm ghost" href="#/round">סבב</a>` : ''}</div>${blindLine(now)}</div>`;
 
   h += `<p class="eyebrow">חניכים · מי שלא נצפה הכי מזמן למעלה</p><div class="list">`;
   for (const { t, s } of order) {
@@ -1076,11 +1063,18 @@ function viewHome() {
     h += `<a class="li${s.stale ? ' stale' : ''}" href="#/t/${t.id}"><span class="bar"></span>
       <div class="grow"><div class="nm">${esc(t.nickname)}</div>
       <div class="meta"><span class="when">${ago(s.daysSince)}</span>${t.team ? ` · ${esc(t.team)}` : ''}${nsTxt ? ` · <span class="ns">${esc(nsTxt)}</span>` : ''}</div></div>
-      <div class="counts num"><span class="p">⊕${s.plus}</span><span class="m">⊖${s.minus}</span><span class="muted">${s.count}</span></div>
+      ${s.count ? `<div class="counts num"><span class="p">⊕${s.plus}</span><span class="m">⊖${s.minus}</span><span class="muted">${s.count}</span></div>` : ''}
       <span class="chev">${ic('chev')}</span></a>`;
   }
   h += '</div></main>' + bottomNav('home');
   return h;
+}
+
+// The mentor's blind spots as ONE sentence, where it can be acted on — never
+// a table. Empty until there is enough data to say anything (logic decides).
+function blindLine(now) {
+  const b = L.teamCoverage(S, now).blind;
+  return b.length ? `<div class="row small" id="blind" style="margin-top:10px;align-items:flex-start">${ic('eye')}<span class="grow">כמעט לא צפית ב: <b>${b.map(x => esc(x.c.name)).join(' · ')}</b>. חפש ${b.length === 1 ? 'אותה' : 'אותן'} בתרגיל הבא.</span></div>` : '';
 }
 
 function queueItem(it) {
@@ -1367,6 +1361,8 @@ function viewRound() {
   if (!round) {
     const today = todayYMD();
     const exs = S.exercises.slice().sort((a, b) => L.ts(b.date) - L.ts(a.date)).slice(0, 6);
+    const bl = blindLine(Date.now());
+    if (bl) h += `<div class="card" style="margin-top:16px">${bl.replace('margin-top:10px;', '')}</div>`;
     h += `<p class="eyebrow">בחר תרגיל</p>`;
     if (exs.length) h += `<div class="list">${exs.map(e => `<button class="li" style="width:100%;border-inline:0;border-bottom:0;background:none;text-align:right" data-act="startRound" data-id="${e.id}"><div class="grow"><div class="nm">${esc(e.name)}</div><div class="meta">${e.date === today ? 'היום' : L.fmtDY(e.date)} · ${esc(e.type)}</div></div><span class="chev">${ic('chev')}</span></button>`).join('')}</div>`;
     h += `<p class="eyebrow">או תרגיל חדש</p><div class="card">
@@ -1495,39 +1491,12 @@ function commitDraft(d) {
   } else S.observations.push({ id: uid(), ...rec, createdAt: nowISO() });
 }
 
-/* ---------- team: the mentor's blind spots ---------- */
-function viewTeam() {
-  const r = L.teamCoverage(S, Date.now());
-  let h = topBar('צוות', 'על מה אני מסתכל · 21 ימים אחרונים') + '<main class="wrap">' + demoBanner();
-  if (!r.size) return h + `<div class="card empty" style="margin-top:16px">אין חניכים פעילים. <a href="#/settings">הוסף בהגדרות</a></div></main>` + bottomNav('team');
-  if (r.blind.length) {
-    h += `<div class="banner info">${ic('eye')}<div class="grow"><b>נקודות עיוורות שלך</b>כמעט לא צפית ב: ${r.blind.map(x => esc(x.c.name)).join(' · ')}. בתרגיל הבא — חפש ${r.blind.length === 1 ? 'אותה' : 'אותן'} בכוונה.</div></div>`;
-  }
-  h += `<p class="eyebrow">כשירויות · כמה חניכים נצפו בכל אחת</p><div class="card">`;
-  for (const x of r.comps) {
-    const blind = r.blind.includes(x);
-    const pct = Math.round(100 * x.covered.length / r.size);
-    const miss = x.missing.length && x.missing.length < r.size ? `לא נצפו: ${x.missing.slice(0, 4).map(t => esc(t.nickname)).join(', ')}${x.missing.length > 4 ? ` ועוד ${x.missing.length - 4}` : ''}` : '';
-    h += `<div class="cvr${blind ? ' blind' : ''}"><div class="row"><span class="grow nm">${esc(x.c.name)}</span>
-      <span class="muted small num"><bdi>${x.covered.length}/${r.size}</bdi> · ${x.n} תצ'</span><div class="track"><div class="fill" style="width:${pct}%"></div></div></div>
-      ${miss ? `<div class="miss">${miss}</div>` : x.n === 0 ? '<div class="miss">אף תצפית</div>' : ''}</div>`;
-  }
-  h += `</div><p class="eyebrow">חניכים · כמה כשירויות ראית אצל כל אחד</p><div class="list">`;
-  for (const x of r.trainees.sort((a, b) => a.seen - b.seen)) {
-    h += `<a class="li" href="#/t/${x.t.id}"><div class="grow"><div class="nm">${esc(x.t.nickname)}</div>
-      <div class="meta">${x.unseen.length ? 'לא ראית: ' + x.unseen.slice(0, 3).map(c => esc(c.name)).join(', ') + (x.unseen.length > 3 ? ` ועוד ${x.unseen.length - 3}` : '') : 'ראית את כל הכשירויות'}</div></div>
-      <div class="counts num"><bdi>${x.seen}/${S.settings.competencies.length}</bdi></div><span class="chev">${ic('chev')}</span></a>`;
-  }
-  h += `</div><p class="muted small" style="margin:10px 2px">זה כיסוי של <b>התצפיות שלך</b>, לא דירוג של חניכים. כשירות שלא נצפתה אומרת משהו עליך, לא עליהם.</p>`;
-  return h + '</main>' + bottomNav('team');
-}
-
 /* ---------- settings ---------- */
 function viewSettings() {
   const st = S.settings;
   const used = new Set(S.observations.map(o => o.competencyId).concat(S.phenomena.map(p => p.competencyId)));
   const usedEx = new Set(S.observations.map(o => o.exerciseId).filter(Boolean));
-  let h = topBar('הגדרות', DEMO ? 'מצב הדגמה' : '') + '<main class="wrap">' + demoBanner();
+  let h = topBar('הגדרות', DEMO ? 'מצב הדגמה' : '', { back: true }) + '<main class="wrap">' + demoBanner();
 
   h += `<p class="eyebrow">יחידה</p><div class="card"><label class="f" for="unitName" style="margin-top:0">שם (מוצג בכותרת)</label>
     <input type="text" id="unitName" data-set="unitName" value="${esc(st.unitName)}" placeholder="לדוגמה: מחזור 2 · צוות ב'"></div>`;
@@ -1577,7 +1546,7 @@ function viewSettings() {
 
   h += `<p class="eyebrow">אזור מסוכן</p><div class="card"><button class="btn danger block" data-act="wipe" ${DEMO ? 'disabled' : ''}>${ic('trash')}מחק הכל</button></div>`;
   h += `<input type="file" id="restoreFile" accept="application/json,.json" hidden>`;
-  return h + '</main>' + bottomNav('settings');
+  return h + '</main>' + bottomNav('');
 }
 
 /* ======================================================================
