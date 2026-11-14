@@ -95,7 +95,7 @@ h3{font-size:15px}
 .btn.ghost{background:transparent;border-color:transparent;color:var(--accent)}
 .btn.danger{color:var(--stale);border-color:color-mix(in srgb,var(--stale) 40%,transparent);background:transparent}
 .btn.block{width:100%}
-.btn.sm{min-height:36px;padding:6px 12px;font-size:14px}
+.btn.sm{padding:8px 12px;font-size:14px}
 .btn[disabled]{opacity:.45;pointer-events:none}
 .btns{display:flex;gap:8px;flex-wrap:wrap}
 .btns > .btn{flex:1 1 auto}
@@ -104,14 +104,15 @@ h3{font-size:15px}
 .chips{display:flex;flex-wrap:wrap;gap:8px}
 .chips.scroll{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:2px;margin:0 -16px;padding-inline:16px}
 .chips.scroll::-webkit-scrollbar{display:none}
-.chip{min-height:40px;padding:8px 14px;border-radius:999px;border:1px solid var(--line-strong);background:var(--card);
+.chip{min-height:44px;padding:8px 14px;border-radius:999px;border:1px solid var(--line-strong);background:var(--card);
   font-size:15px;font-weight:600;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;flex:none}
 .chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
 @media (prefers-color-scheme: dark){.chip[aria-pressed="true"]{color:#0d1a24}}
 .chip .dot{width:8px;height:8px;border-radius:50%;background:var(--stale)}
 .chip.focus{border-style:dashed}
 .chip.focus[aria-pressed="true"]{border-style:solid}
-.chip.sm{min-height:32px;padding:4px 10px;font-size:13px}
+.chip.sm{padding:6px 12px;font-size:14px}
+.chip .ibtn{margin-inline:-6px -14px}
 
 /* valence */
 .val{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
@@ -133,13 +134,16 @@ input[type=text],input[type=password],input[type=number],input[type=date],input[
   width:100%;min-height:44px;border-radius:var(--r-sm);border:1px solid var(--line-strong);background:var(--bg);padding:10px 12px;font-size:16px}
 textarea{min-height:88px;resize:vertical;line-height:1.45}
 input:focus,textarea:focus,select:focus{outline:2px solid color-mix(in srgb,var(--accent) 55%,transparent);outline-offset:1px}
+:is(button,a,summary,.sheet):focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sheet:focus{outline:none}
+.switch input:focus-visible + span{outline:2px solid var(--accent);outline-offset:2px}
 .hint{font-size:13px;color:var(--minus);margin:6px 2px 0}
 .err{font-size:14px;color:var(--stale);margin:8px 2px 0;font-weight:600}
 details.more{margin-top:12px;border-top:1px solid var(--line);padding-top:4px}
 details.more > summary{list-style:none;min-height:44px;display:flex;align-items:center;gap:6px;color:var(--accent);font-weight:700;font-size:15px}
 details.more > summary::-webkit-details-marker{display:none}
 .seg{display:flex;background:var(--bg);border:1px solid var(--line-strong);border-radius:var(--r-sm);padding:3px;gap:3px}
-.seg button{flex:1;min-height:38px;border:0;border-radius:9px;background:transparent;font-weight:700;font-size:14px;color:var(--muted)}
+.seg button{flex:1;min-height:44px;border:0;border-radius:9px;background:transparent;font-weight:700;font-size:14px;color:var(--muted)}
 .seg button[aria-pressed="true"]{background:var(--card);color:var(--ink);box-shadow:var(--shadow)}
 .check{display:flex;align-items:center;gap:10px;min-height:44px}
 .check input{width:20px;height:20px;accent-color:var(--accent)}
@@ -151,6 +155,10 @@ details.more > summary::-webkit-details-marker{display:none}
 .banner.info{background:color-mix(in srgb,var(--accent) 9%,var(--card));border-color:color-mix(in srgb,var(--accent) 26%,transparent)}
 .banner.alert{background:color-mix(in srgb,var(--stale) 9%,var(--card));border-color:color-mix(in srgb,var(--stale) 30%,transparent)}
 .banner .grow > b{display:block}
+
+/* a failed save must not be missable: it stays until a save succeeds */
+#saveErr{position:fixed;inset-inline:0;top:0;z-index:70;margin:0;border-radius:0;align-items:center;
+  padding-top:calc(10px + env(safe-area-inset-top,0px));background:color-mix(in srgb,var(--stale) 16%,var(--card))}
 
 /* attention queue */
 .q{display:flex;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
@@ -228,7 +236,7 @@ details.more > summary::-webkit-details-marker{display:none}
 .ev .tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
 .ev .acts{display:flex;gap:4px;margin-top:4px}
 .ev.note .b{font-style:italic}
-.tag{font-size:12px;padding:2px 8px;border-radius:99px;background:var(--bg);border:1px solid var(--line);color:var(--muted)}
+.tag{font-size:12px;padding:3px 8px;min-height:24px;display:inline-flex;align-items:center;border-radius:99px;background:var(--bg);border:1px solid var(--line);color:var(--muted)}
 .tag.ph{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 30%,transparent)}
 
 /* text output */
@@ -264,7 +272,7 @@ pre.out{white-space:pre-wrap;font:inherit;font-size:15px;margin:0;line-height:1.
 .toast{position:fixed;left:50%;bottom:calc(84px + var(--safe-b));transform:translate(-50%,20px);z-index:60;background:var(--ink);color:var(--bg);
   padding:10px 16px;border-radius:12px;font-size:14px;font-weight:600;opacity:0;transition:all .25s var(--ease);pointer-events:none;max-width:calc(100% - 32px);text-align:center}
 .toast.on{opacity:1;transform:translate(-50%,0)}
-.toast .tbtn{margin-inline-start:10px;background:none;border:0;color:var(--bg);font-weight:800;text-decoration:underline;min-height:32px;padding:0 4px}
+.toast .tbtn{margin-inline-start:10px;background:none;border:0;color:var(--bg);font-weight:800;text-decoration:underline;min-height:44px;padding:0 8px}
 /* next step */
 .next{display:flex;gap:12px;align-items:flex-start;margin-top:12px;padding:14px;border-radius:var(--r);
   background:color-mix(in srgb,var(--accent) 9%,var(--card));border:1px solid color-mix(in srgb,var(--accent) 28%,transparent)}
@@ -304,11 +312,10 @@ pre.out{white-space:pre-wrap;font:inherit;font-size:15px;margin:0;line-height:1.
 
 /* settings rows */
 .srow{display:flex;gap:8px;align-items:center;padding:6px 0}
-.srow input[type=text]{min-height:40px;padding:8px 10px}
-.srow .ibtn{width:40px;height:40px}
-.switch{position:relative;width:48px;height:28px;flex:none}
+.srow input[type=text]{padding:8px 10px}
+.switch{position:relative;width:48px;height:44px;flex:none}
 .switch input{opacity:0;width:100%;height:100%;margin:0;position:absolute;inset:0;z-index:1}
-.switch span{position:absolute;inset:0;border-radius:99px;background:var(--line-strong);transition:background .2s}
+.switch span{position:absolute;inset:8px 0;border-radius:99px;background:var(--line-strong);transition:background .2s}
 .switch span::after{content:"";position:absolute;top:3px;right:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:transform .2s var(--ease);box-shadow:0 1px 3px rgba(0,0,0,.2)}
 .switch input:checked + span{background:var(--plus)}
 .switch input:checked + span::after{transform:translateX(-20px)}
@@ -327,6 +334,7 @@ pre.out{white-space:pre-wrap;font:inherit;font-size:15px;margin:0;line-height:1.
 <body>
 <div id="app"></div>
 <div id="sheetRoot"></div>
+<div class="banner alert hidden" id="saveErr" role="alert"><div class="grow"><b>השמירה נכשלה</b>השינויים האחרונים לא נשמרו במכשיר. אל תסגור את האפליקציה.</div><button class="btn" data-act="retrySave">נסה שוב</button></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script>
@@ -757,27 +765,33 @@ const vault = (() => {
   const enc = new TextEncoder(), dec = new TextDecoder();
   const b64 = u8 => { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); };
   const unb64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
-  async function derive(pw, salt, iter) {
-    const base = await crypto.subtle.importKey('raw', enc.encode(pw), 'PBKDF2', false, ['deriveKey']);
-    return crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: iter || ITER, hash: 'SHA-256' },
-      base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+  // The raw 256-bit key. Kept by the app only while unlocked, so that Face ID
+  // can be switched on with one tap (it stores this key wrapped, never bare).
+  async function rawKey(pw, salt, iter) {
+    const base = await crypto.subtle.importKey('raw', enc.encode(pw), 'PBKDF2', false, ['deriveBits']);
+    return new Uint8Array(await crypto.subtle.deriveBits({ name: 'PBKDF2', salt, iterations: iter || ITER, hash: 'SHA-256' }, base, 256));
   }
+  const importRaw = raw => crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['encrypt', 'decrypt']);
+  async function derive(pw, salt, iter) { return importRaw(await rawKey(pw, salt, iter)); }
   const newSalt = () => crypto.getRandomValues(new Uint8Array(16));
   async function seal(key, salt, obj) {
     const iv = crypto.getRandomValues(new Uint8Array(12));
     const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, enc.encode(JSON.stringify(obj))));
     return { app: 'tatzpiot', v: 1, iter: ITER, salt: b64(salt), iv: b64(iv), ct: b64(ct) };
   }
-  async function open(pw, env) {
+  async function openWithRaw(raw, env) {
     if (!env || env.app !== 'tatzpiot' || !env.salt || !env.iv || !env.ct) throw new Error('format');
-    const salt = unb64(env.salt);
-    const key = await derive(pw, salt, env.iter);
+    const key = await importRaw(raw);
     let pt;
     try { pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64(env.iv) }, key, unb64(env.ct)); }
     catch (e) { throw new Error('badpw'); }
-    return { key, salt, data: JSON.parse(dec.decode(pt)) };
+    return { key, raw, salt: unb64(env.salt), data: JSON.parse(dec.decode(pt)) };
   }
-  return { ITER, derive, newSalt, seal, open };
+  async function open(pw, env) {
+    if (!env || env.app !== 'tatzpiot' || !env.salt || !env.iv || !env.ct) throw new Error('format');
+    return openWithRaw(await rawKey(pw, unb64(env.salt), env.iter), env);
+  }
+  return { ITER, b64, unb64, rawKey, importRaw, derive, newSalt, seal, open, openWithRaw };
 })();
 
 /* ======================================================================
@@ -785,7 +799,7 @@ const vault = (() => {
    ====================================================================== */
 const LS_KEY = 'tatzpiot.v1';
 const L = logic;
-let S = null, KEY = null, SALT = null, DEMO = false;
+let S = null, KEY = null, RAW = null, SALT = null, DEMO = false;
 let saving = Promise.resolve();
 let draft = null;      // observation/note being composed
 let round = null;      // exercise round state
@@ -848,9 +862,55 @@ function persist() {
   saving = saving
     .then(() => vault.seal(key, salt, S))
     .then(env => localStorage.setItem(LS_KEY, JSON.stringify(env)))
-    .catch(e => { console.warn(e); toast('השמירה נכשלה — גבה מיד'); });
+    .then(() => saveErr(false))
+    .catch(e => { console.warn(e); saveErr(true); });
   return saving;
 }
+function saveErr(on) { $('#saveErr').classList.toggle('hidden', !on); }
+
+/* ---------- Face ID / fingerprint ----------
+   A passkey on this device with the WebAuthn PRF extension: the authenticator
+   returns a secret only after the biometric check, and that secret wraps the
+   vault key. What sits in localStorage is the wrapped key — useless without
+   the biometric. The password keeps working and stays the recovery path. */
+const BIO_KEY = 'tatzpiot.bio';
+const BIO_NAME = /iPhone|iPad|Macintosh/.test(navigator.userAgent) ? 'Face ID' : 'זיהוי ביומטרי';
+const bio = {
+  supported: () => !!(window.PublicKeyCredential && window.isSecureContext && navigator.credentials),
+  read() { try { return JSON.parse(localStorage.getItem(BIO_KEY)); } catch (e) { return null; } },
+  usable(env) { const r = this.read(); return !!(this.supported() && r && env && r.vaultSalt === env.salt); },
+  off() { localStorage.removeItem(BIO_KEY); },
+  rand: n => crypto.getRandomValues(new Uint8Array(n)),
+  async secret(id, prfSalt) {
+    const a = await navigator.credentials.get({ publicKey: { challenge: this.rand(32), timeout: 60000, userVerification: 'required',
+      allowCredentials: [{ type: 'public-key', id }], extensions: { prf: { eval: { first: prfSalt } } } } });
+    const r = (a.getClientExtensionResults().prf || {}).results;
+    if (!r || !r.first) throw new Error('noprf');
+    return r.first;
+  },
+  wrapKey: secret => crypto.subtle.importKey('raw', secret, 'AES-GCM', false, ['encrypt', 'decrypt']),
+  async enroll(raw, vaultSalt) {
+    const prfSalt = this.rand(32);
+    const cred = await navigator.credentials.create({ publicKey: {
+      challenge: this.rand(32), rp: { name: 'תצפיות' }, timeout: 60000,
+      user: { id: this.rand(16), name: 'tatzpiot', displayName: 'תצפיות' },
+      pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
+      authenticatorSelection: { authenticatorAttachment: 'platform', residentKey: 'preferred', userVerification: 'required' },
+      extensions: { prf: { eval: { first: prfSalt } } } } });
+    const id = new Uint8Array(cred.rawId);
+    const ext = cred.getClientExtensionResults().prf || {};
+    // Some authenticators hand the secret back at creation, others only on use.
+    const secret = ext.results && ext.results.first ? ext.results.first : await this.secret(id, prfSalt);
+    const iv = this.rand(12);
+    const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, await this.wrapKey(secret), raw));
+    localStorage.setItem(BIO_KEY, JSON.stringify({ v: 1, id: vault.b64(id), prfSalt: vault.b64(prfSalt), iv: vault.b64(iv), ct: vault.b64(ct), vaultSalt }));
+  },
+  async raw() {
+    const r = this.read();
+    const secret = await this.secret(vault.unb64(r.id), vault.unb64(r.prfSalt));
+    return new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: vault.unb64(r.iv) }, await this.wrapKey(secret), vault.unb64(r.ct)));
+  },
+};
 function readEnvelope() {
   try { const raw = localStorage.getItem(LS_KEY); return raw ? JSON.parse(raw) : null; }
   catch (e) { return null; }
@@ -873,16 +933,24 @@ async function copyText(text) {
   try { document.execCommand('copy'); toast('הועתק'); } catch (e) { toast('ההעתקה נכשלה'); }
   ta.remove();
 }
-let sheetOnClose = null;
+let sheetOnClose = null, sheetOpener = null;
 function openSheet(html, onClose) {
   const root = $('#sheetRoot');
-  root.innerHTML = `<div class="backdrop" data-act="closeSheet"></div><div class="sheet" role="dialog" aria-modal="true"><div class="sheet-in"><div class="grab"></div>${html}</div></div>`;
+  if (!root.querySelector('.sheet')) sheetOpener = document.activeElement;
+  root.innerHTML = `<div class="backdrop" data-act="closeSheet"></div><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle" tabindex="-1"><div class="sheet-in"><div class="grab"></div>${html}</div></div>`;
   sheetOnClose = onClose || null;
+  // Focus the dialog itself, not a field: a field would throw the keyboard up.
+  root.querySelector('.sheet').focus({ preventScroll: true });
   requestAnimationFrame(() => { root.querySelector('.backdrop').classList.add('on'); root.querySelector('.sheet').classList.add('on'); });
 }
 function sheetBody(html) {
   const s = $('#sheetRoot .sheet-in');
-  if (s) s.innerHTML = `<div class="grab"></div>${html}`;
+  if (!s) return;
+  // Re-rendering must not drop keyboard / VoiceOver focus back to the page.
+  const a = document.activeElement, d = a && s.contains(a) ? a.dataset : null;
+  s.innerHTML = `<div class="grab"></div>${html}`;
+  const again = d && d.act ? [...s.querySelectorAll(`[data-act="${d.act}"]`)].find(e => e.dataset.id === d.id && e.dataset.v === d.v) : null;
+  (again || s.parentElement).focus({ preventScroll: true });
 }
 function closeSheet() {
   const root = $('#sheetRoot');
@@ -892,8 +960,10 @@ function closeSheet() {
   const cb = sheetOnClose; sheetOnClose = null;
   setTimeout(() => { if (root.querySelector('.sheet') === sh) root.innerHTML = ''; }, 300);
   if (cb) cb();
+  if (sheetOpener && document.contains(sheetOpener)) sheetOpener.focus({ preventScroll: true });
+  sheetOpener = null;
 }
-const sheetHead = title => `<div class="sheet-h"><h2>${esc(title)}</h2><button class="ibtn" data-act="closeSheet" aria-label="סגור">${ic('x')}</button></div>`;
+const sheetHead = title => `<div class="sheet-h"><h2 id="sheetTitle">${esc(title)}</h2><button class="ibtn" data-act="closeSheet" aria-label="סגור">${ic('x')}</button></div>`;
 
 /* ---------- chrome ---------- */
 function topBar(title, sub, opts) {
@@ -938,7 +1008,19 @@ function render() {
   else html = viewHome();
   app.innerHTML = html;
 }
-window.addEventListener('hashchange', () => { render(); window.scrollTo(0, 0); });
+// Back returns to where you were in the list; a tab switch keeps your place;
+// anything else starts at the top.
+const scrollMem = {};
+let wentBack = false, tabSwitch = false;
+window.addEventListener('popstate', () => { wentBack = true; });
+window.addEventListener('hashchange', e => {
+  const y = window.scrollY;
+  scrollMem[(e.oldURL.split('#')[1] || '/')] = y;
+  render();
+  window.scrollTo(0, tabSwitch ? y : wentBack ? scrollMem[location.hash.slice(1) || '/'] || 0 : 0);
+  wentBack = tabSwitch = false;
+  syncPending();
+});
 function go(hash) { if (location.hash === hash) render(); else location.hash = hash; }
 
 /* ======================================================================
@@ -978,8 +1060,8 @@ function viewHome() {
   const items = L.attention(S, now);
   if (items.length) {
     h += `<p class="eyebrow">דורש תשומת לב</p><div class="card">`;
-    for (const it of items.slice(0, 5)) h += queueItem(it);
-    if (items.length > 5) h += `<p class="muted small" style="margin:10px 0 0">ועוד ${items.length - 5} — מופיעים כ"צעד הבא" בפרופילים</p>`;
+    for (const it of items.slice(0, 3)) h += queueItem(it);
+    if (items.length > 3) h += `<p class="muted small" style="margin:10px 0 0">ועוד ${items.length - 3} — מופיעים כ"צעד הבא" אצל כל חניך</p>`;
     h += '</div>';
   }
 
@@ -1255,17 +1337,20 @@ function viewPhenomenon(pid) {
 function viewTalkForm(tid) {
   const t = trainee(tid);
   const open = S.phenomena.filter(p => p.traineeId === tid && p.status !== 'resolved');
-  const fu = L.ymd(Date.now() + 7 * L.DAY);
+  const pre = talkPrefill && talkPrefill.tid === tid ? talkPrefill : null;
+  talkPrefill = null;
+  const fu = pre ? pre.fu : L.ymd(Date.now() + 7 * L.DAY);
+  const on = id => !pre || pre.ph.includes(id);
   let h = topBar('שיחת משוב', t.nickname, { back: true });
   h += `<main class="wrap">${demoBanner()}
   <details class="more card" style="margin-top:14px;border-top:1px solid var(--line)"><summary>${ic('file')}ההכנה לשיחה</summary><pre class="out">${esc(L.prepText(S, tid, Date.now()))}</pre></details>
   <div class="card" style="margin-top:10px">
-    <label class="f" for="tkDate">תאריך</label><input type="date" id="tkDate" value="${todayYMD()}">
-    ${open.length ? `<label class="f">תופעות שנדונו</label><div class="chips" id="tkPh">${open.map(p => `<button class="chip sm" data-act="togglePress" data-id="${p.id}" aria-pressed="true">${esc(p.title)}</button>`).join('')}</div>` : ''}
-    <label class="f" for="tkSum">מה עלה בשיחה</label><textarea id="tkSum" rows="3"></textarea>
-    <label class="f" for="tkSelf">איך הוא רואה את עצמו</label><textarea id="tkSelf" rows="3" placeholder="מסכים? רואה אחרת? מה הוא אמר במילים שלו"></textarea>
-    <label class="f" for="tkAgr">מה סוכם</label><textarea id="tkAgr" rows="2" placeholder="פעולה ספציפית שאפשר לראות בתרגיל הבא"></textarea>
-    <label class="f" for="tkFu">תאריך מעקב</label><input type="date" id="tkFu" value="${fu}">
+    <label class="f" for="tkDate">תאריך</label><input type="date" id="tkDate" value="${pre ? esc(pre.date) : todayYMD()}">
+    ${open.length ? `<label class="f">תופעות שנדונו</label><div class="chips" id="tkPh">${open.map(p => `<button class="chip sm" data-act="togglePress" data-id="${p.id}" aria-pressed="${on(p.id)}">${esc(p.title)}</button>`).join('')}</div>` : ''}
+    <label class="f" for="tkSum">מה עלה בשיחה</label><textarea id="tkSum" rows="3">${pre ? esc(pre.sum) : ''}</textarea>
+    <label class="f" for="tkSelf">איך הוא רואה את עצמו</label><textarea id="tkSelf" rows="3" placeholder="מסכים? רואה אחרת? מה הוא אמר במילים שלו">${pre ? esc(pre.self) : ''}</textarea>
+    <label class="f" for="tkAgr">מה סוכם</label><textarea id="tkAgr" rows="2" placeholder="פעולה ספציפית שאפשר לראות בתרגיל הבא">${pre ? esc(pre.agr) : ''}</textarea>
+    <label class="f" for="tkFu">תאריך מעקב</label><input type="date" id="tkFu" value="${esc(fu || '')}">
     <div class="btns" style="margin-top:14px"><button class="btn primary block" data-act="saveTalk" data-t="${tid}">שמור שיחה</button></div>
     <p class="muted small" style="margin:8px 2px 0">תופעות שסומנו ועדיין במצב "זוהתה" יעברו ל"נדונה בשיחה" — משם נמדד השינוי.</p>
   </div>`;
@@ -1355,14 +1440,14 @@ function obsFormHTML(d, o) {
     <label class="f" for="obAt">${ic('clock')} מתי</label><input type="datetime-local" id="obAt" data-bind="at" value="${esc(d.at)}">
     ${o.compact ? '' : `<label class="f" for="obEx">תרגיל</label><select id="obEx" data-bind="exerciseId"><option value="">— ללא —</option>${exs.map(e => `<option value="${e.id}" ${d.exerciseId === e.id ? 'selected' : ''}>${esc(e.name)} · ${e.date === today ? 'היום' : L.fmtD(e.date)}</option>`).join('')}</select>`}
   </details>`;
-  if (d.err) h += `<div class="err">${esc(d.err)}</div>`;
+  if (d.err) h += `<div class="err" role="alert">${esc(d.err)}</div>`;
   return h;
 }
 function noteFormHTML(d) {
   return `<label class="f" for="nText">הערה</label>
     <textarea id="nText" data-bind="text" rows="5" placeholder="רושם, הקשר אישי, מחשבה — מה שאינו תצפית. לא נספר בשום חישוב.">${esc(d.text)}</textarea>
     <label class="check"><input type="checkbox" data-bind-check="private" ${d.private ? 'checked' : ''}><span>פרטית — לא תיכלל בטקסט המועתק להכנה לשיחה</span></label>
-    ${d.err ? `<div class="err">${esc(d.err)}</div>` : ''}`;
+    ${d.err ? `<div class="err" role="alert">${esc(d.err)}</div>` : ''}`;
 }
 function sheetObsHTML() {
   const d = draft;
@@ -1464,7 +1549,7 @@ function viewSettings() {
   }
   h += `<div class="sep"></div><div class="srow"><input type="text" id="newComp" placeholder="כשירות חדשה" style="flex:1"><button class="ibtn" data-act="addComp" aria-label="הוסף">${ic('plus')}</button></div></div>`;
 
-  h += `<p class="eyebrow">תנאים (לאפיון תופעות)</p><div class="card"><div class="chips">${st.conditions.map((c, i) => `<span class="chip sm">${esc(c)}<button class="ibtn" style="width:28px;height:28px;margin-inline-start:-4px" data-act="delCond" data-i="${i}" aria-label="הסר">${ic('x')}</button></span>`).join('')}</div>
+  h += `<p class="eyebrow">תנאים (לאפיון תופעות)</p><div class="card"><div class="chips">${st.conditions.map((c, i) => `<span class="chip sm">${esc(c)}<button class="ibtn" data-act="delCond" data-i="${i}" aria-label="הסר">${ic('x')}</button></span>`).join('')}</div>
     <div class="srow" style="margin-top:8px"><input type="text" id="newCond" placeholder="תנאי חדש, לדוגמה: גשם" style="flex:1"><button class="ibtn" data-act="addCond" aria-label="הוסף">${ic('plus')}</button></div></div>`;
 
   h += `<p class="eyebrow">תרגילים</p><div class="card">`;
@@ -1485,6 +1570,9 @@ function viewSettings() {
 
   h += `<p class="eyebrow">אבטחה</p><div class="card"><div class="btns">
     <button class="btn" data-act="lock">${ic('lock')}נעל עכשיו</button><button class="btn" data-act="changePw" ${DEMO ? 'disabled' : ''}>החלף סיסמה</button></div>
+    ${bio.supported() && !DEMO ? (bio.usable(readEnvelope())
+      ? `<div class="row" style="margin-top:10px"><span class="grow"><b>${BIO_NAME} פעיל</b><br><span class="muted small">הסיסמה ממשיכה לעבוד, והיא הדרך היחידה לשחזר.</span></span><button class="btn" data-act="bioOff">כבה</button></div>`
+      : `<div class="btns" style="margin-top:8px"><button class="btn primary" data-act="bioOn">${ic('shield')}פתיחה עם ${BIO_NAME}</button></div><p class="muted small" style="margin:6px 2px 0">במקום להקליד סיסמה בכל פתיחה. הסיסמה נשארת לגיבוי ולשחזור.</p>`) : ''}
     <p class="muted small" style="margin:10px 2px 0">${ic('shield')} הנתונים מוצפנים במכשיר (AES-GCM, מפתח מהסיסמה ב-PBKDF2 ×250,000). אין שרת, אין סנכרון, אף בקשת רשת. שכחת סיסמה = הנתונים אבודים.</p></div>`;
 
   h += `<p class="eyebrow">אזור מסוכן</p><div class="card"><button class="btn danger block" data-act="wipe" ${DEMO ? 'disabled' : ''}>${ic('trash')}מחק הכל</button></div>`;
@@ -1498,13 +1586,15 @@ function viewSettings() {
 function renderLock(msg) {
   closeSheet();
   const env = readEnvelope();
+  const useBio = bio.usable(env);
   const standalone = window.matchMedia && window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
   let h = `<main class="lock"><div class="card"><div class="logo">${ic('eye')}</div>`;
   if (env) {
     h += `<h1>תצפיות</h1><p class="muted" style="margin:4px 0 0">הנתונים נעולים.</p>
-      <form data-form="unlock"><label class="f" for="pw">סיסמה</label><input type="password" id="pw" autocomplete="current-password" autofocus>
-      ${msg ? `<div class="err">${esc(msg)}</div>` : ''}
-      <div class="btns" style="margin-top:14px"><button class="btn primary block" type="submit" id="go">פתח</button></div></form>`;
+      ${useBio ? `<div class="btns" style="margin-top:14px"><button class="btn primary block" type="button" data-act="bioUnlock" id="bioGo">${ic('shield')}פתח עם ${BIO_NAME}</button></div>` : ''}
+      <form data-form="unlock"><label class="f" for="pw">${useBio ? 'או סיסמה' : 'סיסמה'}</label><input type="password" id="pw" autocomplete="current-password" ${useBio ? '' : 'autofocus'}>
+      ${msg ? `<div class="err" role="alert">${esc(msg)}</div>` : ''}
+      <div class="btns" style="margin-top:14px"><button class="btn ${useBio ? '' : 'primary '}block" type="submit" id="go">פתח</button></div></form>`;
   } else {
     h += `<h1>תצפיות</h1><p class="muted" style="margin:4px 0 12px">ליווי חניכים: תצפית ← תופעה ← שיחה ← שיפור. הכל מוצפן ונשאר במכשיר.</p>
       ${standalone ? '' : `<div class="banner info" style="margin-top:0">${ic('download')}<div class="grow"><b>קודם התקן למסך הבית</b>ב-iPhone: שיתוף ← "הוסף למסך הבית", ופתח משם. נתונים שנרשמים בלשונית Safari לא יופיעו באפליקציה המותקנת, ו-Safari מוחק נתוני אתרים לא מותקנים.</div></div>`}
@@ -1512,7 +1602,7 @@ function renderLock(msg) {
       <label class="f" for="pw1">סיסמה <span class="muted">(לפחות 6 תווים)</span></label><input type="password" id="pw1" autocomplete="new-password">
       <label class="f" for="pw2">שוב</label><input type="password" id="pw2" autocomplete="new-password">
       <div class="banner alert">${ic('alert')}<div class="grow"><b>שכחת סיסמה = הנתונים אבודים. אין שחזור.</b>אין שרת ואין "שכחתי סיסמה". שמור אותה, וגבה כל שבוע.</div></div>
-      ${msg ? `<div class="err">${esc(msg)}</div>` : ''}
+      ${msg ? `<div class="err" role="alert">${esc(msg)}</div>` : ''}
       <div class="btns" style="margin-top:14px"><button class="btn primary block" type="submit" id="go">צור כספת והתחל</button></div></form>
       <div class="sep"></div>
       <div class="btns"><button class="btn" data-act="pickRestore">${ic('upload')}שחזור מגיבוי</button><button class="btn ghost" data-act="startDemo">${ic('eye')}נסה עם נתוני דוגמה</button></div>
@@ -1526,33 +1616,88 @@ async function doUnlock(pw) {
   const env = readEnvelope();
   const btn = $('#go'); if (btn) { btn.disabled = true; btn.textContent = 'פותח…'; }
   try {
-    const r = await vault.open(pw, env);
-    S = L.normalize(r.data); KEY = r.key; SALT = r.salt; DEMO = false;
-    lastAct = Date.now();
-    render();
-    restorePending();
+    opened(await vault.open(pw, env));
   } catch (e) {
     renderLock(e.message === 'badpw' ? 'סיסמה שגויה' : 'הנתונים פגומים');
   }
 }
+async function bioUnlock() {
+  const btn = $('#bioGo'); if (btn) btn.disabled = true;
+  try {
+    opened(await vault.openWithRaw(await bio.raw(), readEnvelope()));
+  } catch (e) {
+    renderLock(`${BIO_NAME} לא הצליח — הזן סיסמה`);
+    const pw = $('#pw'); if (pw) pw.focus();
+  }
+}
+function opened(r) {
+  S = L.normalize(r.data); KEY = r.key; RAW = r.raw; SALT = r.salt; DEMO = false;
+  lastAct = Date.now();
+  // Ask the browser not to evict this origin's storage under pressure.
+  if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+  render();
+  restorePending();
+}
+/* ---------- work in progress ----------
+   Whatever is being typed is mirrored, encrypted, into the vault (S.pending):
+   a moment after each keystroke, the instant the app goes to the background,
+   and at lock. iOS can kill a backgrounded page without warning, so waiting
+   for the lock is not enough. Restored right after the next unlock. */
+let talkPrefill = null, phenForm = null, pendT = 0;
+const clone = x => JSON.parse(JSON.stringify(x));
+function livePending() {
+  if (!S || DEMO) return null;
+  const sd = sheetOpen() && draft && hasContent(draft) ? clone(draft) : null;
+  const rd = round && round.i < round.queue.length ? clone(round) : null;
+  let tk = null, ph = null;
+  const [r, a] = parseRoute();
+  if (r === 'talk' && $('#tkSum')) {
+    tk = { tid: a, date: $('#tkDate').value, fu: $('#tkFu').value, sum: $('#tkSum').value, self: $('#tkSelf').value, agr: $('#tkAgr').value,
+           ph: [...document.querySelectorAll('#tkPh [aria-pressed="true"]')].map(b => b.dataset.id) };
+    if (!(tk.sum + tk.self + tk.agr).trim()) tk = null;
+  }
+  if (phenForm && $('#npTitle')) {
+    ph = { ...phenForm, kind: ($('#phKindSeg [aria-pressed="true"]') || {}).dataset?.v || 'gap', cid: ($('#phCompChips [aria-pressed="true"]') || {}).dataset?.id || null,
+           title: $('#npTitle').value, goal: $('#npGoal').value };
+    if (!(ph.title + ph.goal).trim()) ph = null;
+  }
+  return sd || rd || tk || ph ? { draft: sd, round: rd, talk: tk, phen: ph } : null;
+}
+function syncPending() {
+  clearTimeout(pendT);
+  if (!S || DEMO) return;
+  const p = livePending();
+  if (JSON.stringify(p) !== JSON.stringify(S.pending || null)) { S.pending = p; persist(); }
+}
+const syncSoon = () => { clearTimeout(pendT); pendT = setTimeout(syncPending, 1200); };
+// Save, with the pending mirror brought up to date in the same write — so a
+// record that was just committed can never also come back as a draft.
+function save() { clearTimeout(pendT); if (S && !DEMO) S.pending = livePending(); return persist(); }
+
 function restorePending() {
   const p = S.pending;
   if (!p) return;
-  S.pending = null; persist();
   if (p.round && p.round.queue.every(id => trainee(id))) round = p.round;
   if (p.draft && (!p.draft.traineeId || trainee(p.draft.traineeId))) {
     draft = p.draft;
     openSheet(sheetObsHTML(), () => { draft = null; });
-    toast('המשך מאיפה שעצרת — הטיוטה נשמרה בנעילה');
+    toast('ממשיכים מאיפה שעצרת');
+  } else if (p.phen && trainee(p.phen.tid)) {
+    openPhenSheet(p.phen.tid, { kind: p.phen.kind, competencyId: p.phen.cid, obsIds: p.phen.obs || [] }, p.phen);
+    toast('ממשיכים מאיפה שעצרת');
+  } else if (p.talk && trainee(p.talk.tid)) {
+    talkPrefill = p.talk;
+    go('#/talk/' + p.talk.tid); toast('ממשיכים מאיפה שעצרת');
   } else if (round) {
-    go('#/round'); toast('הסבב נשמר בנעילה — ממשיכים');
+    go('#/round'); toast('הסבב ממשיך מאיפה שעצרת');
   }
 }
 async function doSetup(unit, pw1, pw2) {
   if (pw1.length < 6) return renderLock('סיסמה קצרה מדי (לפחות 6 תווים)');
   if (pw1 !== pw2) return renderLock('הסיסמאות לא תואמות');
   const btn = $('#go'); if (btn) { btn.disabled = true; btn.textContent = 'מצפין…'; }
-  SALT = vault.newSalt(); KEY = await vault.derive(pw1, SALT);
+  SALT = vault.newSalt(); RAW = await vault.rawKey(pw1, SALT); KEY = await vault.importRaw(RAW);
+  bio.off();
   S = L.normalize({ settings: { unitName: unit.trim() } }); DEMO = false;
   await persist();
   location.hash = '#/settings';
@@ -1564,13 +1709,10 @@ async function lock() {
   if (!S) return;
   // Whatever was being typed survives the lock — encrypted inside the vault,
   // never as plaintext. Restored right after the next unlock.
-  if (!DEMO) {
-    const sd = sheetOpen() && hasContent(draft) ? JSON.parse(JSON.stringify(draft)) : null;
-    const rd = round && round.i < round.queue.length ? JSON.parse(JSON.stringify(round)) : null;
-    if (sd || rd) { S.pending = { draft: sd, round: rd, at: nowISO() }; persist(); }
-  }
+  syncPending();
   await saving;
-  S = null; KEY = null; SALT = null; DEMO = false; draft = null; round = null;
+  if (RAW) RAW.fill(0);
+  S = null; KEY = null; RAW = null; SALT = null; DEMO = false; draft = null; round = null; phenForm = null;
   render();
 }
 
@@ -1613,7 +1755,7 @@ function onRestoreFile(file) {
       <p class="muted" style="margin:0">${restoreEnv.exportedAt ? `גיבוי מ-${L.fmtDY(restoreEnv.exportedAt)}. ` : ''}הזן את הסיסמה שהייתה בזמן הגיבוי.</p>
       <label class="f" for="rpw">סיסמת הגיבוי</label><input type="password" id="rpw" autocomplete="current-password">
       ${S ? `<div class="banner alert">${ic('alert')}<div class="grow">השחזור <b>מחליף</b> את כל הנתונים הנוכחיים במכשיר.</div></div>` : ''}
-      <div class="err hidden" id="rerr"></div>
+      <div class="err hidden" role="alert" id="rerr"></div>
       <div class="btns" style="margin-top:14px"><button class="btn primary block" type="submit" id="rgo">שחזר</button></div></form>`);
   };
   fr.readAsText(file);
@@ -1622,7 +1764,8 @@ async function doRestore(pw) {
   const btn = $('#rgo'); if (btn) { btn.disabled = true; btn.textContent = 'מפענח…'; }
   try {
     const r = await vault.open(pw, restoreEnv);
-    S = L.normalize(r.data); KEY = r.key; SALT = r.salt; DEMO = false; round = null;
+    S = L.normalize(r.data); KEY = r.key; RAW = r.raw; SALT = r.salt; DEMO = false; round = null;
+    S.pending = null; bio.off();
     await persist();
     closeSheet(); location.hash = '#/'; render();
     toast('שוחזר. הסיסמה עכשיו היא סיסמת הגיבוי.');
@@ -1637,7 +1780,7 @@ function changePw() {
     <label class="f" for="cp1">סיסמה חדשה</label><input type="password" id="cp1" autocomplete="new-password">
     <label class="f" for="cp2">שוב</label><input type="password" id="cp2" autocomplete="new-password">
     <p class="muted small">גיבויים ישנים ימשיכו להיפתח רק עם הסיסמה הישנה. גבה מחדש אחרי ההחלפה.</p>
-    <div class="err hidden" id="cperr"></div>
+    <div class="err hidden" role="alert" id="cperr"></div>
     <div class="btns" style="margin-top:10px"><button class="btn primary block" type="submit">החלף</button></div></form>`);
 }
 async function doChangePw(p0, p1, p2) {
@@ -1646,8 +1789,10 @@ async function doChangePw(p0, p1, p2) {
   if (p1.length < 6) return fail('לפחות 6 תווים');
   if (p1 !== p2) return fail('הסיסמאות לא תואמות');
   await saving;
-  SALT = vault.newSalt(); KEY = await vault.derive(p1, SALT);
-  await persist(); closeSheet(); toast('הסיסמה הוחלפה. גבה מחדש.');
+  const hadBio = !!bio.read();
+  SALT = vault.newSalt(); RAW = await vault.rawKey(p1, SALT); KEY = await vault.importRaw(RAW);
+  bio.off();
+  await persist(); closeSheet(); render(); toast(hadBio ? `הסיסמה הוחלפה. הפעל את ${BIO_NAME} מחדש וגבה.` : 'הסיסמה הוחלפה. גבה מחדש.');
 }
 function wipe() {
   if (!confirm('למחוק את כל הנתונים במכשיר? אין דרך לשחזר בלי קובץ גיבוי.')) return;
@@ -1743,7 +1888,7 @@ function demoData(now) {
   return S0;
 }
 function startDemo() {
-  S = demoData(Date.now()); KEY = null; SALT = null; DEMO = true; lastAct = Date.now();
+  S = demoData(Date.now()); KEY = null; RAW = null; SALT = null; DEMO = true; lastAct = Date.now();
   location.hash = '#/'; render();
 }
 
@@ -1754,6 +1899,16 @@ const A = {
   back() { if (history.length > 1) history.back(); else go('#/'); },
   closeSheet() { closeSheet(); },
   lock() { lock(); },
+  retrySave() { persist(); },
+  bioUnlock() { bioUnlock(); },
+  async bioOn(el) {
+    if (!RAW || !KEY) return;
+    el.disabled = true;
+    try { await bio.enroll(RAW, vault.b64(SALT)); toast(`${BIO_NAME} הופעל`); }
+    catch (e) { toast(e && e.message === 'noprf' ? 'המכשיר הזה לא תומך — נשארים עם סיסמה' : `${BIO_NAME} לא הופעל`); }
+    render();
+  },
+  bioOff() { bio.off(); render(); toast(`${BIO_NAME} כובה`); },
   newObs() {
     const [r, a] = parseRoute();
     const tid = (r === 't' || r === 'talk' || r === 'prep') ? a : r === 'p' && phen(a) ? phen(a).traineeId : null;
@@ -1792,8 +1947,8 @@ const A = {
     const e = validateDraft(draft);
     if (e) { draft.err = e; rerenderDraft(); return; }
     const tid = draft.traineeId, name = trainee(tid).nickname, wasNote = draft.mode === 'note', edit = !!draft.editId;
-    commitDraft(draft); persist();
-    draft = null; closeSheet(); render();
+    commitDraft(draft);
+    draft = null; save(); closeSheet(); render();
     if (edit) toast('עודכן');
     else toast(wasNote ? `הערה נשמרה · ${name}` : `נשמר · ${name}`, { act: 'obsAgain', id: tid, label: 'עוד עליו' });
   },
@@ -1834,7 +1989,7 @@ const A = {
     const id = uid(), now = nowISO();
     S.phenomena.push({ id, traineeId: tid, competencyId: cid, kind: kind || 'gap', title, goal, status: 'identified', createdAt: now, statusLog: [{ status: 'identified', at: now }] });
     for (const oid of (el.dataset.obs || '').split(',').filter(Boolean)) { const o = S.observations.find(x => x.id === oid); if (o) o.phenomenonIds.push(id); }
-    persist(); closeSheet(); go(`#/p/${id}`);
+    phenForm = null; save(); closeSheet(); go(`#/p/${id}`);
   },
   phStatus(el) {
     const p = phen(el.dataset.id), s = el.dataset.s;
@@ -1876,7 +2031,8 @@ const A = {
       const p = phen(id);
       if (p && p.status === 'identified') { p.status = 'discussed'; p.statusLog = (p.statusLog || []).concat({ status: 'discussed', at }); }
     }
-    persist(); go(`#/t/${tid}/talks`); toast('השיחה נשמרה');
+    for (const f of ['#tkSum', '#tkSelf', '#tkAgr']) $(f).value = '';
+    save(); go(`#/t/${tid}/talks`); toast('השיחה נשמרה');
   },
   copyOut() { copyText($('#outText').textContent); },
   togglePrivate(el) { prepPrivate = el.checked; render(); },
@@ -1893,9 +2049,9 @@ const A = {
   },
   roundSave() { roundCommit(true); },
   roundSaveMore() { roundCommit(false); },
-  roundSkip() { round.i++; round.draft = roundDraft(); render(); window.scrollTo(0, 0); },
-  roundFinish() { round.i = round.queue.length; render(); },
-  endRound() { round = null; go('#/'); },
+  roundSkip() { round.i++; round.draft = roundDraft(); save(); render(); window.scrollTo(0, 0); },
+  roundFinish() { round.i = round.queue.length; save(); render(); },
+  endRound() { round = null; save(); go('#/'); },
 
   /* settings */
   addTrainee() {
@@ -1931,11 +2087,12 @@ function pressOne(el) {
 function findPattern(el) {
   return L.patternSuggestions(S, el.dataset.t, Date.now()).find(s => s.competencyId === el.dataset.c && s.kind === el.dataset.k);
 }
-function openPhenSheet(tid, s) {
+function openPhenSheet(tid, s, pre) {
   const comps = S.settings.competencies;
   const kind = s ? s.kind : 'gap';
   const obsList = s ? s.obsIds.map(id => S.observations.find(o => o.id === id)).filter(Boolean) : [];
   const bd = s ? L.breakdown(obsList) : null;
+  phenForm = { tid, obs: obsList.map(o => o.id) };
   openSheet(sheetHead('תופעה חדשה · ' + trainee(tid).nickname) + `
     <div class="seg" id="phKindSeg" role="group"><button data-act="phKind" data-v="gap" aria-pressed="${kind === 'gap'}">לשיפור</button><button data-act="phKind" data-v="strength" aria-pressed="${kind === 'strength'}">חוזקה</button></div>
     ${obsList.length ? `<label class="f">התצפיות שיקושרו</label><div class="card" style="box-shadow:none">${obsList.map(o => obsHTML(o, false)).join('')}</div>
@@ -1945,8 +2102,9 @@ function openPhenSheet(tid, s) {
     <input type="text" id="npTitle" placeholder="&quot;כש... הוא...&quot; — לדוגמה: מעכב החלטה כשהתוכנית משתנה">
     <label class="f" for="npGoal">יעד <span class="muted">(אופציונלי — אפשר לקבוע בשיחה)</span></label>
     <textarea id="npGoal" rows="2" placeholder="מה תראה כשזה ישתפר"></textarea>
-    <div class="err hidden" id="nperr"></div>
-    <div class="save-bar"><button class="btn primary block" data-act="savePhen" data-t="${tid}" data-obs="${obsList.map(o => o.id).join(',')}">צור תופעה</button></div>`);
+    <div class="err hidden" role="alert" id="nperr"></div>
+    <div class="save-bar"><button class="btn primary block" data-act="savePhen" data-t="${tid}" data-obs="${obsList.map(o => o.id).join(',')}">צור תופעה</button></div>`, () => { phenForm = null; });
+  if (pre) { $('#npTitle').value = pre.title || ''; $('#npGoal').value = pre.goal || ''; }
 }
 function roundDraft() {
   if (!round || round.i >= round.queue.length) return null;
@@ -1962,17 +2120,22 @@ function roundCommit(advance) {
   const d = round.draft;
   const e = validateDraft(d);
   if (e) { d.err = e; rerenderDraft(); return; }
-  commitDraft(d); persist();
+  commitDraft(d);
   const tid = d.traineeId;
   if (!round.done.includes(tid)) round.done.push(tid);
   round.count++;
   toast(`נשמר · ${trainee(tid).nickname}`);
   if (advance) round.i++;
   round.draft = roundDraft();
+  save();
   render(); window.scrollTo(0, 0);
 }
 
 document.addEventListener('click', e => {
+  syncSoon();
+  // Tabs replace the history entry: "back" leaves the profile in one press.
+  const tab = e.target.closest('a.tab');
+  if (tab) { e.preventDefault(); tabSwitch = true; location.replace(tab.getAttribute('href')); return; }
   const el = e.target.closest('[data-act]');
   if (!el) return;
   const fn = A[el.dataset.act];
@@ -1981,6 +2144,7 @@ document.addEventListener('click', e => {
   fn(el, e);
 });
 document.addEventListener('input', e => {
+  syncSoon();
   const el = e.target, d = cur();
   if (d && el.dataset.bind) {
     d[el.dataset.bind] = el.value;
@@ -2024,11 +2188,21 @@ document.addEventListener('submit', e => {
   else if (f === 'changePw') doChangePw($('#cp0').value, $('#cp1').value, $('#cp2').value);
   else if (f === 'wipe') {
     if ($('#wipeTxt').value.trim() !== 'מחק') { toast('הקלד "מחק" בדיוק'); return; }
-    localStorage.removeItem(LS_KEY);
-    S = null; KEY = null; SALT = null; closeSheet(); location.hash = '#/'; render(); toast('הכל נמחק');
+    localStorage.removeItem(LS_KEY); bio.off();
+    S = null; KEY = null; RAW = null; SALT = null; closeSheet(); location.hash = '#/'; render(); toast('הכל נמחק');
   }
 });
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') return closeSheet();
+  // Keep Tab inside an open sheet.
+  const sh = $('#sheetRoot .sheet');
+  if (e.key !== 'Tab' || !sh) return;
+  const f = [...sh.querySelectorAll('button,a[href],input,select,textarea,summary')].filter(x => !x.disabled && x.offsetParent);
+  if (!f.length) return;
+  const first = f[0], last = f[f.length - 1], a = document.activeElement;
+  if (e.shiftKey && (a === first || a === sh)) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && a === last) { e.preventDefault(); first.focus(); }
+});
 
 /* ---------- auto-lock ---------- */
 ['pointerdown', 'keydown', 'input'].forEach(ev => document.addEventListener(ev, () => { lastAct = Date.now(); }, { passive: true, capture: true }));
@@ -2037,6 +2211,7 @@ document.addEventListener('visibilitychange', () => {
   if (!S) return;
   if (document.hidden) {
     hiddenAt = Date.now();
+    syncPending();
     if (S.settings.bgLockSec === 0) lock();
   } else {
     const away = hiddenAt ? Date.now() - hiddenAt : 0;
@@ -2044,6 +2219,8 @@ document.addEventListener('visibilitychange', () => {
     if (away >= S.settings.bgLockSec * 1000 || Date.now() - lastAct > 5 * 60e3) lock();
   }
 });
+
+window.addEventListener('pagehide', syncPending);
 
 render();
 
